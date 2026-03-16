@@ -3,20 +3,36 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { resolveAccountAccessState } from "@/src/lib/auth/access-state";
-import {
-  ACCESS_TOKEN_COOKIE,
-  REFRESH_TOKEN_COOKIE,
-  buildSessionFromAccessToken,
-} from "@/src/lib/auth/session";
+import { setSessionCookies, type AuthSession } from "@/src/lib/auth/session";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 
 type SignInResponse = {
   access_token?: string;
   refresh_token?: string;
+  expires_in?: number;
+  user?: {
+    id?: string;
+    email?: string | null;
+  };
 };
 
 const toSignInError = (message: string) =>
   redirect(`/sign-in?error=${encodeURIComponent(message)}`);
+
+const toSessionFromSignInResponse = (payload: SignInResponse): AuthSession | null => {
+  if (!payload.access_token || !payload.user?.id) {
+    return null;
+  }
+
+  return {
+    accessToken: payload.access_token,
+    refreshToken: payload.refresh_token ?? null,
+    user: {
+      id: payload.user.id,
+      email: payload.user.email ?? null,
+    },
+  };
+};
 
 export async function signInAction(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
@@ -43,41 +59,14 @@ export async function signInAction(formData: FormData) {
   }
 
   const payload = (await response.json()) as SignInResponse;
-
-  if (!payload.access_token) {
-    throw new Error("Missing access token in sign-in payload");
-  }
-
-  const session = buildSessionFromAccessToken(
-    payload.access_token,
-    payload.refresh_token ?? null,
-  );
+  const session = toSessionFromSignInResponse(payload);
 
   if (!session) {
-    throw new Error("Failed to build session from access token");
+    throw new Error("Invalid sign-in response payload");
   }
 
   const cookieStore = await cookies();
-  const nowInSeconds = Math.floor(Date.now() / 1000);
-  const ttl = session.expiresAt ? Math.max(session.expiresAt - nowInSeconds, 1) : 60 * 60;
-
-  cookieStore.set(ACCESS_TOKEN_COOKIE, payload.access_token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: ttl,
-  });
-
-  if (payload.refresh_token) {
-    cookieStore.set(REFRESH_TOKEN_COOKIE, payload.refresh_token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
-    });
-  }
+  await setSessionCookies(cookieStore, payload);
 
   const accessState = resolveAccountAccessState(session);
 

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { getSupabasePublicEnv } from "@/src/lib/supabase/env";
 
 export const ACCESS_TOKEN_COOKIE = "heo_access_token";
 export const REFRESH_TOKEN_COOKIE = "heo_refresh_token";
@@ -13,50 +14,104 @@ export type AuthUser = {
 export type AuthSession = {
   accessToken: string;
   refreshToken: string | null;
-  expiresAt: number | null;
   user: AuthUser;
 };
 
-type JwtPayload = {
-  sub?: string;
-  email?: string;
-  exp?: number;
+type CookieStore = Awaited<ReturnType<typeof cookies>>;
+type CookieDeleteStore = {
+  delete: (name: string) => void;
 };
 
-const decodeJwtPayload = (token: string): JwtPayload | null => {
-  const parts = token.split(".");
+type AuthPayload = {
+  access_token?: string;
+  refresh_token?: string;
+  expires_in?: number;
+  user?: {
+    id?: string;
+    email?: string | null;
+  };
+};
 
-  if (parts.length < 2) {
-    return null;
+type SupabaseUserResponse = {
+  id?: string;
+  email?: string | null;
+};
+
+const secureCookie = process.env.NODE_ENV === "production";
+
+export const setSessionCookies = async (
+  cookieStore: CookieStore,
+  payload: AuthPayload,
+) => {
+  if (!payload.access_token) {
+    throw new Error("Missing access token in auth payload");
   }
 
-  try {
-    const payload = Buffer.from(parts[1], "base64url").toString("utf8");
-    return JSON.parse(payload) as JwtPayload;
-  } catch {
-    return null;
+  const accessTokenMaxAge =
+    typeof payload.expires_in === "number" && payload.expires_in > 0
+      ? payload.expires_in
+      : 60 * 60;
+
+  cookieStore.set(ACCESS_TOKEN_COOKIE, payload.access_token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: secureCookie,
+    path: "/",
+    maxAge: accessTokenMaxAge,
+  });
+
+  if (payload.refresh_token) {
+    cookieStore.set(REFRESH_TOKEN_COOKIE, payload.refresh_token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: secureCookie,
+      path: "/",
+      maxAge: 60 * 60 * 24 * 30,
+    });
   }
 };
 
-export const buildSessionFromAccessToken = (
+export const clearSessionCookies = (cookieStore: CookieDeleteStore) => {
+  cookieStore.delete(ACCESS_TOKEN_COOKIE);
+  cookieStore.delete(REFRESH_TOKEN_COOKIE);
+};
+
+const toAuthSession = (
   accessToken: string,
   refreshToken: string | null,
+  user: SupabaseUserResponse,
 ): AuthSession | null => {
-  const payload = decodeJwtPayload(accessToken);
-
-  if (!payload?.sub) {
+  if (!user.id) {
     return null;
   }
 
   return {
     accessToken,
     refreshToken,
-    expiresAt: payload.exp ?? null,
     user: {
-      id: payload.sub,
-      email: payload.email ?? null,
+      id: user.id,
+      email: user.email ?? null,
     },
   };
+};
+
+const fetchSupabaseUser = async (
+  accessToken: string,
+): Promise<SupabaseUserResponse | null> => {
+  const { url, anonKey } = getSupabasePublicEnv();
+  const response = await fetch(`${url.replace(/\/$/, "")}/auth/v1/user`, {
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as SupabaseUserResponse;
 };
 
 export const getSessionFromCookies = async (): Promise<AuthSession | null> => {
@@ -67,18 +122,12 @@ export const getSessionFromCookies = async (): Promise<AuthSession | null> => {
     return null;
   }
 
-  const session = buildSessionFromAccessToken(
-    accessToken,
-    cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null,
-  );
+  const refreshToken = cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
+  const user = await fetchSupabaseUser(accessToken);
 
-  if (!session) {
+  if (!user) {
     return null;
   }
 
-  if (session.expiresAt && session.expiresAt <= Math.floor(Date.now() / 1000)) {
-    return null;
-  }
-
-  return session;
+  return toAuthSession(accessToken, refreshToken, user);
 };
