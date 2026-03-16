@@ -1,9 +1,12 @@
 import { AppShell } from "@/components/layout/app-shell";
+import { requireProtectedAccess } from "@/src/lib/auth/guards";
 
-export default function ProtectedLayout({
+export default async function ProtectedLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <AppShell>{children}</AppShell>;
+  const { session, accessState } = await requireProtectedAccess();
+
+  return <AppShell session={session} accessState={accessState}>{children}</AppShell>;
 }
