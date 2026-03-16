@@ -45,7 +45,7 @@ export async function signInAction(formData: FormData) {
   const payload = (await response.json()) as SignInResponse;
 
   if (!payload.access_token) {
-    toSignInError("Sign-in failed. Missing access token from Supabase.");
+    throw new Error("Missing access token in sign-in payload");
   }
 
   const session = buildSessionFromAccessToken(
