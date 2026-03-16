@@ -54,7 +54,7 @@ export async function signInAction(formData: FormData) {
   );
 
   if (!session) {
-    toSignInError("Sign-in failed. Session payload could not be parsed.");
+    throw new Error("Failed to build session from access token");
   }
 
   const cookieStore = await cookies();
