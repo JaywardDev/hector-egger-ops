@@ -1,3 +1,3 @@
 export default function HistoryPage() {
-  return <main className="p-6">History page placeholder</main>;
+  return <section className="text-sm text-zinc-700">History page placeholder</section>;
 }

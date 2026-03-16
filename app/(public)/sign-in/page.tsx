@@ -1,3 +1,3 @@
 export default function SignInPage() {
-  return <main className="p-6">Sign-in page placeholder</main>;
+  return <section className="text-sm text-zinc-700">Sign-in page placeholder</section>;
 }

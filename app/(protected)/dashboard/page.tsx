@@ -1,3 +1,3 @@
 export default function DashboardPage() {
-  return <main className="p-6">Dashboard page placeholder</main>;
+  return <section className="text-sm text-zinc-700">Dashboard page placeholder</section>;
 }

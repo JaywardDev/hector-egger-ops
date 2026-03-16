@@ -1,3 +1,3 @@
 export default function PendingPage() {
-  return <main className="p-6">Pending approval page placeholder</main>;
+  return <section className="text-sm text-zinc-700">Pending approval page placeholder</section>;
 }
