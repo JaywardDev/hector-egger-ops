@@ -59,6 +59,20 @@ export const requireAdminAccess = async (): Promise<ProtectedAuthContext> => {
   return context;
 };
 
+
+export const hasSupervisorOrAdminRole = (roles: AuthContext["roles"]) =>
+  roles.includes("admin") || roles.includes("supervisor");
+
+export const requireOperationalWriteAccess = async (): Promise<ProtectedAuthContext> => {
+  const context = await requireProtectedAccess();
+
+  if (!hasSupervisorOrAdminRole(context.roles)) {
+    redirect("/dashboard");
+  }
+
+  return context;
+};
+
 export const requirePendingAccess = async () => {
   const context = await getAuthContext();
 
