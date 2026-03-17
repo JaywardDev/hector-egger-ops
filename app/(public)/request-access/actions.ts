@@ -16,7 +16,7 @@ type SignUpResponse = {
   };
 };
 
-const toRequestAccessError = (message: string) =>
+const toRequestAccessError = (message: string): never =>
   redirect(`/request-access?error=${encodeURIComponent(message)}`);
 
 const readSupabaseErrorMessage = async (response: Response) => {
@@ -91,13 +91,12 @@ export async function requestAccessAction(formData: FormData) {
 
   const signUpPayload = (await signUpResponse.json()) as SignUpResponse;
   const authUserId = signUpPayload.user?.id;
-
-  if (!authUserId) {
-    toRequestAccessError("Account created, but setup failed. Please sign in and contact support.");
-  }
+  const validatedAuthUserId = typeof authUserId === "string" && authUserId.length > 0
+    ? authUserId
+    : toRequestAccessError("Account created, but setup failed. Please sign in and contact support.");
 
   const profileEnsured = await ensurePendingProfile({
-    authUserId,
+    authUserId: validatedAuthUserId,
     email,
     fullName,
   });
