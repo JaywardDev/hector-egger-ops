@@ -1,5 +1,6 @@
 export type SupabaseRequestInit = Omit<RequestInit, "headers"> & {
   headers?: HeadersInit;
+  useDefaultAuthorization?: boolean;
 };
 
 export type SupabaseClient = {
@@ -17,14 +18,16 @@ export const createSupabaseClient = (
   requestFn: typeof fetch = fetch,
 ): SupabaseClient => ({
   request: (path, init = {}) => {
-    const headers = new Headers(init.headers);
+    const { useDefaultAuthorization = true, ...requestInit } = init;
+    const headers = new Headers(requestInit.headers);
     headers.set("apikey", accessToken);
-    if (!headers.has("Authorization")) {
+
+    if (useDefaultAuthorization && !headers.has("Authorization")) {
       headers.set("Authorization", `Bearer ${accessToken}`);
     }
 
     return requestFn(toApiUrl(baseUrl, path), {
-      ...init,
+      ...requestInit,
       headers,
     });
   },

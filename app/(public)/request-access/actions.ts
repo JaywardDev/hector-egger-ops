@@ -71,6 +71,7 @@ const signInAfterSignup = async (email: string, password: string) => {
   const supabase = createServerSupabaseClient();
   const response = await supabase.request("/auth/v1/token?grant_type=password", {
     method: "POST",
+    useDefaultAuthorization: false,
     headers: {
       "Content-Type": "application/json",
     },

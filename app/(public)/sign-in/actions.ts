@@ -17,6 +17,57 @@ type SignInResponse = {
   };
 };
 
+type SupabaseTokenErrorBody = {
+  error?: string;
+  msg?: string;
+  message?: string;
+  error_description?: string;
+};
+
+const readSignInFailureDetails = async (response: Response) => {
+  const responseBody = await response.text();
+  const safeResponseBody = responseBody.length > 1000 ? `${responseBody.slice(0, 1000)}…` : responseBody;
+
+  try {
+    const parsedBody = JSON.parse(responseBody) as SupabaseTokenErrorBody;
+
+    return {
+      errorCode: (parsedBody.error ?? "").toLowerCase(),
+      errorMessage: (parsedBody.error_description ?? parsedBody.message ?? parsedBody.msg ?? "").toLowerCase(),
+      safeResponseBody,
+    };
+  } catch {
+    return {
+      errorCode: "",
+      errorMessage: "",
+      safeResponseBody,
+    };
+  }
+};
+
+const mapKnownSignInFailureMessage = (
+  responseStatus: number,
+  errorCode: string,
+  errorMessage: string,
+) => {
+  if (
+    responseStatus === 400
+    && (errorCode === "invalid_grant" || errorMessage.includes("invalid login credentials"))
+  ) {
+    return "Sign-in failed. Check credentials and try again.";
+  }
+
+  if (responseStatus === 429 || errorMessage.includes("rate limit")) {
+    return "Too many sign-in attempts. Please wait a moment and try again.";
+  }
+
+  if (responseStatus >= 500) {
+    return "Sign-in is temporarily unavailable. Please try again shortly.";
+  }
+
+  return "Sign-in failed due to an upstream authentication error. Please try again.";
+};
+
 const toSignInError = (message: string) =>
   redirect(`/sign-in?error=${encodeURIComponent(message)}`);
 
@@ -46,6 +97,7 @@ export async function signInAction(formData: FormData) {
   const supabase = createServerSupabaseClient();
   const response = await supabase.request("/auth/v1/token?grant_type=password", {
     method: "POST",
+    useDefaultAuthorization: false,
     headers: {
       "Content-Type": "application/json",
     },
@@ -56,7 +108,15 @@ export async function signInAction(formData: FormData) {
   });
 
   if (!response.ok) {
-    toSignInError("Sign-in failed. Check credentials and try again.");
+    const { errorCode, errorMessage, safeResponseBody } = await readSignInFailureDetails(response);
+
+    console.error("Sign-in token request failed upstream", {
+      status: response.status,
+      errorCode,
+      body: safeResponseBody,
+    });
+
+    toSignInError(mapKnownSignInFailureMessage(response.status, errorCode, errorMessage));
   }
 
   const payload = (await response.json()) as SignInResponse;
