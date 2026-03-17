@@ -5,7 +5,15 @@
 For Phase 1, bootstrap the first admin directly in Supabase SQL (outside the app UI):
 
 ```sql
--- Replace with the real auth.users id and email.
+-- Replace with the real email of the first admin.
+-- This resolves the canonical UUID from auth.users instead of using a placeholder.
+with bootstrap_user as (
+  select id, email
+  from auth.users
+  where email = 'admin@example.com'
+  order by created_at asc
+  limit 1
+)
 insert into public.profiles (
   auth_user_id,
   email,
@@ -14,16 +22,18 @@ insert into public.profiles (
   onboarding_source,
   approved_at
 )
-values (
-  '00000000-0000-0000-0000-000000000000',
-  'admin@example.com',
+select
+  bu.id,
+  bu.email,
   'Initial Admin',
   'approved',
   'admin_provisioned',
   timezone('utc', now())
-)
+from bootstrap_user bu
 on conflict (auth_user_id)
 do update set
+  email = excluded.email,
+  full_name = excluded.full_name,
   account_status = 'approved',
   onboarding_source = 'admin_provisioned',
   approved_at = timezone('utc', now()),
@@ -32,7 +42,8 @@ do update set
 insert into public.user_roles (profile_id, role)
 select p.id, 'admin'::public.app_role
 from public.profiles p
-where p.auth_user_id = '00000000-0000-0000-0000-000000000000'
+join auth.users u on u.id = p.auth_user_id
+where u.email = 'admin@example.com'
 on conflict (profile_id, role) do nothing;
 ```
 
