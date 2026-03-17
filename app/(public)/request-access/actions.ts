@@ -19,12 +19,28 @@ type SignUpResponse = {
 const toRequestAccessError = (message: string): never =>
   redirect(`/request-access?error=${encodeURIComponent(message)}`);
 
-const readSupabaseErrorMessage = async (response: Response) => {
+type SupabaseErrorBody = {
+  msg?: string;
+  message?: string;
+  error_description?: string;
+};
+
+const readSignUpFailureDetails = async (response: Response) => {
+  const responseBody = await response.text();
+  const safeResponseBody = responseBody.length > 1000 ? `${responseBody.slice(0, 1000)}…` : responseBody;
+
   try {
-    const body = (await response.json()) as { msg?: string; message?: string; error_description?: string };
-    return body.error_description ?? body.message ?? body.msg ?? "";
+    const parsedBody = JSON.parse(responseBody) as SupabaseErrorBody;
+
+    return {
+      errorMessage: (parsedBody.error_description ?? parsedBody.message ?? parsedBody.msg ?? "").toLowerCase(),
+      safeResponseBody,
+    };
   } catch {
-    return "";
+    return {
+      errorMessage: "",
+      safeResponseBody,
+    };
   }
 };
 
@@ -34,6 +50,22 @@ const isExplicitDuplicateSignUpError = (responseStatus: number, signUpError: str
   || signUpError.includes("exists")
   || signUpError.includes("registered")
   || signUpError.includes("duplicate");
+
+const mapKnownSignUpFailureMessage = (responseStatus: number, signUpError: string) => {
+  if (responseStatus === 429 || signUpError.includes("rate limit")) {
+    return "Too many signup attempts. Please wait a moment and try again.";
+  }
+
+  if (signUpError.includes("password") && (signUpError.includes("weak") || signUpError.includes("at least"))) {
+    return "Password does not meet requirements. Please use a stronger password.";
+  }
+
+  if (signUpError.includes("email") && (signUpError.includes("invalid") || signUpError.includes("not valid"))) {
+    return "Please enter a valid email address.";
+  }
+
+  return "Could not create account. Please try again.";
+};
 
 const signInAfterSignup = async (email: string, password: string) => {
   const supabase = createServerSupabaseClient();
@@ -80,13 +112,18 @@ export async function requestAccessAction(formData: FormData) {
   });
 
   if (!signUpResponse.ok) {
-    const signUpError = (await readSupabaseErrorMessage(signUpResponse)).toLowerCase();
+    const { errorMessage, safeResponseBody } = await readSignUpFailureDetails(signUpResponse);
 
-    if (isExplicitDuplicateSignUpError(signUpResponse.status, signUpError)) {
+    console.error("Request-access signup failed upstream", {
+      status: signUpResponse.status,
+      body: safeResponseBody,
+    });
+
+    if (isExplicitDuplicateSignUpError(signUpResponse.status, errorMessage)) {
       toRequestAccessError("An account with this email already exists. Please sign in instead.");
     }
 
-    toRequestAccessError("Could not create account. Please try again.");
+    toRequestAccessError(mapKnownSignUpFailureMessage(signUpResponse.status, errorMessage));
   }
 
   const signUpPayload = (await signUpResponse.json()) as SignUpResponse;
