@@ -25,6 +25,10 @@ export async function approvePendingUserAction(formData: FormData) {
 
   const { session } = await requireAdminAccess();
 
+  if (!session) {
+    toAdminMessage("Authentication required.", "error");
+  }
+
   try {
     await approveUser({ session, profileId });
     await assignRole({ session, profileId, role });
@@ -44,6 +48,10 @@ export async function disablePendingUserAction(formData: FormData) {
   }
 
   const { session } = await requireAdminAccess();
+
+  if (!session) {
+    toAdminMessage("Authentication required.", "error");
+  }
 
   try {
     await disableUser({ session, profileId });

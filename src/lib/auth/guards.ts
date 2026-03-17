@@ -21,10 +21,17 @@ export const getAuthContext = async () => {
   };
 };
 
-export const requireProtectedAccess = async () => {
-  const context = await getAuthContext();
 
-  if (context.accessState === "unauthenticated") {
+type AuthContext = Awaited<ReturnType<typeof getAuthContext>>;
+type ProtectedAuthContext = AuthContext & {
+  session: NonNullable<AuthContext["session"]>;
+};
+
+export const requireProtectedAccess = async (): Promise<ProtectedAuthContext> => {
+  const context = await getAuthContext();
+  const { session } = context;
+
+  if (context.accessState === "unauthenticated" || !session) {
     redirect("/sign-in");
   }
 
@@ -36,10 +43,13 @@ export const requireProtectedAccess = async () => {
     redirect("/pending?status=disabled");
   }
 
-  return context;
+  return {
+    ...context,
+    session,
+  };
 };
 
-export const requireAdminAccess = async () => {
+export const requireAdminAccess = async (): Promise<ProtectedAuthContext> => {
   const context = await requireProtectedAccess();
 
   if (!context.roles.includes("admin")) {
