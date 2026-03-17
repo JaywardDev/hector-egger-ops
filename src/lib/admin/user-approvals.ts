@@ -1,13 +1,18 @@
 import "server-only";
 
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
-import type { AppRole } from "@/src/lib/auth/profile-access";
+import type { AppRole, ProfileRecord } from "@/src/lib/auth/profile-access";
 import type { AuthSession } from "@/src/lib/auth/session";
 import { getCurrentAccountStatus, getCurrentUserRoles } from "@/src/lib/auth/profile-access";
 
 type AdminMutationActor = {
   session: AuthSession;
 };
+
+export type PendingUserRecord = Pick<
+  ProfileRecord,
+  "id" | "email" | "full_name" | "account_status" | "created_at"
+>;
 
 const assertAdminMutationAccess = async ({ session }: AdminMutationActor) => {
   const [accountStatus, roles] = await Promise.all([
@@ -18,6 +23,24 @@ const assertAdminMutationAccess = async ({ session }: AdminMutationActor) => {
   if (accountStatus !== "approved" || !roles.includes("admin")) {
     throw new Error("Admin privileges are required for this action");
   }
+};
+
+export const listPendingUsers = async ({ session }: AdminMutationActor): Promise<PendingUserRecord[]> => {
+  await assertAdminMutationAccess({ session });
+
+  const supabase = createServiceRoleSupabaseClient();
+  const response = await supabase.request(
+    "/rest/v1/profiles?select=id,email,full_name,account_status,created_at&account_status=eq.pending&order=created_at.asc",
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to load pending users");
+  }
+
+  return (await response.json()) as PendingUserRecord[];
 };
 
 export const approveUser = async ({ session, profileId }: AdminMutationActor & { profileId: string }) => {
