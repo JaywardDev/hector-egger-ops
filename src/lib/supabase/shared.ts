@@ -19,7 +19,9 @@ export const createSupabaseClient = (
   request: (path, init = {}) => {
     const headers = new Headers(init.headers);
     headers.set("apikey", accessToken);
-    headers.set("Authorization", `Bearer ${accessToken}`);
+    if (!headers.has("Authorization")) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+    }
 
     return requestFn(toApiUrl(baseUrl, path), {
       ...init,
