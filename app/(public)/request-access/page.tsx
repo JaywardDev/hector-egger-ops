@@ -1,15 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/src/lib/auth/guards";
-import { signInAction } from "@/app/(public)/sign-in/actions";
+import { requestAccessAction } from "@/app/(public)/request-access/actions";
 
-type SignInPageProps = {
+type RequestAccessPageProps = {
   searchParams: Promise<{
     error?: string;
   }>;
 };
 
-export default async function SignInPage({ searchParams }: SignInPageProps) {
+export default async function RequestAccessPage({ searchParams }: RequestAccessPageProps) {
   const { accessState } = await getAuthContext();
 
   if (accessState === "approved") {
@@ -24,8 +24,19 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
   return (
     <section className="space-y-4">
-      <p className="text-sm text-zinc-700">Sign in with your Supabase credentials.</p>
-      <form action={signInAction} className="space-y-3">
+      <p className="text-sm text-zinc-700">Request access to Hector Egger Ops.</p>
+      <form action={requestAccessAction} className="space-y-3">
+        <label className="block space-y-1 text-sm">
+          <span className="text-zinc-700">Full name</span>
+          <input
+            required
+            type="text"
+            name="fullName"
+            className="w-full rounded-md border border-zinc-300 px-3 py-2"
+            placeholder="Jane Doe"
+          />
+        </label>
+
         <label className="block space-y-1 text-sm">
           <span className="text-zinc-700">Email</span>
           <input
@@ -54,14 +65,14 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           type="submit"
           className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
         >
-          Sign in
+          Request access
         </button>
       </form>
 
       <p className="text-sm text-zinc-600">
-        Need an account?{" "}
-        <Link href="/request-access" className="font-medium text-zinc-900 underline underline-offset-2">
-          Request access
+        Already have an account?{" "}
+        <Link href="/sign-in" className="font-medium text-zinc-900 underline underline-offset-2">
+          Sign in
         </Link>
       </p>
     </section>
