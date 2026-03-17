@@ -15,7 +15,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     redirect("/dashboard");
   }
 
-  if (accessState === "pending_approval" || accessState === "disabled_or_rejected") {
+  if (accessState === "pending_approval" || accessState === "disabled") {
     redirect("/pending");
   }
 

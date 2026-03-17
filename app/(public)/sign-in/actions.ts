@@ -68,7 +68,7 @@ export async function signInAction(formData: FormData) {
   const cookieStore = await cookies();
   await setSessionCookies(cookieStore, payload);
 
-  const accessState = resolveAccountAccessState(session);
+  const accessState = await resolveAccountAccessState(session);
 
   if (accessState === "approved") {
     redirect("/dashboard");

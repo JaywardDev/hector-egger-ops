@@ -1,32 +1,25 @@
 import "server-only";
 
+import { getCurrentAccountStatus } from "@/src/lib/auth/profile-access";
 import type { AuthSession } from "@/src/lib/auth/session";
 
-export type AccountAccessState =
-  | "unauthenticated"
-  | "pending_approval"
-  | "approved"
-  | "disabled_or_rejected";
+export type AccountAccessState = "unauthenticated" | "pending_approval" | "approved" | "disabled";
 
-/**
- * Scaffold resolver for Phase 1.
- * TODO: Replace this with profiles/roles/account-status table lookups.
- */
-export const resolveAccountAccessState = (
+export const resolveAccountAccessState = async (
   session: AuthSession | null,
-): AccountAccessState => {
+): Promise<AccountAccessState> => {
   if (!session) {
     return "unauthenticated";
   }
 
-  const email = session.user.email?.toLowerCase() ?? "";
+  const accountStatus = await getCurrentAccountStatus(session);
 
-  if (email.includes("disabled") || email.includes("rejected")) {
-    return "disabled_or_rejected";
+  if (accountStatus === "approved") {
+    return "approved";
   }
 
-  if (email.endsWith("@hectoregger.com")) {
-    return "approved";
+  if (accountStatus === "disabled") {
+    return "disabled";
   }
 
   return "pending_approval";

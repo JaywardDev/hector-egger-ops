@@ -2,15 +2,22 @@ import "server-only";
 
 import { redirect } from "next/navigation";
 import { resolveAccountAccessState } from "@/src/lib/auth/access-state";
+import { getCurrentProfile, getCurrentUserRoles } from "@/src/lib/auth/profile-access";
 import { getSessionFromCookies } from "@/src/lib/auth/session";
 
 export const getAuthContext = async () => {
   const session = await getSessionFromCookies();
-  const accessState = resolveAccountAccessState(session);
+  const [accessState, profile, roles] = await Promise.all([
+    resolveAccountAccessState(session),
+    getCurrentProfile(session),
+    getCurrentUserRoles(session),
+  ]);
 
   return {
     session,
     accessState,
+    profile,
+    roles,
   };
 };
 
@@ -25,7 +32,7 @@ export const requireProtectedAccess = async () => {
     redirect("/pending");
   }
 
-  if (context.accessState === "disabled_or_rejected") {
+  if (context.accessState === "disabled") {
     redirect("/pending?status=disabled");
   }
 
