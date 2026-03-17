@@ -1,7 +1,7 @@
 import "server-only";
 
 import type { AuthSession } from "@/src/lib/auth/session";
-import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
+import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 
 export type AccountStatus = "pending" | "approved" | "disabled";
 
@@ -43,6 +43,10 @@ const toManyRecords = async <T>(response: Response): Promise<T[]> => {
   return (await response.json()) as T[];
 };
 
+const createSessionSupabaseRequestHeaders = (session: AuthSession) => ({
+  Authorization: `Bearer ${session.accessToken}`,
+});
+
 export const getCurrentProfile = async (
   session: AuthSession | null,
 ): Promise<ProfileRecord | null> => {
@@ -50,11 +54,12 @@ export const getCurrentProfile = async (
     return null;
   }
 
-  const supabase = createServiceRoleSupabaseClient();
+  const supabase = createServerSupabaseClient();
   const response = await supabase.request(
     `/rest/v1/profiles?select=id,auth_user_id,email,full_name,account_status,onboarding_source,invited_by_auth_user_id,invited_at,approved_at,disabled_at,created_at,updated_at&auth_user_id=eq.${session.user.id}&limit=1`,
     {
       cache: "no-store",
+      headers: createSessionSupabaseRequestHeaders(session),
     },
   );
 
@@ -83,13 +88,11 @@ export const getCurrentUserRoles = async (session: AuthSession | null): Promise<
     return [];
   }
 
-  const supabase = createServiceRoleSupabaseClient();
-  const response = await supabase.request(
-    `/rest/v1/user_roles?select=role&profile_id=eq.${profile.id}`,
-    {
-      cache: "no-store",
-    },
-  );
+  const supabase = createServerSupabaseClient();
+  const response = await supabase.request(`/rest/v1/user_roles?select=role&profile_id=eq.${profile.id}`, {
+    cache: "no-store",
+    headers: createSessionSupabaseRequestHeaders(session),
+  });
 
   const rows = await toManyRecords<UserRoleRecord>(response);
   return rows.map((row) => row.role);

@@ -34,3 +34,9 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Hector Egger Ops access control (Phase 1)
+
+- Profiles and role assignment are protected with hardened row-level security policies.
+- Admin approval/disable/role assignment paths are server-side only in Phase 1.
+- Manual bootstrap steps for the first admin account are documented in `docs/phase1-admin-bootstrap.md`.

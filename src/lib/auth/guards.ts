@@ -39,6 +39,16 @@ export const requireProtectedAccess = async () => {
   return context;
 };
 
+export const requireAdminAccess = async () => {
+  const context = await requireProtectedAccess();
+
+  if (!context.roles.includes("admin")) {
+    redirect("/dashboard");
+  }
+
+  return context;
+};
+
 export const requirePendingAccess = async () => {
   const context = await getAuthContext();
 
