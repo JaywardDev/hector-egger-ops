@@ -67,9 +67,15 @@ export async function requestAccessAction(formData: FormData) {
   }
 
   const signUpPayload = (await signUpResponse.json()) as SignUpResponse;
+  const accessToken = signUpPayload.access_token;
+  const authUserId = signUpPayload.user?.id;
 
-  if (!signUpPayload.access_token || !signUpPayload.user?.id) {
+  if (!accessToken) {
     toRequestAccessError("An account with this email may already exist. Please sign in instead.");
+  }
+
+  if (!authUserId) {
+    toRequestAccessError("Account created, but setup failed. Please sign in and contact support.");
   }
 
   const profileInsertResponse = await supabase.request("/rest/v1/profiles", {
@@ -77,10 +83,10 @@ export async function requestAccessAction(formData: FormData) {
     headers: {
       "Content-Type": "application/json",
       Prefer: "return=minimal",
-      Authorization: `Bearer ${signUpPayload.access_token}`,
+      Authorization: `Bearer ${accessToken}`,
     },
     body: JSON.stringify({
-      auth_user_id: signUpPayload.user.id,
+      auth_user_id: authUserId,
       email,
       full_name: fullName,
       account_status: "pending",
