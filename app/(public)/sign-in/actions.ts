@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { resolveAccountAccessState } from "@/src/lib/auth/access-state";
+import { ensurePendingProfile } from "@/src/lib/auth/profile-bootstrap";
 import { setSessionCookies, type AuthSession } from "@/src/lib/auth/session";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 
@@ -67,6 +68,11 @@ export async function signInAction(formData: FormData) {
 
   const cookieStore = await cookies();
   await setSessionCookies(cookieStore, payload);
+
+  await ensurePendingProfile({
+    authUserId: session.user.id,
+    email: session.user.email ?? email,
+  });
 
   const accessState = await resolveAccountAccessState(session);
 

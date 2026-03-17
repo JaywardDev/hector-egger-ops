@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { ensurePendingProfile } from "@/src/lib/auth/profile-bootstrap";
 import { setSessionCookies } from "@/src/lib/auth/session";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 
@@ -27,9 +28,31 @@ const readSupabaseErrorMessage = async (response: Response) => {
   }
 };
 
-const profileAlreadyExists = async (response: Response) => {
-  const message = (await readSupabaseErrorMessage(response)).toLowerCase();
-  return response.status === 409 || message.includes("duplicate") || message.includes("already exists");
+const isExplicitDuplicateSignUpError = (responseStatus: number, signUpError: string) =>
+  responseStatus === 409
+  || signUpError.includes("already")
+  || signUpError.includes("exists")
+  || signUpError.includes("registered")
+  || signUpError.includes("duplicate");
+
+const signInAfterSignup = async (email: string, password: string) => {
+  const supabase = createServerSupabaseClient();
+  const response = await supabase.request("/auth/v1/token?grant_type=password", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email,
+      password,
+    }),
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  return (await response.json()) as SignUpResponse;
 };
 
 export async function requestAccessAction(formData: FormData) {
@@ -59,7 +82,7 @@ export async function requestAccessAction(formData: FormData) {
   if (!signUpResponse.ok) {
     const signUpError = (await readSupabaseErrorMessage(signUpResponse)).toLowerCase();
 
-    if (signUpError.includes("already") || signUpError.includes("exists") || signUpError.includes("registered")) {
+    if (isExplicitDuplicateSignUpError(signUpResponse.status, signUpError)) {
       toRequestAccessError("An account with this email already exists. Please sign in instead.");
     }
 
@@ -67,39 +90,30 @@ export async function requestAccessAction(formData: FormData) {
   }
 
   const signUpPayload = (await signUpResponse.json()) as SignUpResponse;
-  const accessToken = signUpPayload.access_token;
   const authUserId = signUpPayload.user?.id;
-
-  if (!accessToken) {
-    toRequestAccessError("An account with this email may already exist. Please sign in instead.");
-  }
 
   if (!authUserId) {
     toRequestAccessError("Account created, but setup failed. Please sign in and contact support.");
   }
 
-  const profileInsertResponse = await supabase.request("/rest/v1/profiles", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Prefer: "return=minimal",
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({
-      auth_user_id: authUserId,
-      email,
-      full_name: fullName,
-      account_status: "pending",
-      onboarding_source: "self_registration",
-    }),
+  const profileEnsured = await ensurePendingProfile({
+    authUserId,
+    email,
+    fullName,
   });
 
-  if (!profileInsertResponse.ok && !(await profileAlreadyExists(profileInsertResponse))) {
+  if (!profileEnsured) {
     toRequestAccessError("Account created, but setup failed. Please sign in and contact support.");
   }
 
+  const sessionPayload = signUpPayload.access_token ? signUpPayload : await signInAfterSignup(email, password);
+
+  if (!sessionPayload?.access_token) {
+    redirect("/sign-in?error=Account%20created.%20Please%20sign%20in%20to%20continue.");
+  }
+
   const cookieStore = await cookies();
-  await setSessionCookies(cookieStore, signUpPayload);
+  await setSessionCookies(cookieStore, sessionPayload);
 
   redirect("/pending");
 }
