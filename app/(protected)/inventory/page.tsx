@@ -1,6 +1,6 @@
 import { createInventoryItemAction, updateInventoryItemAction } from "@/app/(protected)/inventory/actions";
 import { hasSupervisorOrAdminRole, requireProtectedAccess } from "@/src/lib/auth/guards";
-import { listInventoryItems } from "@/src/lib/inventory/items";
+import { listInventoryItems, listMaterialGroups } from "@/src/lib/inventory/items";
 
 type InventoryPageProps = {
   searchParams: Promise<{
@@ -11,7 +11,11 @@ type InventoryPageProps = {
 
 export default async function InventoryPage({ searchParams }: InventoryPageProps) {
   const { session, roles } = await requireProtectedAccess();
-  const [items, params] = await Promise.all([listInventoryItems({ session }), searchParams]);
+  const [items, materialGroups, params] = await Promise.all([
+    listInventoryItems({ session }),
+    listMaterialGroups({ session }),
+    searchParams,
+  ]);
   const canWrite = hasSupervisorOrAdminRole(roles);
 
   return (
@@ -35,7 +39,15 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
             <input name="itemCode" placeholder="Item code (optional)" className="rounded-md border border-zinc-300 px-2 py-1.5" />
             <input name="name" placeholder="Name" required className="rounded-md border border-zinc-300 px-2 py-1.5" />
             <input name="unit" placeholder="Unit" required className="rounded-md border border-zinc-300 px-2 py-1.5" />
-            <input name="description" placeholder="Description (optional)" className="rounded-md border border-zinc-300 px-2 py-1.5" />
+            <select name="materialGroupId" defaultValue="" className="rounded-md border border-zinc-300 px-2 py-1.5">
+              <option value="">Material group (optional)</option>
+              {materialGroups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.label}
+                </option>
+              ))}
+            </select>
+            <input name="description" placeholder="Description (optional)" className="rounded-md border border-zinc-300 px-2 py-1.5 md:col-span-2" />
           </div>
           <button type="submit" className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100">
             Create
@@ -63,13 +75,26 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
                     />
                     <input name="name" defaultValue={item.name} required className="rounded-md border border-zinc-300 px-2 py-1.5" />
                     <input name="unit" defaultValue={item.unit} required className="rounded-md border border-zinc-300 px-2 py-1.5" />
+                    <select
+                      name="materialGroupId"
+                      defaultValue={item.material_group_id ?? ""}
+                      className="rounded-md border border-zinc-300 px-2 py-1.5"
+                    >
+                      <option value="">Material group (optional)</option>
+                      {materialGroups.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.label}
+                        </option>
+                      ))}
+                    </select>
                     <input
                       name="description"
                       defaultValue={item.description ?? ""}
                       placeholder="Description"
-                      className="rounded-md border border-zinc-300 px-2 py-1.5"
+                      className="rounded-md border border-zinc-300 px-2 py-1.5 md:col-span-2"
                     />
                   </div>
+                  <p className="text-xs text-zinc-500">Material group: {item.material_group?.label ?? "Unassigned"}</p>
                   <button
                     type="submit"
                     className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
@@ -81,6 +106,7 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
                 <div className="space-y-1">
                   <p className="font-medium text-zinc-900">{item.name}</p>
                   <p>Unit: {item.unit}</p>
+                  <p>Material group: {item.material_group?.label ?? "—"}</p>
                   <p>Item code: {item.item_code ?? "—"}</p>
                   <p>Description: {item.description ?? "—"}</p>
                 </div>

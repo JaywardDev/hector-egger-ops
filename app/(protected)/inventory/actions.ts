@@ -13,11 +13,17 @@ const normalizeOptional = (value: FormDataEntryValue | null) => {
   return normalized.length > 0 ? normalized : null;
 };
 
+const normalizeOptionalUuid = (value: FormDataEntryValue | null) => {
+  const normalized = normalizeOptional(value);
+  return normalized && /^[0-9a-f-]{36}$/i.test(normalized) ? normalized : null;
+};
+
 export async function createInventoryItemAction(formData: FormData) {
   const itemCode = normalizeOptional(formData.get("itemCode"));
   const name = String(formData.get("name") ?? "").trim();
   const unit = String(formData.get("unit") ?? "").trim();
   const description = normalizeOptional(formData.get("description"));
+  const materialGroupId = normalizeOptionalUuid(formData.get("materialGroupId"));
 
   if (!name || !unit) {
     toInventoryMessage("Name and unit are required.", "error");
@@ -33,6 +39,7 @@ export async function createInventoryItemAction(formData: FormData) {
         name,
         unit,
         description,
+        materialGroupId,
       },
     });
   } catch {
@@ -49,6 +56,7 @@ export async function updateInventoryItemAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const unit = String(formData.get("unit") ?? "").trim();
   const description = normalizeOptional(formData.get("description"));
+  const materialGroupId = normalizeOptionalUuid(formData.get("materialGroupId"));
 
   if (!itemId || !name || !unit) {
     toInventoryMessage("Item id, name, and unit are required.", "error");
@@ -65,6 +73,7 @@ export async function updateInventoryItemAction(formData: FormData) {
         name,
         unit,
         description,
+        materialGroupId,
       },
     });
   } catch {
