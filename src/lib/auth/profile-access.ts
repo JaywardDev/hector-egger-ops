@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import type { AuthSession } from "@/src/lib/auth/session";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 
@@ -26,6 +27,12 @@ type UserRoleRecord = {
   role: AppRole;
 };
 
+export type CurrentProfileAccess = {
+  profile: ProfileRecord | null;
+  accountStatus: AccountStatus;
+  roles: AppRole[];
+};
+
 const toSingleRecord = async <T>(response: Response): Promise<T | null> => {
   if (!response.ok) {
     return null;
@@ -43,9 +50,37 @@ const toManyRecords = async <T>(response: Response): Promise<T[]> => {
   return (await response.json()) as T[];
 };
 
-const createSessionSupabaseRequestHeaders = (session: AuthSession) => ({
-  Authorization: `Bearer ${session.accessToken}`,
-});
+const fetchCurrentProfile = cache(
+  async (accessToken: string, userId: string): Promise<ProfileRecord | null> => {
+    const supabase = createServerSupabaseClient();
+    const response = await supabase.request(
+      `/rest/v1/profiles?select=id,auth_user_id,email,full_name,account_status,onboarding_source,invited_by_auth_user_id,invited_at,approved_at,disabled_at,created_at,updated_at&auth_user_id=eq.${userId}&limit=1`,
+      {
+        cache: "no-store",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+
+    return toSingleRecord<ProfileRecord>(response);
+  },
+);
+
+const fetchCurrentUserRoles = cache(
+  async (accessToken: string, profileId: string): Promise<AppRole[]> => {
+    const supabase = createServerSupabaseClient();
+    const response = await supabase.request(`/rest/v1/user_roles?select=role&profile_id=eq.${profileId}`, {
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    const rows = await toManyRecords<UserRoleRecord>(response);
+    return rows.map((row) => row.role);
+  },
+);
 
 export const getCurrentProfile = async (
   session: AuthSession | null,
@@ -54,46 +89,50 @@ export const getCurrentProfile = async (
     return null;
   }
 
-  const supabase = createServerSupabaseClient();
-  const response = await supabase.request(
-    `/rest/v1/profiles?select=id,auth_user_id,email,full_name,account_status,onboarding_source,invited_by_auth_user_id,invited_at,approved_at,disabled_at,created_at,updated_at&auth_user_id=eq.${session.user.id}&limit=1`,
-    {
-      cache: "no-store",
-      headers: createSessionSupabaseRequestHeaders(session),
-    },
-  );
-
-  return toSingleRecord<ProfileRecord>(response);
+  return fetchCurrentProfile(session.accessToken, session.user.id);
 };
 
 export const getCurrentAccountStatus = async (
   session: AuthSession | null,
+  profile?: ProfileRecord | null,
 ): Promise<AccountStatus> => {
   if (!session) {
     return "pending";
   }
 
-  const profile = await getCurrentProfile(session);
-  return profile?.account_status ?? "pending";
+  const resolvedProfile = profile === undefined ? await getCurrentProfile(session) : profile;
+  return resolvedProfile?.account_status ?? "pending";
 };
 
-export const getCurrentUserRoles = async (session: AuthSession | null): Promise<AppRole[]> => {
+export const getCurrentUserRoles = async (
+  session: AuthSession | null,
+  profile?: ProfileRecord | null,
+): Promise<AppRole[]> => {
   if (!session) {
     return [];
   }
 
-  const profile = await getCurrentProfile(session);
+  const resolvedProfile = profile === undefined ? await getCurrentProfile(session) : profile;
 
-  if (!profile) {
+  if (!resolvedProfile) {
     return [];
   }
 
-  const supabase = createServerSupabaseClient();
-  const response = await supabase.request(`/rest/v1/user_roles?select=role&profile_id=eq.${profile.id}`, {
-    cache: "no-store",
-    headers: createSessionSupabaseRequestHeaders(session),
-  });
+  return fetchCurrentUserRoles(session.accessToken, resolvedProfile.id);
+};
 
-  const rows = await toManyRecords<UserRoleRecord>(response);
-  return rows.map((row) => row.role);
+export const getCurrentProfileAccess = async (
+  session: AuthSession | null,
+): Promise<CurrentProfileAccess> => {
+  const profile = await getCurrentProfile(session);
+  const [accountStatus, roles] = await Promise.all([
+    getCurrentAccountStatus(session, profile),
+    getCurrentUserRoles(session, profile),
+  ]);
+
+  return {
+    profile,
+    accountStatus,
+    roles,
+  };
 };

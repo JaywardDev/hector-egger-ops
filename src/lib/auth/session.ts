@@ -1,6 +1,7 @@
 import "server-only";
 
 import { cookies } from "next/headers";
+import { cache } from "react";
 import { getSupabasePublicEnv } from "@/src/lib/supabase/env";
 
 export const ACCESS_TOKEN_COOKIE = "heo_access_token";
@@ -114,7 +115,7 @@ const fetchSupabaseUser = async (
   return (await response.json()) as SupabaseUserResponse;
 };
 
-export const getSessionFromCookies = async (): Promise<AuthSession | null> => {
+export const getSessionFromCookies = cache(async (): Promise<AuthSession | null> => {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
 
@@ -130,4 +131,4 @@ export const getSessionFromCookies = async (): Promise<AuthSession | null> => {
   }
 
   return toAuthSession(accessToken, refreshToken, user);
-};
+});

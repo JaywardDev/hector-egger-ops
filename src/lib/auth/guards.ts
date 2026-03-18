@@ -2,26 +2,36 @@ import "server-only";
 
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { resolveAccountAccessState } from "@/src/lib/auth/access-state";
-import { getCurrentProfile, getCurrentUserRoles } from "@/src/lib/auth/profile-access";
+import { getCurrentProfileAccess } from "@/src/lib/auth/profile-access";
 import { getSessionFromCookies } from "@/src/lib/auth/session";
+
+const resolveAccessState = (session: Awaited<ReturnType<typeof getSessionFromCookies>>, accountStatus: "pending" | "approved" | "disabled") => {
+  if (!session) {
+    return "unauthenticated" as const;
+  }
+
+  if (accountStatus === "approved") {
+    return "approved" as const;
+  }
+
+  if (accountStatus === "disabled") {
+    return "disabled" as const;
+  }
+
+  return "pending_approval" as const;
+};
 
 export const getAuthContext = cache(async () => {
   const session = await getSessionFromCookies();
-  const [accessState, profile, roles] = await Promise.all([
-    resolveAccountAccessState(session),
-    getCurrentProfile(session),
-    getCurrentUserRoles(session),
-  ]);
+  const { profile, accountStatus, roles } = await getCurrentProfileAccess(session);
 
   return {
     session,
-    accessState,
+    accessState: resolveAccessState(session, accountStatus),
     profile,
     roles,
   };
 });
-
 
 type AuthContext = Awaited<ReturnType<typeof getAuthContext>>;
 type ProtectedAuthContext = AuthContext & {
@@ -59,7 +69,6 @@ export const requireAdminAccess = async (): Promise<ProtectedAuthContext> => {
 
   return context;
 };
-
 
 export const hasSupervisorOrAdminRole = (roles: AuthContext["roles"]) =>
   roles.includes("admin") || roles.includes("supervisor");
