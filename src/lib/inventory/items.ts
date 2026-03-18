@@ -4,6 +4,7 @@ import type { AuthSession } from "@/src/lib/auth/session";
 import { getCurrentAccountStatus, getCurrentUserRoles } from "@/src/lib/auth/profile-access";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
+import { buildTimberItemLabel } from "@/src/lib/inventory/item-labels";
 
 type MutationActor = {
   session: AuthSession;
@@ -51,11 +52,12 @@ export type TimberSpecInput = {
 
 type InventoryItemInput = {
   itemCode: string | null;
-  name: string;
+  name: string | null;
   unit: string;
   description: string | null;
   materialGroupId: string | null;
   timberSpec: TimberSpecInput | null;
+  timberLabelMode?: "auto" | "manual";
 };
 
 const TIMBER_GROUP_KEY = "timber";
@@ -89,6 +91,49 @@ const hasTimberSpecValues = (timberSpec: TimberSpecInput | null) =>
         timberSpec.grade !== null ||
         timberSpec.treatment !== null),
   );
+
+
+const resolveInventoryItemName = ({
+  name,
+  timberSpec,
+  selectedMaterialGroupKey,
+  timberLabelMode,
+  existingRecord,
+}: {
+  name: string | null;
+  timberSpec: TimberSpecInput | null;
+  selectedMaterialGroupKey: string | null | undefined;
+  timberLabelMode?: "auto" | "manual";
+  existingRecord?: InventoryItemRecord;
+}) => {
+  const trimmedName = name?.trim() ?? "";
+  const generatedLabel = buildTimberItemLabel(timberSpec);
+  const isTimber = selectedMaterialGroupKey === TIMBER_GROUP_KEY;
+
+  if (!isTimber) {
+    if (!trimmedName) {
+      throw new Error("Item label and unit are required.");
+    }
+
+    return trimmedName;
+  }
+
+  const existingAutoLabel = existingRecord ? buildTimberItemLabel(existingRecord.timber_spec) : "";
+  const shouldUseAutoLabel =
+    timberLabelMode === "auto" ||
+    (!trimmedName && generatedLabel.length > 0) ||
+    (Boolean(existingRecord) && trimmedName === existingAutoLabel);
+
+  if (shouldUseAutoLabel && generatedLabel.length > 0) {
+    return generatedLabel;
+  }
+
+  if (trimmedName) {
+    return trimmedName;
+  }
+
+  throw new Error("Item label and unit are required.");
+};
 
 const assertValidTimberSpec = (timberSpec: TimberSpecInput | null) => {
   if (!timberSpec) {
@@ -329,6 +374,13 @@ export const createInventoryItem = async ({
     throw new Error("Timber specs are only allowed for timber items");
   }
 
+  const resolvedName = resolveInventoryItemName({
+    name: input.name,
+    timberSpec: input.timberSpec,
+    selectedMaterialGroupKey: selectedMaterialGroup?.key,
+    timberLabelMode: input.timberLabelMode,
+  });
+
   const supabase = createServiceRoleSupabaseClient();
   const response = await supabase.request(`/rest/v1/inventory_items?select=${inventoryItemSelect}`, {
     method: "POST",
@@ -338,7 +390,7 @@ export const createInventoryItem = async ({
     },
     body: JSON.stringify({
       item_code: input.itemCode,
-      name: input.name,
+      name: resolvedName,
       unit: input.unit,
       description: input.description,
       material_group_id: input.materialGroupId,
@@ -409,6 +461,14 @@ export const updateInventoryItem = async ({
     throw new Error("Remove the timber spec before changing this item to a non-timber group");
   }
 
+  const resolvedName = resolveInventoryItemName({
+    name: input.name,
+    timberSpec: input.timberSpec,
+    selectedMaterialGroupKey: selectedMaterialGroup?.key,
+    timberLabelMode: input.timberLabelMode,
+    existingRecord,
+  });
+
   const supabase = createServiceRoleSupabaseClient();
   const response = await supabase.request(`/rest/v1/inventory_items?id=eq.${itemId}&select=${inventoryItemSelect}`, {
     method: "PATCH",
@@ -418,7 +478,7 @@ export const updateInventoryItem = async ({
     },
     body: JSON.stringify({
       item_code: input.itemCode,
-      name: input.name,
+      name: resolvedName,
       unit: input.unit,
       description: input.description,
       material_group_id: input.materialGroupId,

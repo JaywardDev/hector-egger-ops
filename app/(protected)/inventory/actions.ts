@@ -42,14 +42,16 @@ const readTimberSpec = (formData: FormData): TimberSpecInput | null => {
 
 export async function createInventoryItemAction(formData: FormData) {
   const itemCode = normalizeOptional(formData.get("itemCode"));
-  const name = String(formData.get("name") ?? "").trim();
+  const name = normalizeOptional(formData.get("name"));
   const unit = String(formData.get("unit") ?? "").trim();
   const description = normalizeOptional(formData.get("description"));
   const materialGroupId = normalizeOptionalUuid(formData.get("materialGroupId"));
   const timberSpec = readTimberSpec(formData);
 
-  if (!name || !unit) {
-    toInventoryMessage("Name and unit are required.", "error");
+  const timberLabelMode = String(formData.get("timberLabelMode") ?? "manual") === "auto" ? "auto" : "manual";
+
+  if (!unit) {
+    toInventoryMessage("Unit is required.", "error");
   }
 
   const { session } = await requireOperationalWriteAccess();
@@ -64,6 +66,7 @@ export async function createInventoryItemAction(formData: FormData) {
         description,
         materialGroupId,
         timberSpec,
+        timberLabelMode,
       },
     });
   } catch (error) {
@@ -78,14 +81,16 @@ export async function createInventoryItemAction(formData: FormData) {
 export async function updateInventoryItemAction(formData: FormData) {
   const itemId = String(formData.get("itemId") ?? "").trim();
   const itemCode = normalizeOptional(formData.get("itemCode"));
-  const name = String(formData.get("name") ?? "").trim();
+  const name = normalizeOptional(formData.get("name"));
   const unit = String(formData.get("unit") ?? "").trim();
   const description = normalizeOptional(formData.get("description"));
   const materialGroupId = normalizeOptionalUuid(formData.get("materialGroupId"));
   const timberSpec = readTimberSpec(formData);
 
-  if (!itemId || !name || !unit) {
-    toInventoryMessage("Item id, name, and unit are required.", "error");
+  const timberLabelMode = String(formData.get("timberLabelMode") ?? "manual") === "auto" ? "auto" : "manual";
+
+  if (!itemId || !unit) {
+    toInventoryMessage("Item id and unit are required.", "error");
   }
 
   const { session } = await requireOperationalWriteAccess();
@@ -101,6 +106,7 @@ export async function updateInventoryItemAction(formData: FormData) {
         description,
         materialGroupId,
         timberSpec,
+        timberLabelMode,
       },
     });
   } catch (error) {

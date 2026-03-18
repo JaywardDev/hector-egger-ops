@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { buildTimberItemLabel } from "@/src/lib/inventory/item-labels";
 import type { InventoryItemRecord, MaterialGroupRecord } from "@/src/lib/inventory/items";
 
 type InventoryItemFormProps = {
@@ -17,10 +18,41 @@ export function InventoryItemForm({ action, materialGroups, item }: InventoryIte
   const timberGroupId = useMemo(() => materialGroups.find((group) => group.key === "timber")?.id ?? "", [materialGroups]);
   const [materialGroupId, setMaterialGroupId] = useState(item?.material_group_id ?? "");
   const isTimberSelected = materialGroupId !== "" && materialGroupId === timberGroupId;
+  const [timberThicknessMm, setTimberThicknessMm] = useState(item?.timber_spec?.thickness_mm?.toString() ?? "");
+  const [timberWidthMm, setTimberWidthMm] = useState(item?.timber_spec?.width_mm?.toString() ?? "");
+  const [timberLengthMm, setTimberLengthMm] = useState(item?.timber_spec?.length_mm?.toString() ?? "");
+  const [timberGrade, setTimberGrade] = useState(item?.timber_spec?.grade ?? "");
+  const [timberTreatment, setTimberTreatment] = useState(item?.timber_spec?.treatment ?? "");
+
+  const generatedTimberLabel = useMemo(
+    () =>
+      buildTimberItemLabel({
+        thicknessMm: timberThicknessMm.trim() ? Number(timberThicknessMm) : null,
+        widthMm: timberWidthMm.trim() ? Number(timberWidthMm) : null,
+        lengthMm: timberLengthMm.trim() ? Number(timberLengthMm) : null,
+        grade: timberGrade.trim() || null,
+        treatment: timberTreatment.trim() || null,
+      }),
+    [timberGrade, timberLengthMm, timberThicknessMm, timberTreatment, timberWidthMm],
+  );
+
+  const initialTimberLabelMode = useMemo<"auto" | "manual">(() => {
+    if (!item || item.material_group?.key !== "timber") {
+      return "auto";
+    }
+
+    const existingGeneratedLabel = buildTimberItemLabel(item.timber_spec);
+    return existingGeneratedLabel.length > 0 && item.name === existingGeneratedLabel ? "auto" : "manual";
+  }, [item]);
+
+  const [timberLabelMode, setTimberLabelMode] = useState<"auto" | "manual">(initialTimberLabelMode);
+  const [manualItemLabel, setManualItemLabel] = useState(item?.name ?? "");
+  const displayedItemLabel = isTimberSelected && timberLabelMode === "auto" ? generatedTimberLabel : manualItemLabel;
 
   return (
     <form action={action} className="space-y-2">
       {item ? <input type="hidden" name="itemId" value={item.id} /> : null}
+      <input type="hidden" name="timberLabelMode" value={isTimberSelected ? timberLabelMode : "manual"} />
       <div className="grid gap-2 md:grid-cols-2">
         <input
           name="itemCode"
@@ -28,7 +60,22 @@ export function InventoryItemForm({ action, materialGroups, item }: InventoryIte
           placeholder={item ? "Item code" : "Item code (optional)"}
           className={inputClassName}
         />
-        <input name="name" defaultValue={item?.name ?? ""} placeholder="Name" required className={inputClassName} />
+        <label className="space-y-1 text-sm">
+          <span className="text-zinc-700">Item label</span>
+          <input
+            name="name"
+            value={displayedItemLabel}
+            onChange={(event) => {
+              setManualItemLabel(event.target.value);
+              if (isTimberSelected) {
+                setTimberLabelMode("manual");
+              }
+            }}
+            placeholder={isTimberSelected ? "Auto-generated from timber spec unless overridden" : "Item label"}
+            required={!isTimberSelected}
+            className={`${inputClassName} w-full`}
+          />
+        </label>
         <input name="unit" defaultValue={item?.unit ?? ""} placeholder="Unit" required className={inputClassName} />
         <select
           name="materialGroupId"
@@ -59,7 +106,8 @@ export function InventoryItemForm({ action, materialGroups, item }: InventoryIte
             type="number"
             min="0.01"
             step="0.01"
-            defaultValue={item?.timber_spec?.thickness_mm ?? ""}
+            value={timberThicknessMm}
+            onChange={(event) => setTimberThicknessMm(event.target.value)}
             placeholder="Thickness (mm)"
             className={inputClassName}
           />
@@ -68,7 +116,8 @@ export function InventoryItemForm({ action, materialGroups, item }: InventoryIte
             type="number"
             min="0.01"
             step="0.01"
-            defaultValue={item?.timber_spec?.width_mm ?? ""}
+            value={timberWidthMm}
+            onChange={(event) => setTimberWidthMm(event.target.value)}
             placeholder="Width (mm)"
             className={inputClassName}
           />
@@ -77,25 +126,41 @@ export function InventoryItemForm({ action, materialGroups, item }: InventoryIte
             type="number"
             min="0.01"
             step="0.01"
-            defaultValue={item?.timber_spec?.length_mm ?? ""}
+            value={timberLengthMm}
+            onChange={(event) => setTimberLengthMm(event.target.value)}
             placeholder="Length (mm)"
             className={inputClassName}
           />
           <input
             name="timberGrade"
-            defaultValue={item?.timber_spec?.grade ?? ""}
+            value={timberGrade}
+            onChange={(event) => setTimberGrade(event.target.value)}
             placeholder="Grade"
             className={inputClassName}
           />
           <input
             name="timberTreatment"
-            defaultValue={item?.timber_spec?.treatment ?? ""}
+            value={timberTreatment}
+            onChange={(event) => setTimberTreatment(event.target.value)}
             placeholder="Treatment"
             className={`${inputClassName} md:col-span-2`}
           />
           <p id={`${formId}-timber-help`} className="md:col-span-2 text-xs text-amber-900">
-            Leave all timber spec fields blank to keep the item generic within the timber group.
+            The item label defaults to the timber spec, for example <span className="font-medium">90x63 LVL 11 H1.2 12000</span>.
+            You can type your own label, or reset it to the current timber spec.
           </p>
+          <div className="md:col-span-2 flex flex-wrap items-center gap-2 text-xs text-amber-950">
+            <span>Current auto label: {generatedTimberLabel || "Fill in timber specs to generate a label."}</span>
+            <button
+              type="button"
+              className="rounded-md border border-amber-300 px-2 py-1 hover:bg-amber-100"
+              onClick={() => {
+                setTimberLabelMode("auto");
+              }}
+            >
+              Use auto label
+            </button>
+          </div>
         </div>
       ) : null}
 
