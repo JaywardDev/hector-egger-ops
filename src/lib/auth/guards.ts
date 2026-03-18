@@ -1,11 +1,12 @@
 import "server-only";
 
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { resolveAccountAccessState } from "@/src/lib/auth/access-state";
 import { getCurrentProfile, getCurrentUserRoles } from "@/src/lib/auth/profile-access";
 import { getSessionFromCookies } from "@/src/lib/auth/session";
 
-export const getAuthContext = async () => {
+export const getAuthContext = cache(async () => {
   const session = await getSessionFromCookies();
   const [accessState, profile, roles] = await Promise.all([
     resolveAccountAccessState(session),
@@ -19,7 +20,7 @@ export const getAuthContext = async () => {
     profile,
     roles,
   };
-};
+});
 
 
 type AuthContext = Awaited<ReturnType<typeof getAuthContext>>;
@@ -27,7 +28,7 @@ type ProtectedAuthContext = AuthContext & {
   session: NonNullable<AuthContext["session"]>;
 };
 
-export const requireProtectedAccess = async (): Promise<ProtectedAuthContext> => {
+export const requireProtectedAccess = cache(async (): Promise<ProtectedAuthContext> => {
   const context = await getAuthContext();
   const { session } = context;
 
@@ -47,7 +48,7 @@ export const requireProtectedAccess = async (): Promise<ProtectedAuthContext> =>
     ...context,
     session,
   };
-};
+});
 
 export const requireAdminAccess = async (): Promise<ProtectedAuthContext> => {
   const context = await requireProtectedAccess();
