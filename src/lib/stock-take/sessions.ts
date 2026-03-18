@@ -1,15 +1,30 @@
 import "server-only";
 
 import type { AuthSession } from "@/src/lib/auth/session";
-import { getCurrentAccountStatus, getCurrentUserRoles, type AppRole } from "@/src/lib/auth/profile-access";
+import {
+  getCurrentAccountStatus,
+  getCurrentUserRoles,
+  type AppRole,
+} from "@/src/lib/auth/profile-access";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 
-type SessionActor = {
-  session: AuthSession;
+type ApprovedAccessContext = {
+  accountStatus: "approved";
+  roles: AppRole[];
 };
 
-export type StockTakeSessionStatus = "draft" | "in_progress" | "submitted" | "reviewed" | "closed";
+type SessionActor = {
+  session: AuthSession;
+  accessContext?: ApprovedAccessContext;
+};
+
+export type StockTakeSessionStatus =
+  | "draft"
+  | "in_progress"
+  | "submitted"
+  | "reviewed"
+  | "closed";
 
 export type StockTakeSessionRecord = {
   id: string;
@@ -70,15 +85,21 @@ const createSessionHeaders = (session: AuthSession) => ({
   Authorization: `Bearer ${session.accessToken}`,
 });
 
-const assertApprovedAccount = async ({ session }: SessionActor) => {
-  const accountStatus = await getCurrentAccountStatus(session);
+const assertApprovedAccount = async ({
+  session,
+  accessContext,
+}: SessionActor) => {
+  const accountStatus =
+    accessContext?.accountStatus ?? (await getCurrentAccountStatus(session));
   if (accountStatus !== "approved") {
     throw new Error("Approved account access is required for stock take");
   }
 };
 
-const getActorRoles = async ({ session }: SessionActor) => {
-  const [accountStatus, roles] = await Promise.all([getCurrentAccountStatus(session), getCurrentUserRoles(session)]);
+const getActorRoles = async ({ session, accessContext }: SessionActor) => {
+  const accountStatus =
+    accessContext?.accountStatus ?? (await getCurrentAccountStatus(session));
+  const roles = accessContext?.roles ?? (await getCurrentUserRoles(session));
 
   if (accountStatus !== "approved") {
     throw new Error("Approved account access is required for stock take");
@@ -87,17 +108,31 @@ const getActorRoles = async ({ session }: SessionActor) => {
   return roles;
 };
 
-const assertSessionCreateAccess = async ({ session }: SessionActor) => {
-  const roles = await getActorRoles({ session });
+const assertSessionCreateAccess = async ({
+  session,
+  accessContext,
+}: SessionActor) => {
+  const roles = await getActorRoles({ session, accessContext });
   if (!roles.includes("admin") && !roles.includes("supervisor")) {
-    throw new Error("Supervisor or admin access is required to create stock take sessions");
+    throw new Error(
+      "Supervisor or admin access is required to create stock take sessions",
+    );
   }
 };
 
-const assertEntryWriteAccess = async ({ session }: SessionActor) => {
-  const roles = await getActorRoles({ session });
-  if (!["admin", "supervisor", "operator"].some((role) => roles.includes(role as AppRole))) {
-    throw new Error("Approved stock take operator access is required to record counts");
+const assertEntryWriteAccess = async ({
+  session,
+  accessContext,
+}: SessionActor) => {
+  const roles = await getActorRoles({ session, accessContext });
+  if (
+    !["admin", "supervisor", "operator"].some((role) =>
+      roles.includes(role as AppRole),
+    )
+  ) {
+    throw new Error(
+      "Approved stock take operator access is required to record counts",
+    );
   }
 };
 
@@ -159,8 +194,11 @@ const logStockAdminEvent = async ({
   }
 };
 
-export const listStockTakeSessions = async ({ session }: SessionActor): Promise<StockTakeSessionRecord[]> => {
-  await assertApprovedAccount({ session });
+export const listStockTakeSessions = async ({
+  session,
+  accessContext,
+}: SessionActor): Promise<StockTakeSessionRecord[]> => {
+  await assertApprovedAccount({ session, accessContext });
 
   const supabase = createServerSupabaseClient();
   const response = await supabase.request(
@@ -180,24 +218,30 @@ export const listStockTakeSessions = async ({ session }: SessionActor): Promise<
 
 export const createStockTakeSession = async ({
   session,
+  accessContext,
   input,
-}: SessionActor & { input: StockTakeSessionInput }): Promise<StockTakeSessionRecord> => {
-  await assertSessionCreateAccess({ session });
+}: SessionActor & {
+  input: StockTakeSessionInput;
+}): Promise<StockTakeSessionRecord> => {
+  await assertSessionCreateAccess({ session, accessContext });
 
   const supabase = createServiceRoleSupabaseClient();
-  const response = await supabase.request(`/rest/v1/stock_take_sessions?select=${stockTakeSessionSelect}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
+  const response = await supabase.request(
+    `/rest/v1/stock_take_sessions?select=${stockTakeSessionSelect}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        title: input.title,
+        stock_location_id: input.stockLocationId,
+        notes: input.notes,
+        created_by: session.user.id,
+      }),
     },
-    body: JSON.stringify({
-      title: input.title,
-      stock_location_id: input.stockLocationId,
-      notes: input.notes,
-      created_by: session.user.id,
-    }),
-  });
+  );
 
   if (!response.ok) {
     throw new Error("Failed to create stock take session");
@@ -225,17 +269,19 @@ export const createStockTakeSession = async ({
 
 export const getStockTakeSessionDetail = async ({
   session,
+  accessContext,
   sessionId,
 }: SessionActor & { sessionId: string }): Promise<StockTakeSessionRecord> => {
-  await assertApprovedAccount({ session });
+  await assertApprovedAccount({ session, accessContext });
   return fetchSessionById(sessionId);
 };
 
 export const listStockTakeEntries = async ({
   session,
+  accessContext,
   sessionId,
 }: SessionActor & { sessionId: string }): Promise<StockTakeEntryRecord[]> => {
-  await assertApprovedAccount({ session });
+  await assertApprovedAccount({ session, accessContext });
 
   const supabase = createServerSupabaseClient();
   const response = await supabase.request(
@@ -255,10 +301,14 @@ export const listStockTakeEntries = async ({
 
 export const upsertStockTakeEntry = async ({
   session,
+  accessContext,
   sessionId,
   input,
-}: SessionActor & { sessionId: string; input: StockTakeEntryInput }): Promise<StockTakeEntryRecord> => {
-  await assertEntryWriteAccess({ session });
+}: SessionActor & {
+  sessionId: string;
+  input: StockTakeEntryInput;
+}): Promise<StockTakeEntryRecord> => {
+  await assertEntryWriteAccess({ session, accessContext });
 
   if (input.countedQuantity < 0) {
     throw new Error("Counted quantity must be zero or greater");
@@ -266,7 +316,9 @@ export const upsertStockTakeEntry = async ({
 
   const stockTakeSession = await fetchSessionById(sessionId);
   if (!["draft", "in_progress"].includes(stockTakeSession.status)) {
-    throw new Error("Counts can only be recorded while a stock take session is draft or in progress");
+    throw new Error(
+      "Counts can only be recorded while a stock take session is draft or in progress",
+    );
   }
 
   const supabase = createServiceRoleSupabaseClient();
@@ -284,38 +336,50 @@ export const upsertStockTakeEntry = async ({
     throw new Error("Failed to load stock take entry");
   }
 
-  const [existingEntry] = (await existingEntryResponse.json()) as StockTakeEntryRecord[];
-  const response = await supabase.request(existingEntry ? `/rest/v1/stock_take_entries?id=eq.${existingEntry.id}&select=${stockTakeEntrySelect}` : `/rest/v1/stock_take_entries?select=${stockTakeEntrySelect}`, {
-    method: existingEntry ? "PATCH" : "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
+  const [existingEntry] =
+    (await existingEntryResponse.json()) as StockTakeEntryRecord[];
+  const response = await supabase.request(
+    existingEntry
+      ? `/rest/v1/stock_take_entries?id=eq.${existingEntry.id}&select=${stockTakeEntrySelect}`
+      : `/rest/v1/stock_take_entries?select=${stockTakeEntrySelect}`,
+    {
+      method: existingEntry ? "PATCH" : "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify(
+        existingEntry
+          ? {
+              counted_quantity: input.countedQuantity,
+              notes: input.notes,
+              entered_by: session.user.id,
+            }
+          : {
+              stock_take_session_id: sessionId,
+              inventory_item_id: input.inventoryItemId,
+              counted_quantity: input.countedQuantity,
+              notes: input.notes,
+              entered_by: session.user.id,
+            },
+      ),
     },
-    body: JSON.stringify(
-      existingEntry
-        ? {
-            counted_quantity: input.countedQuantity,
-            notes: input.notes,
-            entered_by: session.user.id,
-          }
-        : {
-            stock_take_session_id: sessionId,
-            inventory_item_id: input.inventoryItemId,
-            counted_quantity: input.countedQuantity,
-            notes: input.notes,
-            entered_by: session.user.id,
-          },
-    ),
-  });
+  );
 
   if (!response.ok) {
-    throw new Error(existingEntry ? "Failed to update stock take entry" : "Failed to create stock take entry");
+    throw new Error(
+      existingEntry
+        ? "Failed to update stock take entry"
+        : "Failed to create stock take entry",
+    );
   }
 
   const [savedEntry] = (await response.json()) as StockTakeEntryRecord[];
 
   await logStockAdminEvent({
-    eventType: existingEntry ? "stock_take_entry_updated" : "stock_take_entry_created",
+    eventType: existingEntry
+      ? "stock_take_entry_updated"
+      : "stock_take_entry_created",
     entityType: "stock_take_entry",
     entityId: savedEntry.id,
     actorAuthUserId: session.user.id,

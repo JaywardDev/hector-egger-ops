@@ -3,7 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireOperationalWriteAccess } from "@/src/lib/auth/guards";
-import { createStockLocation, updateStockLocation } from "@/src/lib/inventory/locations";
+import {
+  createStockLocation,
+  updateStockLocation,
+} from "@/src/lib/inventory/locations";
 
 const toLocationsMessage = (message: string, type: "success" | "error") =>
   redirect(`/locations?${type}=${encodeURIComponent(message)}`);
@@ -22,11 +25,15 @@ export async function createStockLocationAction(formData: FormData) {
     toLocationsMessage("Code and name are required.", "error");
   }
 
-  const { session } = await requireOperationalWriteAccess();
+  const { session, roles } = await requireOperationalWriteAccess();
 
   try {
     await createStockLocation({
       session,
+      accessContext: {
+        accountStatus: "approved",
+        roles,
+      },
       input: {
         code,
         name,
@@ -51,11 +58,15 @@ export async function updateStockLocationAction(formData: FormData) {
     toLocationsMessage("Location id, code, and name are required.", "error");
   }
 
-  const { session } = await requireOperationalWriteAccess();
+  const { session, roles } = await requireOperationalWriteAccess();
 
   try {
     await updateStockLocation({
       session,
+      accessContext: {
+        accountStatus: "approved",
+        roles,
+      },
       locationId,
       input: {
         code,

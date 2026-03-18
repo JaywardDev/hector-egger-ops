@@ -1,12 +1,21 @@
 import "server-only";
 
 import type { AuthSession } from "@/src/lib/auth/session";
-import { getCurrentAccountStatus, getCurrentUserRoles } from "@/src/lib/auth/profile-access";
+import {
+  getCurrentAccountStatus,
+  getCurrentUserRoles,
+} from "@/src/lib/auth/profile-access";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 
+type ApprovedAccessContext = {
+  accountStatus: "approved";
+  roles: string[];
+};
+
 type MutationActor = {
   session: AuthSession;
+  accessContext?: ApprovedAccessContext;
 };
 
 export type StockLocationRecord = {
@@ -22,18 +31,27 @@ const createSessionHeaders = (session: AuthSession) => ({
   Authorization: `Bearer ${session.accessToken}`,
 });
 
-const assertLocationMutationAccess = async ({ session }: MutationActor) => {
-  const [accountStatus, roles] = await Promise.all([
-    getCurrentAccountStatus(session),
-    getCurrentUserRoles(session),
-  ]);
+const assertLocationMutationAccess = async ({
+  session,
+  accessContext,
+}: MutationActor) => {
+  const accountStatus =
+    accessContext?.accountStatus ?? (await getCurrentAccountStatus(session));
+  const roles = accessContext?.roles ?? (await getCurrentUserRoles(session));
 
-  if (accountStatus !== "approved" || (!roles.includes("admin") && !roles.includes("supervisor"))) {
-    throw new Error("Supervisor or admin access is required for location writes");
+  if (
+    accountStatus !== "approved" ||
+    (!roles.includes("admin") && !roles.includes("supervisor"))
+  ) {
+    throw new Error(
+      "Supervisor or admin access is required for location writes",
+    );
   }
 };
 
-export const listStockLocations = async ({ session }: MutationActor): Promise<StockLocationRecord[]> => {
+export const listStockLocations = async ({
+  session,
+}: MutationActor): Promise<StockLocationRecord[]> => {
   const supabase = createServerSupabaseClient();
   const response = await supabase.request(
     "/rest/v1/stock_locations?select=id,code,name,description,created_at,updated_at&order=name.asc",
@@ -58,23 +76,29 @@ type StockLocationInput = {
 
 export const createStockLocation = async ({
   session,
+  accessContext,
   input,
-}: MutationActor & { input: StockLocationInput }): Promise<StockLocationRecord> => {
-  await assertLocationMutationAccess({ session });
+}: MutationActor & {
+  input: StockLocationInput;
+}): Promise<StockLocationRecord> => {
+  await assertLocationMutationAccess({ session, accessContext });
 
   const supabase = createServiceRoleSupabaseClient();
-  const response = await supabase.request("/rest/v1/stock_locations?select=id,code,name,description,created_at,updated_at", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
+  const response = await supabase.request(
+    "/rest/v1/stock_locations?select=id,code,name,description,created_at,updated_at",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        code: input.code,
+        name: input.name,
+        description: input.description,
+      }),
     },
-    body: JSON.stringify({
-      code: input.code,
-      name: input.name,
-      description: input.description,
-    }),
-  });
+  );
 
   if (!response.ok) {
     throw new Error("Failed to create stock location");
@@ -109,24 +133,31 @@ export const createStockLocation = async ({
 
 export const updateStockLocation = async ({
   session,
+  accessContext,
   locationId,
   input,
-}: MutationActor & { locationId: string; input: StockLocationInput }): Promise<void> => {
-  await assertLocationMutationAccess({ session });
+}: MutationActor & {
+  locationId: string;
+  input: StockLocationInput;
+}): Promise<void> => {
+  await assertLocationMutationAccess({ session, accessContext });
 
   const supabase = createServiceRoleSupabaseClient();
-  const response = await supabase.request(`/rest/v1/stock_locations?id=eq.${locationId}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Prefer: "return=minimal",
+  const response = await supabase.request(
+    `/rest/v1/stock_locations?id=eq.${locationId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        code: input.code,
+        name: input.name,
+        description: input.description,
+      }),
     },
-    body: JSON.stringify({
-      code: input.code,
-      name: input.name,
-      description: input.description,
-    }),
-  });
+  );
 
   if (!response.ok) {
     throw new Error("Failed to update stock location");

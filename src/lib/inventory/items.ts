@@ -1,13 +1,22 @@
 import "server-only";
 
 import type { AuthSession } from "@/src/lib/auth/session";
-import { getCurrentAccountStatus, getCurrentUserRoles } from "@/src/lib/auth/profile-access";
+import {
+  getCurrentAccountStatus,
+  getCurrentUserRoles,
+} from "@/src/lib/auth/profile-access";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import { buildTimberItemLabel } from "@/src/lib/inventory/item-labels";
 
+type ApprovedAccessContext = {
+  accountStatus: "approved";
+  roles: string[];
+};
+
 type MutationActor = {
   session: AuthSession;
+  accessContext?: ApprovedAccessContext;
 };
 
 export type MaterialGroupRecord = {
@@ -69,29 +78,37 @@ const createSessionHeaders = (session: AuthSession) => ({
 const inventoryItemSelect =
   "id,item_code,name,unit,description,material_group_id,material_group:material_groups(id,key,label),timber_spec:inventory_item_timber_specs(inventory_item_id,thickness_mm,width_mm,length_mm,grade,treatment,created_at,updated_at),created_at,updated_at";
 
-const assertInventoryMutationAccess = async ({ session }: MutationActor) => {
-  const [accountStatus, roles] = await Promise.all([
-    getCurrentAccountStatus(session),
-    getCurrentUserRoles(session),
-  ]);
+const assertInventoryMutationAccess = async ({
+  session,
+  accessContext,
+}: MutationActor) => {
+  const accountStatus =
+    accessContext?.accountStatus ?? (await getCurrentAccountStatus(session));
+  const roles = accessContext?.roles ?? (await getCurrentUserRoles(session));
 
-  if (accountStatus !== "approved" || (!roles.includes("admin") && !roles.includes("supervisor"))) {
-    throw new Error("Supervisor or admin access is required for inventory writes");
+  if (
+    accountStatus !== "approved" ||
+    (!roles.includes("admin") && !roles.includes("supervisor"))
+  ) {
+    throw new Error(
+      "Supervisor or admin access is required for inventory writes",
+    );
   }
 };
 
-const isTimberMaterialGroup = (item: Pick<InventoryItemRecord, "material_group">) => item.material_group?.key === TIMBER_GROUP_KEY;
+const isTimberMaterialGroup = (
+  item: Pick<InventoryItemRecord, "material_group">,
+) => item.material_group?.key === TIMBER_GROUP_KEY;
 
 const hasTimberSpecValues = (timberSpec: TimberSpecInput | null) =>
   Boolean(
     timberSpec &&
-      (timberSpec.thicknessMm !== null ||
-        timberSpec.widthMm !== null ||
-        timberSpec.lengthMm !== null ||
-        timberSpec.grade !== null ||
-        timberSpec.treatment !== null),
+    (timberSpec.thicknessMm !== null ||
+      timberSpec.widthMm !== null ||
+      timberSpec.lengthMm !== null ||
+      timberSpec.grade !== null ||
+      timberSpec.treatment !== null),
   );
-
 
 const resolveInventoryItemName = ({
   name,
@@ -118,7 +135,9 @@ const resolveInventoryItemName = ({
     return trimmedName;
   }
 
-  const existingAutoLabel = existingRecord ? buildTimberItemLabel(existingRecord.timber_spec) : "";
+  const existingAutoLabel = existingRecord
+    ? buildTimberItemLabel(existingRecord.timber_spec)
+    : "";
   const shouldUseAutoLabel =
     timberLabelMode === "auto" ||
     (!trimmedName && generatedLabel.length > 0) ||
@@ -171,7 +190,10 @@ const fetchMaterialGroup = async (materialGroupId: string | null) => {
     throw new Error("Failed to load material group");
   }
 
-  const [group] = (await response.json()) as Pick<MaterialGroupRecord, "id" | "key" | "label">[];
+  const [group] = (await response.json()) as Pick<
+    MaterialGroupRecord,
+    "id" | "key" | "label"
+  >[];
   if (!group) {
     throw new Error("Selected material group was not found");
   }
@@ -255,7 +277,9 @@ const syncTimberSpec = async ({
 
   if (!isTimberMaterialGroup(item)) {
     if (item.timber_spec || hasTimberSpecValues(timberSpec)) {
-      throw new Error("Remove the timber spec before changing this item to a non-timber group");
+      throw new Error(
+        "Remove the timber spec before changing this item to a non-timber group",
+      );
     }
 
     return;
@@ -292,17 +316,20 @@ const syncTimberSpec = async ({
     return;
   }
 
-  const upsertResponse = await supabase.request("/rest/v1/inventory_item_timber_specs?on_conflict=inventory_item_id", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Prefer: "resolution=merge-duplicates,return=representation",
+  const upsertResponse = await supabase.request(
+    "/rest/v1/inventory_item_timber_specs?on_conflict=inventory_item_id",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates,return=representation",
+      },
+      body: JSON.stringify({
+        inventory_item_id: item.id,
+        ...timberSpecPayload,
+      }),
     },
-    body: JSON.stringify({
-      inventory_item_id: item.id,
-      ...timberSpecPayload,
-    }),
-  });
+  );
 
   if (!upsertResponse.ok) {
     throw new Error("Failed to save timber spec");
@@ -328,7 +355,14 @@ const syncTimberSpec = async ({
   });
 };
 
-export const listInventoryItems = async ({ session }: MutationActor): Promise<InventoryItemRecord[]> => {
+export type InventoryItemOptionRecord = Pick<
+  InventoryItemRecord,
+  "id" | "item_code" | "name" | "unit"
+>;
+
+export const listInventoryItems = async ({
+  session,
+}: MutationActor): Promise<InventoryItemRecord[]> => {
   const supabase = createServerSupabaseClient();
   const response = await supabase.request(
     `/rest/v1/inventory_items?select=${inventoryItemSelect}&order=name.asc`,
@@ -345,7 +379,28 @@ export const listInventoryItems = async ({ session }: MutationActor): Promise<In
   return (await response.json()) as InventoryItemRecord[];
 };
 
-export const listMaterialGroups = async ({ session }: MutationActor): Promise<MaterialGroupRecord[]> => {
+export const listInventoryItemOptions = async ({
+  session,
+}: MutationActor): Promise<InventoryItemOptionRecord[]> => {
+  const supabase = createServerSupabaseClient();
+  const response = await supabase.request(
+    "/rest/v1/inventory_items?select=id,item_code,name,unit&order=name.asc",
+    {
+      cache: "no-store",
+      headers: createSessionHeaders(session),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to load inventory item options");
+  }
+
+  return (await response.json()) as InventoryItemOptionRecord[];
+};
+
+export const listMaterialGroups = async ({
+  session,
+}: MutationActor): Promise<MaterialGroupRecord[]> => {
   const supabase = createServerSupabaseClient();
   const response = await supabase.request(
     "/rest/v1/material_groups?select=id,key,label,sort_order,is_active&is_active=is.true&order=sort_order.asc.nullslast,label.asc",
@@ -364,13 +419,19 @@ export const listMaterialGroups = async ({ session }: MutationActor): Promise<Ma
 
 export const createInventoryItem = async ({
   session,
+  accessContext,
   input,
-}: MutationActor & { input: InventoryItemInput }): Promise<InventoryItemRecord> => {
-  await assertInventoryMutationAccess({ session });
+}: MutationActor & {
+  input: InventoryItemInput;
+}): Promise<InventoryItemRecord> => {
+  await assertInventoryMutationAccess({ session, accessContext });
   assertValidTimberSpec(input.timberSpec);
 
   const selectedMaterialGroup = await fetchMaterialGroup(input.materialGroupId);
-  if (selectedMaterialGroup?.key !== TIMBER_GROUP_KEY && hasTimberSpecValues(input.timberSpec)) {
+  if (
+    selectedMaterialGroup?.key !== TIMBER_GROUP_KEY &&
+    hasTimberSpecValues(input.timberSpec)
+  ) {
     throw new Error("Timber specs are only allowed for timber items");
   }
 
@@ -382,20 +443,23 @@ export const createInventoryItem = async ({
   });
 
   const supabase = createServiceRoleSupabaseClient();
-  const response = await supabase.request(`/rest/v1/inventory_items?select=${inventoryItemSelect}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
+  const response = await supabase.request(
+    `/rest/v1/inventory_items?select=${inventoryItemSelect}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        item_code: input.itemCode,
+        name: resolvedName,
+        unit: input.unit,
+        description: input.description,
+        material_group_id: input.materialGroupId,
+      }),
     },
-    body: JSON.stringify({
-      item_code: input.itemCode,
-      name: resolvedName,
-      unit: input.unit,
-      description: input.description,
-      material_group_id: input.materialGroupId,
-    }),
-  });
+  );
 
   if (!response.ok) {
     throw new Error("Failed to create inventory item");
@@ -442,15 +506,22 @@ export const createInventoryItem = async ({
 
 export const updateInventoryItem = async ({
   session,
+  accessContext,
   itemId,
   input,
-}: MutationActor & { itemId: string; input: InventoryItemInput }): Promise<void> => {
-  await assertInventoryMutationAccess({ session });
+}: MutationActor & {
+  itemId: string;
+  input: InventoryItemInput;
+}): Promise<void> => {
+  await assertInventoryMutationAccess({ session, accessContext });
   assertValidTimberSpec(input.timberSpec);
 
   const existingRecord = await fetchInventoryItemById(itemId);
   const selectedMaterialGroup = await fetchMaterialGroup(input.materialGroupId);
-  if (selectedMaterialGroup?.key !== TIMBER_GROUP_KEY && hasTimberSpecValues(input.timberSpec)) {
+  if (
+    selectedMaterialGroup?.key !== TIMBER_GROUP_KEY &&
+    hasTimberSpecValues(input.timberSpec)
+  ) {
     throw new Error("Timber specs are only allowed for timber items");
   }
   if (
@@ -458,7 +529,9 @@ export const updateInventoryItem = async ({
     selectedMaterialGroup?.key !== TIMBER_GROUP_KEY &&
     existingRecord.timber_spec
   ) {
-    throw new Error("Remove the timber spec before changing this item to a non-timber group");
+    throw new Error(
+      "Remove the timber spec before changing this item to a non-timber group",
+    );
   }
 
   const resolvedName = resolveInventoryItemName({
@@ -470,20 +543,23 @@ export const updateInventoryItem = async ({
   });
 
   const supabase = createServiceRoleSupabaseClient();
-  const response = await supabase.request(`/rest/v1/inventory_items?id=eq.${itemId}&select=${inventoryItemSelect}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
+  const response = await supabase.request(
+    `/rest/v1/inventory_items?id=eq.${itemId}&select=${inventoryItemSelect}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        item_code: input.itemCode,
+        name: resolvedName,
+        unit: input.unit,
+        description: input.description,
+        material_group_id: input.materialGroupId,
+      }),
     },
-    body: JSON.stringify({
-      item_code: input.itemCode,
-      name: resolvedName,
-      unit: input.unit,
-      description: input.description,
-      material_group_id: input.materialGroupId,
-    }),
-  });
+  );
 
   if (!response.ok) {
     throw new Error("Failed to update inventory item");

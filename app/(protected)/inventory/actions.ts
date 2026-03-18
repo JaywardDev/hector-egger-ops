@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createInventoryItem, updateInventoryItem, type TimberSpecInput } from "@/src/lib/inventory/items";
+import {
+  createInventoryItem,
+  updateInventoryItem,
+  type TimberSpecInput,
+} from "@/src/lib/inventory/items";
 import { requireOperationalWriteAccess } from "@/src/lib/auth/guards";
 
 const toInventoryMessage = (message: string, type: "success" | "error") =>
@@ -30,7 +34,9 @@ const normalizeOptionalPositiveNumber = (value: FormDataEntryValue | null) => {
 
 const readTimberSpec = (formData: FormData): TimberSpecInput | null => {
   const timberSpec = {
-    thicknessMm: normalizeOptionalPositiveNumber(formData.get("timberThicknessMm")),
+    thicknessMm: normalizeOptionalPositiveNumber(
+      formData.get("timberThicknessMm"),
+    ),
     widthMm: normalizeOptionalPositiveNumber(formData.get("timberWidthMm")),
     lengthMm: normalizeOptionalPositiveNumber(formData.get("timberLengthMm")),
     grade: normalizeOptional(formData.get("timberGrade")),
@@ -45,20 +51,29 @@ export async function createInventoryItemAction(formData: FormData) {
   const name = normalizeOptional(formData.get("name"));
   const unit = String(formData.get("unit") ?? "").trim();
   const description = normalizeOptional(formData.get("description"));
-  const materialGroupId = normalizeOptionalUuid(formData.get("materialGroupId"));
+  const materialGroupId = normalizeOptionalUuid(
+    formData.get("materialGroupId"),
+  );
   const timberSpec = readTimberSpec(formData);
 
-  const timberLabelMode = String(formData.get("timberLabelMode") ?? "manual") === "auto" ? "auto" : "manual";
+  const timberLabelMode =
+    String(formData.get("timberLabelMode") ?? "manual") === "auto"
+      ? "auto"
+      : "manual";
 
   if (!unit) {
     toInventoryMessage("Unit is required.", "error");
   }
 
-  const { session } = await requireOperationalWriteAccess();
+  const { session, roles } = await requireOperationalWriteAccess();
 
   try {
     await createInventoryItem({
       session,
+      accessContext: {
+        accountStatus: "approved",
+        roles,
+      },
       input: {
         itemCode,
         name,
@@ -70,7 +85,10 @@ export async function createInventoryItemAction(formData: FormData) {
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not create inventory item.";
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Could not create inventory item.";
     toInventoryMessage(message, "error");
   }
 
@@ -84,20 +102,29 @@ export async function updateInventoryItemAction(formData: FormData) {
   const name = normalizeOptional(formData.get("name"));
   const unit = String(formData.get("unit") ?? "").trim();
   const description = normalizeOptional(formData.get("description"));
-  const materialGroupId = normalizeOptionalUuid(formData.get("materialGroupId"));
+  const materialGroupId = normalizeOptionalUuid(
+    formData.get("materialGroupId"),
+  );
   const timberSpec = readTimberSpec(formData);
 
-  const timberLabelMode = String(formData.get("timberLabelMode") ?? "manual") === "auto" ? "auto" : "manual";
+  const timberLabelMode =
+    String(formData.get("timberLabelMode") ?? "manual") === "auto"
+      ? "auto"
+      : "manual";
 
   if (!itemId || !unit) {
     toInventoryMessage("Item id and unit are required.", "error");
   }
 
-  const { session } = await requireOperationalWriteAccess();
+  const { session, roles } = await requireOperationalWriteAccess();
 
   try {
     await updateInventoryItem({
       session,
+      accessContext: {
+        accountStatus: "approved",
+        roles,
+      },
       itemId,
       input: {
         itemCode,
@@ -110,7 +137,10 @@ export async function updateInventoryItemAction(formData: FormData) {
       },
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not update inventory item.";
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Could not update inventory item.";
     toInventoryMessage(message, "error");
   }
 
