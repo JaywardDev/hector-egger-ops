@@ -4,8 +4,12 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentProfileAccess } from "@/src/lib/auth/profile-access";
 import { getSessionFromCookies } from "@/src/lib/auth/session";
+import { withServerTiming } from "@/src/lib/server-timing";
 
-const resolveAccessState = (session: Awaited<ReturnType<typeof getSessionFromCookies>>, accountStatus: "pending" | "approved" | "disabled") => {
+const resolveAccessState = (
+  session: Awaited<ReturnType<typeof getSessionFromCookies>>,
+  accountStatus: "pending" | "approved" | "disabled",
+) => {
   if (!session) {
     return "unauthenticated" as const;
   }
@@ -21,44 +25,60 @@ const resolveAccessState = (session: Awaited<ReturnType<typeof getSessionFromCoo
   return "pending_approval" as const;
 };
 
-export const getAuthContext = cache(async () => {
-  const session = await getSessionFromCookies();
-  const { profile, accountStatus, roles } = await getCurrentProfileAccess(session);
+export const getAuthContext = cache(async (route?: string) =>
+  withServerTiming({
+    name: "getAuthContext",
+    route,
+    operation: async () => {
+      const session = await getSessionFromCookies(route);
+      const { profile, accountStatus, roles } = await getCurrentProfileAccess(
+        session,
+        route,
+      );
 
-  return {
-    session,
-    accessState: resolveAccessState(session, accountStatus),
-    profile,
-    roles,
-  };
-});
+      return {
+        session,
+        accessState: resolveAccessState(session, accountStatus),
+        profile,
+        roles,
+      };
+    },
+  }),
+);
 
 type AuthContext = Awaited<ReturnType<typeof getAuthContext>>;
 type ProtectedAuthContext = AuthContext & {
   session: NonNullable<AuthContext["session"]>;
 };
 
-export const requireProtectedAccess = cache(async (): Promise<ProtectedAuthContext> => {
-  const context = await getAuthContext();
-  const { session } = context;
+export const requireProtectedAccess = cache(
+  async (route?: string): Promise<ProtectedAuthContext> =>
+    withServerTiming({
+      name: "requireProtectedAccess",
+      route,
+      operation: async () => {
+        const context = await getAuthContext(route);
+        const { session } = context;
 
-  if (context.accessState === "unauthenticated" || !session) {
-    redirect("/sign-in");
-  }
+        if (context.accessState === "unauthenticated" || !session) {
+          redirect("/sign-in");
+        }
 
-  if (context.accessState === "pending_approval") {
-    redirect("/pending");
-  }
+        if (context.accessState === "pending_approval") {
+          redirect("/pending");
+        }
 
-  if (context.accessState === "disabled") {
-    redirect("/pending?status=disabled");
-  }
+        if (context.accessState === "disabled") {
+          redirect("/pending?status=disabled");
+        }
 
-  return {
-    ...context,
-    session,
-  };
-});
+        return {
+          ...context,
+          session,
+        };
+      },
+    }),
+);
 
 export const requireAdminAccess = async (): Promise<ProtectedAuthContext> => {
   const context = await requireProtectedAccess();
@@ -73,15 +93,16 @@ export const requireAdminAccess = async (): Promise<ProtectedAuthContext> => {
 export const hasSupervisorOrAdminRole = (roles: AuthContext["roles"]) =>
   roles.includes("admin") || roles.includes("supervisor");
 
-export const requireOperationalWriteAccess = async (): Promise<ProtectedAuthContext> => {
-  const context = await requireProtectedAccess();
+export const requireOperationalWriteAccess =
+  async (): Promise<ProtectedAuthContext> => {
+    const context = await requireProtectedAccess();
 
-  if (!hasSupervisorOrAdminRole(context.roles)) {
-    redirect("/dashboard");
-  }
+    if (!hasSupervisorOrAdminRole(context.roles)) {
+      redirect("/dashboard");
+    }
 
-  return context;
-};
+    return context;
+  };
 
 export const requirePendingAccess = async () => {
   const context = await getAuthContext();

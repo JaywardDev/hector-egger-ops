@@ -7,6 +7,7 @@ import {
 } from "@/src/lib/auth/profile-access";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
+import { withServerTiming } from "@/src/lib/server-timing";
 
 type ApprovedAccessContext = {
   accountStatus: "approved";
@@ -16,6 +17,7 @@ type ApprovedAccessContext = {
 type MutationActor = {
   session: AuthSession;
   accessContext?: ApprovedAccessContext;
+  route?: string;
 };
 
 export type StockLocationRecord = {
@@ -51,22 +53,28 @@ const assertLocationMutationAccess = async ({
 
 export const listStockLocations = async ({
   session,
-}: MutationActor): Promise<StockLocationRecord[]> => {
-  const supabase = createServerSupabaseClient();
-  const response = await supabase.request(
-    "/rest/v1/stock_locations?select=id,code,name,description,created_at,updated_at&order=name.asc",
-    {
-      cache: "no-store",
-      headers: createSessionHeaders(session),
+  route,
+}: MutationActor): Promise<StockLocationRecord[]> =>
+  withServerTiming({
+    name: "listStockLocations",
+    route,
+    operation: async () => {
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        "/rest/v1/stock_locations?select=id,code,name,description,created_at,updated_at&order=name.asc",
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load stock locations");
+      }
+
+      return (await response.json()) as StockLocationRecord[];
     },
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to load stock locations");
-  }
-
-  return (await response.json()) as StockLocationRecord[];
-};
+  });
 
 type StockLocationInput = {
   code: string;

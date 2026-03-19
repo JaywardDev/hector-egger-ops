@@ -8,6 +8,7 @@ import {
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import { buildTimberItemLabel } from "@/src/lib/inventory/item-labels";
+import { withServerTiming } from "@/src/lib/server-timing";
 
 type ApprovedAccessContext = {
   accountStatus: "approved";
@@ -17,6 +18,7 @@ type ApprovedAccessContext = {
 type MutationActor = {
   session: AuthSession;
   accessContext?: ApprovedAccessContext;
+  route?: string;
 };
 
 export type MaterialGroupRecord = {
@@ -362,60 +364,78 @@ export type InventoryItemOptionRecord = Pick<
 
 export const listInventoryItems = async ({
   session,
-}: MutationActor): Promise<InventoryItemRecord[]> => {
-  const supabase = createServerSupabaseClient();
-  const response = await supabase.request(
-    `/rest/v1/inventory_items?select=${inventoryItemSelect}&order=name.asc`,
-    {
-      cache: "no-store",
-      headers: createSessionHeaders(session),
+  route,
+}: MutationActor): Promise<InventoryItemRecord[]> =>
+  withServerTiming({
+    name: "listInventoryItems",
+    route,
+    operation: async () => {
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        `/rest/v1/inventory_items?select=${inventoryItemSelect}&order=name.asc`,
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load inventory items");
+      }
+
+      return (await response.json()) as InventoryItemRecord[];
     },
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to load inventory items");
-  }
-
-  return (await response.json()) as InventoryItemRecord[];
-};
+  });
 
 export const listInventoryItemOptions = async ({
   session,
-}: MutationActor): Promise<InventoryItemOptionRecord[]> => {
-  const supabase = createServerSupabaseClient();
-  const response = await supabase.request(
-    "/rest/v1/inventory_items?select=id,item_code,name,unit&order=name.asc",
-    {
-      cache: "no-store",
-      headers: createSessionHeaders(session),
+  route,
+}: MutationActor): Promise<InventoryItemOptionRecord[]> =>
+  withServerTiming({
+    name: "listInventoryItemOptions",
+    route,
+    operation: async () => {
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        "/rest/v1/inventory_items?select=id,item_code,name,unit&order=name.asc",
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load inventory item options");
+      }
+
+      return (await response.json()) as InventoryItemOptionRecord[];
     },
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to load inventory item options");
-  }
-
-  return (await response.json()) as InventoryItemOptionRecord[];
-};
+  });
 
 export const listMaterialGroups = async ({
   session,
-}: MutationActor): Promise<MaterialGroupRecord[]> => {
-  const supabase = createServerSupabaseClient();
-  const response = await supabase.request(
-    "/rest/v1/material_groups?select=id,key,label,sort_order,is_active&is_active=is.true&order=sort_order.asc.nullslast,label.asc",
-    {
-      cache: "no-store",
-      headers: createSessionHeaders(session),
+  route,
+}: MutationActor): Promise<MaterialGroupRecord[]> =>
+  withServerTiming({
+    name: "listMaterialGroups",
+    route,
+    operation: async () => {
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        "/rest/v1/material_groups?select=id,key,label,sort_order,is_active&is_active=is.true&order=sort_order.asc.nullslast,label.asc",
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load material groups");
+      }
+
+      return (await response.json()) as MaterialGroupRecord[];
     },
-  );
-
-  if (!response.ok) {
-    throw new Error("Failed to load material groups");
-  }
-
-  return (await response.json()) as MaterialGroupRecord[];
-};
+  });
 
 export const createInventoryItem = async ({
   session,

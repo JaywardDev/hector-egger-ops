@@ -3,6 +3,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { getSupabasePublicEnv } from "@/src/lib/supabase/env";
+import { withServerTiming } from "@/src/lib/server-timing";
 
 export const ACCESS_TOKEN_COOKIE = "heo_access_token";
 export const REFRESH_TOKEN_COOKIE = "heo_refresh_token";
@@ -98,37 +99,51 @@ const toAuthSession = (
 
 const fetchSupabaseUser = async (
   accessToken: string,
-): Promise<SupabaseUserResponse | null> => {
-  const { url, anonKey } = getSupabasePublicEnv();
-  const response = await fetch(`${url.replace(/\/$/, "")}/auth/v1/user`, {
-    headers: {
-      apikey: anonKey,
-      Authorization: `Bearer ${accessToken}`,
+  route?: string,
+): Promise<SupabaseUserResponse | null> =>
+  withServerTiming({
+    name: "fetchSupabaseUser",
+    route,
+    operation: async () => {
+      const { url, anonKey } = getSupabasePublicEnv();
+      const response = await fetch(`${url.replace(/\/$/, "")}/auth/v1/user`, {
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      return (await response.json()) as SupabaseUserResponse;
     },
-    cache: "no-store",
   });
 
-  if (!response.ok) {
-    return null;
-  }
+export const getSessionFromCookies = cache(
+  async (route?: string): Promise<AuthSession | null> =>
+    withServerTiming({
+      name: "getSessionFromCookies",
+      route,
+      operation: async () => {
+        const cookieStore = await cookies();
+        const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
 
-  return (await response.json()) as SupabaseUserResponse;
-};
+        if (!accessToken) {
+          return null;
+        }
 
-export const getSessionFromCookies = cache(async (): Promise<AuthSession | null> => {
-  const cookieStore = await cookies();
-  const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
+        const refreshToken =
+          cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
+        const user = await fetchSupabaseUser(accessToken, route);
 
-  if (!accessToken) {
-    return null;
-  }
+        if (!user) {
+          return null;
+        }
 
-  const refreshToken = cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
-  const user = await fetchSupabaseUser(accessToken);
-
-  if (!user) {
-    return null;
-  }
-
-  return toAuthSession(accessToken, refreshToken, user);
-});
+        return toAuthSession(accessToken, refreshToken, user);
+      },
+    }),
+);
