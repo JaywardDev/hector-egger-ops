@@ -77,11 +77,64 @@ type StockTakeEntryInput = {
   notes: string | null;
 };
 
+export type StockTakeTransitionAction =
+  | "start"
+  | "submit"
+  | "review"
+  | "close";
+
+type StockTakeTransitionDefinition = {
+  action: StockTakeTransitionAction;
+  from: StockTakeSessionStatus;
+  to: StockTakeSessionStatus;
+  timestampField: "started_at" | "submitted_at" | "reviewed_at" | "closed_at";
+  buttonLabel: string;
+  successMessage: string;
+};
+
 const stockTakeSessionSelect =
   "id,title,stock_location_id,stock_location:stock_locations(id,code,name),status,notes,created_by,started_at,submitted_at,reviewed_at,closed_at,created_at,updated_at";
 
 const stockTakeEntrySelect =
   "id,stock_take_session_id,inventory_item_id,inventory_item:inventory_items(id,item_code,name,unit),counted_quantity,notes,entered_by,entered_at,updated_at";
+
+const stockTakeTransitionDefinitions: Record<
+  StockTakeTransitionAction,
+  StockTakeTransitionDefinition
+> = {
+  start: {
+    action: "start",
+    from: "draft",
+    to: "in_progress",
+    timestampField: "started_at",
+    buttonLabel: "Start session",
+    successMessage: "Session started.",
+  },
+  submit: {
+    action: "submit",
+    from: "in_progress",
+    to: "submitted",
+    timestampField: "submitted_at",
+    buttonLabel: "Submit session",
+    successMessage: "Session submitted.",
+  },
+  review: {
+    action: "review",
+    from: "submitted",
+    to: "reviewed",
+    timestampField: "reviewed_at",
+    buttonLabel: "Mark reviewed",
+    successMessage: "Session reviewed.",
+  },
+  close: {
+    action: "close",
+    from: "reviewed",
+    to: "closed",
+    timestampField: "closed_at",
+    buttonLabel: "Close session",
+    successMessage: "Session closed.",
+  },
+};
 
 const createSessionHeaders = (session: AuthSession) => ({
   Authorization: `Bearer ${session.accessToken}`,
@@ -128,6 +181,19 @@ const assertSessionCreateAccess = async ({
   if (!roles.includes("admin") && !roles.includes("supervisor")) {
     throw new Error(
       "Supervisor or admin access is required to create stock take sessions",
+    );
+  }
+};
+
+const assertSessionTransitionAccess = async ({
+  session,
+  accessContext,
+  route,
+}: SessionActor) => {
+  const roles = await getActorRoles({ session, accessContext, route });
+  if (!roles.includes("admin") && !roles.includes("supervisor")) {
+    throw new Error(
+      "Supervisor or admin access is required to change stock take session status",
     );
   }
 };
@@ -206,6 +272,20 @@ const logStockAdminEvent = async ({
     throw new Error(`Failed to log ${eventType} event`);
   }
 };
+
+const getNextStockTakeTransition = (
+  status: StockTakeSessionStatus,
+): StockTakeTransitionDefinition | null => {
+  const transition = Object.values(stockTakeTransitionDefinitions).find(
+    (definition) => definition.from === status,
+  );
+
+  return transition ?? null;
+};
+
+export const getStockTakeTransitionActionMetadata = (
+  action: StockTakeTransitionAction,
+) => stockTakeTransitionDefinitions[action];
 
 export const listStockTakeSessions = async ({
   session,
@@ -332,6 +412,85 @@ export const listStockTakeEntries = async ({
     },
   });
 
+export const transitionStockTakeSession = async ({
+  session,
+  accessContext,
+  route,
+  sessionId,
+  action,
+}: SessionActor & {
+  sessionId: string;
+  action: StockTakeTransitionAction;
+}): Promise<StockTakeSessionRecord> =>
+  withServerTiming({
+    name: "transitionStockTakeSession",
+    route,
+    meta: { sessionId, action },
+    operation: async () => {
+      await assertSessionTransitionAccess({ session, accessContext, route });
+
+      const existingSession = await fetchSessionById(sessionId);
+      const transition = stockTakeTransitionDefinitions[action];
+
+      if (existingSession.status !== transition.from) {
+        throw new Error(
+          `Invalid stock take session transition from ${existingSession.status} to ${transition.to}`,
+        );
+      }
+
+      const transitionedAt = new Date().toISOString();
+      const supabase = createServiceRoleSupabaseClient();
+      const response = await supabase.request(
+        `/rest/v1/stock_take_sessions?id=eq.${sessionId}&select=${stockTakeSessionSelect}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({
+            status: transition.to,
+            [transition.timestampField]: transitionedAt,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to update stock take session status");
+      }
+
+      const [updatedSession] = (await response.json()) as StockTakeSessionRecord[];
+
+      await logStockAdminEvent({
+        eventType: "stock_take_session_updated",
+        entityType: "stock_take_session",
+        entityId: updatedSession.id,
+        actorAuthUserId: session.user.id,
+        payload: {
+          session_id: updatedSession.id,
+          title: updatedSession.title,
+          stock_location_id: updatedSession.stock_location_id,
+          stock_location_code: updatedSession.stock_location?.code ?? null,
+          stock_location_name: updatedSession.stock_location?.name ?? null,
+          previous_status: existingSession.status,
+          new_status: updatedSession.status,
+          transition_action: action,
+          transitioned_at: transitionedAt,
+          started_at: updatedSession.started_at,
+          submitted_at: updatedSession.submitted_at,
+          reviewed_at: updatedSession.reviewed_at,
+          closed_at: updatedSession.closed_at,
+        },
+      });
+
+      return updatedSession;
+    },
+  });
+
+export const getNextStockTakeTransitionAction = (
+  stockTakeSession: Pick<StockTakeSessionRecord, "status">,
+) => getNextStockTakeTransition(stockTakeSession.status);
+
 export const upsertStockTakeEntry = async ({
   session,
   accessContext,
@@ -348,7 +507,10 @@ export const upsertStockTakeEntry = async ({
   }
 
   const stockTakeSession = await fetchSessionById(sessionId);
-  if (!["draft", "in_progress"].includes(stockTakeSession.status)) {
+  if (![
+    "draft",
+    "in_progress",
+  ].includes(stockTakeSession.status)) {
     throw new Error(
       "Counts can only be recorded while a stock take session is draft or in progress",
     );

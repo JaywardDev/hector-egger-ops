@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   createStockTakeSession,
+  getStockTakeTransitionActionMetadata,
+  transitionStockTakeSession,
   upsertStockTakeEntry,
+  type StockTakeTransitionAction,
 } from "@/src/lib/stock-take/sessions";
 import {
   requireOperationalWriteAccess,
@@ -121,4 +124,41 @@ export async function saveStockTakeEntryAction(formData: FormData) {
   revalidatePath("/stock-take");
   revalidatePath(`/stock-take/${sessionId}`);
   toStockTakeDetailMessage(sessionId, "Count saved.", "success");
+}
+
+export async function transitionStockTakeSessionAction(formData: FormData) {
+  const sessionId = normalizeRequired(formData.get("sessionId"));
+  const action = normalizeRequired(
+    formData.get("transitionAction"),
+  ) as StockTakeTransitionAction;
+
+  if (!sessionId || !(action in { start: true, submit: true, review: true, close: true })) {
+    toStockTakeListMessage("A valid stock take transition is required.", "error");
+  }
+
+  const { session, roles } = await requireOperationalWriteAccess();
+
+  try {
+    const updatedSession = await transitionStockTakeSession({
+      session,
+      accessContext: {
+        accountStatus: "approved",
+        roles,
+      },
+      sessionId,
+      action,
+    });
+
+    const metadata = getStockTakeTransitionActionMetadata(action);
+
+    revalidatePath("/stock-take");
+    revalidatePath(`/stock-take/${sessionId}`);
+    toStockTakeDetailMessage(updatedSession.id, metadata.successMessage, "success");
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Could not update stock take session status.";
+    toStockTakeDetailMessage(sessionId, message, "error");
+  }
 }

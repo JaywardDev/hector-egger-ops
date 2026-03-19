@@ -15,6 +15,14 @@ type StockTakePageProps = {
   }>;
 };
 
+const statusBadgeClassName = {
+  draft: "bg-zinc-100 text-zinc-700",
+  in_progress: "bg-blue-100 text-blue-800",
+  submitted: "bg-amber-100 text-amber-800",
+  reviewed: "bg-violet-100 text-violet-800",
+  closed: "bg-emerald-100 text-emerald-800",
+};
+
 export default async function StockTakePage({
   searchParams,
 }: StockTakePageProps) {
@@ -130,7 +138,14 @@ export default async function StockTakePage({
                         {stockTakeSession.stock_location?.name ??
                           "Unknown location"}
                       </p>
-                      <p>Status: {stockTakeSession.status}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>Status:</span>
+                        <span
+                          className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${statusBadgeClassName[stockTakeSession.status]}`}
+                        >
+                          {stockTakeSession.status}
+                        </span>
+                      </div>
                       <p>Notes: {stockTakeSession.notes ?? "—"}</p>
                     </div>
                     <Link
