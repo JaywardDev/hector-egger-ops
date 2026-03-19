@@ -17,12 +17,12 @@ const normalizeOptional = (value: FormDataEntryValue | null) => {
 };
 
 export async function createStockLocationAction(formData: FormData) {
-  const code = String(formData.get("code") ?? "").trim();
+  const code = normalizeOptional(formData.get("code"));
   const name = String(formData.get("name") ?? "").trim();
   const description = normalizeOptional(formData.get("description"));
 
-  if (!code || !name) {
-    toLocationsMessage("Code and name are required.", "error");
+  if (!name) {
+    toLocationsMessage("Name is required.", "error");
   }
 
   const { session, roles } = await requireOperationalWriteAccess();
@@ -50,12 +50,12 @@ export async function createStockLocationAction(formData: FormData) {
 
 export async function updateStockLocationAction(formData: FormData) {
   const locationId = String(formData.get("locationId") ?? "").trim();
-  const code = String(formData.get("code") ?? "").trim();
+  const code = normalizeOptional(formData.get("code"));
   const name = String(formData.get("name") ?? "").trim();
   const description = normalizeOptional(formData.get("description"));
 
-  if (!locationId || !code || !name) {
-    toLocationsMessage("Location id, code, and name are required.", "error");
+  if (!locationId || !name) {
+    toLocationsMessage("Location id and name are required.", "error");
   }
 
   const { session, roles } = await requireOperationalWriteAccess();

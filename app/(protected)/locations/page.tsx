@@ -16,6 +16,9 @@ type LocationsPageProps = {
   }>;
 };
 
+const formatLocationLabel = (location: { name: string; code: string | null }) =>
+  location.code ? `${location.name} (${location.code})` : location.name;
+
 export default async function LocationsPage({
   searchParams,
 }: LocationsPageProps) {
@@ -39,7 +42,8 @@ export default async function LocationsPage({
               Stock locations
             </h2>
             <p className="text-zinc-600">
-              Maintain operational storage locations.
+              Maintain operational storage areas with a clear location name and
+              optional code.
             </p>
           </div>
 
@@ -60,22 +64,25 @@ export default async function LocationsPage({
               className="space-y-2 rounded-md border border-zinc-200 bg-white p-3"
             >
               <h3 className="font-medium text-zinc-900">Create location</h3>
+              <p className="text-xs text-zinc-500">
+                Name is required. Use code only when a structured reference such
+                as B1-L1 is helpful.
+              </p>
               <div className="grid gap-2 md:grid-cols-2">
                 <input
-                  name="code"
-                  placeholder="Code"
+                  name="name"
+                  placeholder="Location name"
                   required
                   className="rounded-md border border-zinc-300 px-2 py-1.5"
                 />
                 <input
-                  name="name"
-                  placeholder="Name"
-                  required
+                  name="code"
+                  placeholder="Location code (optional)"
                   className="rounded-md border border-zinc-300 px-2 py-1.5"
                 />
                 <input
                   name="description"
-                  placeholder="Description (optional)"
+                  placeholder="Notes / description (optional)"
                   className="rounded-md border border-zinc-300 px-2 py-1.5 md:col-span-2"
                 />
               </div>
@@ -106,30 +113,39 @@ export default async function LocationsPage({
                   {canWrite ? (
                     <form
                       action={updateStockLocationAction}
-                      className="space-y-2"
+                      className="space-y-3"
                     >
                       <input
                         type="hidden"
                         name="locationId"
                         value={location.id}
                       />
+                      <div className="space-y-1">
+                        <p className="font-medium text-zinc-900">
+                          {formatLocationLabel(location)}
+                        </p>
+                        <p className="text-xs text-zinc-500">
+                          Name is primary. Code is optional supplemental metadata.
+                        </p>
+                      </div>
                       <div className="grid gap-2 md:grid-cols-2">
                         <input
-                          name="code"
-                          defaultValue={location.code}
+                          name="name"
+                          defaultValue={location.name}
+                          placeholder="Location name"
                           required
                           className="rounded-md border border-zinc-300 px-2 py-1.5"
                         />
                         <input
-                          name="name"
-                          defaultValue={location.name}
-                          required
+                          name="code"
+                          defaultValue={location.code ?? ""}
+                          placeholder="Location code (optional)"
                           className="rounded-md border border-zinc-300 px-2 py-1.5"
                         />
                         <input
                           name="description"
                           defaultValue={location.description ?? ""}
-                          placeholder="Description"
+                          placeholder="Notes / description (optional)"
                           className="rounded-md border border-zinc-300 px-2 py-1.5 md:col-span-2"
                         />
                       </div>
@@ -145,7 +161,7 @@ export default async function LocationsPage({
                       <p className="font-medium text-zinc-900">
                         {location.name}
                       </p>
-                      <p>Code: {location.code}</p>
+                      {location.code ? <p>Code: {location.code}</p> : null}
                       <p>Description: {location.description ?? "—"}</p>
                     </div>
                   )}

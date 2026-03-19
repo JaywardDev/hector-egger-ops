@@ -34,7 +34,7 @@ export type StockTakeSessionRecord = {
   stock_location_id: string;
   stock_location: {
     id: string;
-    code: string;
+    code: string | null;
     name: string;
   } | null;
   status: StockTakeSessionStatus;

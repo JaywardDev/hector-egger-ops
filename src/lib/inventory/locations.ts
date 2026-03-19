@@ -22,7 +22,7 @@ type MutationActor = {
 
 export type StockLocationRecord = {
   id: string;
-  code: string;
+  code: string | null;
   name: string;
   description: string | null;
   created_at: string;
@@ -77,7 +77,7 @@ export const listStockLocations = async ({
   });
 
 type StockLocationInput = {
-  code: string;
+  code: string | null;
   name: string;
   description: string | null;
 };

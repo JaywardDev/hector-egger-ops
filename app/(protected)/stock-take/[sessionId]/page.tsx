@@ -33,6 +33,9 @@ const statusBadgeClassName = {
   closed: "bg-emerald-100 text-emerald-800",
 };
 
+const formatLocationLabel = (location: { name: string; code: string | null }) =>
+  location.code ? `${location.name} (${location.code})` : location.name;
+
 export default async function StockTakeSessionDetailPage({
   params,
   searchParams,
@@ -83,8 +86,10 @@ export default async function StockTakeSessionDetailPage({
                   {stockTakeSession.title}
                 </h2>
                 <p className="text-zinc-600">
-                  Location: {stockTakeSession.stock_location?.code ?? "—"} —{" "}
-                  {stockTakeSession.stock_location?.name ?? "Unknown location"}
+                  Location:{" "}
+                  {stockTakeSession.stock_location
+                    ? formatLocationLabel(stockTakeSession.stock_location)
+                    : "Unknown location"}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-zinc-600">Status:</span>
