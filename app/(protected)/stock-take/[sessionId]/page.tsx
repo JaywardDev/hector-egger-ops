@@ -6,6 +6,7 @@ import {
 } from "@/app/(protected)/stock-take/actions";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import { listInventoryItemOptions } from "@/src/lib/inventory/items";
+import { listStockLocations } from "@/src/lib/inventory/locations";
 import {
   getNextStockTakeTransitionAction,
   getStockTakeSessionDetail,
@@ -50,7 +51,7 @@ export default async function StockTakeSessionDetailPage({
       const accessContext = { accountStatus: "approved" as const, roles };
 
       try {
-        const [stockTakeSession, stockTakeEntries, inventoryItems, query] =
+        const [stockTakeSession, stockTakeEntries, inventoryItems, stockLocations, query] =
           await Promise.all([
             getStockTakeSessionDetail({
               session,
@@ -65,6 +66,7 @@ export default async function StockTakeSessionDetailPage({
               sessionId,
             }),
             listInventoryItemOptions({ session, route }),
+            listStockLocations({ session, route }),
             searchParams,
           ]);
         const canEnterCounts =
@@ -180,40 +182,73 @@ export default async function StockTakeSessionDetailPage({
                   </span>
                 </div>
                 <div className="grid gap-2 md:grid-cols-2">
-                  <select
-                    name="inventoryItemId"
-                    required
-                    defaultValue=""
-                    disabled={!isEntryOpen}
-                    className="rounded-md border border-zinc-300 px-2 py-1.5"
-                  >
-                    <option value="" disabled>
-                      Select inventory item
-                    </option>
-                    {inventoryItems.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name} {item.item_code ? `(${item.item_code})` : ""} —{" "}
-                        {item.unit}
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Inventory item
+                    </span>
+                    <select
+                      name="inventoryItemId"
+                      required
+                      defaultValue=""
+                      disabled={!isEntryOpen}
+                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                    >
+                      <option value="" disabled>
+                        Select inventory item
                       </option>
-                    ))}
-                  </select>
-                  <input
-                    name="countedQuantity"
-                    type="number"
-                    min="0"
-                    step="any"
-                    placeholder="Counted quantity"
-                    required
-                    disabled={!isEntryOpen}
-                    className="rounded-md border border-zinc-300 px-2 py-1.5"
-                  />
-                  <textarea
-                    name="notes"
-                    placeholder="Entry notes (optional)"
-                    rows={3}
-                    disabled={!isEntryOpen}
-                    className="rounded-md border border-zinc-300 px-2 py-1.5 md:col-span-2"
-                  />
+                      {inventoryItems.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} {item.item_code ? `(${item.item_code})` : ""} —{" "}
+                          {item.unit}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Counted quantity
+                    </span>
+                    <input
+                      name="countedQuantity"
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="Counted quantity"
+                      required
+                      disabled={!isEntryOpen}
+                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Location
+                    </span>
+                    <select
+                      name="stockLocationId"
+                      defaultValue={stockTakeSession.stock_location_id ?? ""}
+                      disabled={!isEntryOpen}
+                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                    >
+                      <option value="">No location</option>
+                      {stockLocations.map((location) => (
+                        <option key={location.id} value={location.id}>
+                          {formatLocationLabel(location)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="space-y-1 md:col-span-2">
+                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Notes
+                    </span>
+                    <textarea
+                      name="notes"
+                      placeholder="Entry notes (optional)"
+                      rows={3}
+                      disabled={!isEntryOpen}
+                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                    />
+                  </label>
                 </div>
                 <button
                   type="submit"
@@ -244,6 +279,12 @@ export default async function StockTakeSessionDetailPage({
                         {entry.inventory_item?.name ?? "Unknown item"}
                       </p>
                       <p>Item code: {entry.inventory_item?.item_code ?? "—"}</p>
+                      <p>
+                        Counted location:{" "}
+                        {entry.stock_location
+                          ? formatLocationLabel(entry.stock_location)
+                          : "No location"}
+                      </p>
                       <p>
                         Counted quantity: {entry.counted_quantity}{" "}
                         {entry.inventory_item?.unit ?? ""}

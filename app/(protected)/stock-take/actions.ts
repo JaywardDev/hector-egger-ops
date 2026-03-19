@@ -76,6 +76,7 @@ export async function saveStockTakeEntryAction(formData: FormData) {
   const countedQuantity = normalizeNonNegativeNumber(
     formData.get("countedQuantity"),
   );
+  const stockLocationId = normalizeOptional(formData.get("stockLocationId"));
   const notes = normalizeOptional(formData.get("notes"));
 
   if (
@@ -103,6 +104,7 @@ export async function saveStockTakeEntryAction(formData: FormData) {
       sessionId,
       input: {
         inventoryItemId,
+        stockLocationId,
         countedQuantity,
         notes,
       },
