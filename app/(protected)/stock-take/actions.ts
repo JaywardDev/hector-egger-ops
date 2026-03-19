@@ -39,13 +39,8 @@ const toStockTakeDetailMessage = (
   redirect(`/stock-take/${sessionId}?${type}=${encodeURIComponent(message)}`);
 
 export async function createStockTakeSessionAction(formData: FormData) {
-  const title = normalizeRequired(formData.get("title"));
-  const stockLocationId = normalizeRequired(formData.get("stockLocationId"));
+  const stockLocationId = normalizeOptional(formData.get("stockLocationId"));
   const notes = normalizeOptional(formData.get("notes"));
-
-  if (!title || !stockLocationId) {
-    toStockTakeListMessage("Title and stock location are required.", "error");
-  }
 
   const { session, roles } = await requireOperationalWriteAccess();
 
@@ -57,7 +52,6 @@ export async function createStockTakeSessionAction(formData: FormData) {
         roles,
       },
       input: {
-        title,
         stockLocationId,
         notes,
       },

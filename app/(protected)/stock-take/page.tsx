@@ -54,8 +54,8 @@ export default async function StockTakePage({
               Stock take sessions
             </h2>
             <p className="text-zinc-600">
-              Create location-based count sessions and open them for operational
-              quantity capture.
+              Create stock take events with an optional default location for
+              operational quantity capture.
             </p>
           </div>
 
@@ -65,7 +65,7 @@ export default async function StockTakePage({
             </p>
           ) : null}
           {params.error ? (
-            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700">
+            <p className="rounded-md border border-red-50 bg-red-50 px-3 py-2 text-red-700">
               {params.error}
             </p>
           ) : null}
@@ -77,27 +77,22 @@ export default async function StockTakePage({
             >
               <h3 className="font-medium text-zinc-900">Create session</h3>
               <div className="grid gap-2 md:grid-cols-2">
-                <input
-                  name="title"
-                  placeholder="Session title"
-                  required
-                  className="rounded-md border border-zinc-300 px-2 py-1.5"
-                />
                 <select
                   name="stockLocationId"
-                  required
                   defaultValue=""
                   className="rounded-md border border-zinc-300 px-2 py-1.5"
                 >
-                  <option value="" disabled>
-                    Select stock location
-                  </option>
+                  <option value="">No default location</option>
                   {stockLocations.map((location) => (
                     <option key={location.id} value={location.id}>
                       {formatLocationLabel(location)}
                     </option>
                   ))}
                 </select>
+                <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+                  Session title is generated automatically when the session is
+                  created.
+                </p>
                 <textarea
                   name="notes"
                   placeholder="Notes (optional)"
@@ -136,10 +131,10 @@ export default async function StockTakePage({
                         {stockTakeSession.title}
                       </p>
                       <p>
-                        Location:{" "}
+                        Default location: {" "}
                         {stockTakeSession.stock_location
                           ? formatLocationLabel(stockTakeSession.stock_location)
-                          : "Unknown location"}
+                          : "None"}
                       </p>
                       <div className="flex flex-wrap items-center gap-2">
                         <span>Status:</span>

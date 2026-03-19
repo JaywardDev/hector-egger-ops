@@ -86,10 +86,10 @@ export default async function StockTakeSessionDetailPage({
                   {stockTakeSession.title}
                 </h2>
                 <p className="text-zinc-600">
-                  Location:{" "}
+                  Default location:{" "}
                   {stockTakeSession.stock_location
                     ? formatLocationLabel(stockTakeSession.stock_location)
-                    : "Unknown location"}
+                    : "None"}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-zinc-600">Status:</span>

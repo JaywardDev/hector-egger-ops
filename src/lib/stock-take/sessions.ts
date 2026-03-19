@@ -31,7 +31,7 @@ export type StockTakeSessionStatus =
 export type StockTakeSessionRecord = {
   id: string;
   title: string;
-  stock_location_id: string;
+  stock_location_id: string | null;
   stock_location: {
     id: string;
     code: string | null;
@@ -52,6 +52,12 @@ export type StockTakeEntryRecord = {
   id: string;
   stock_take_session_id: string;
   inventory_item_id: string;
+  stock_location_id: string | null;
+  stock_location: {
+    id: string;
+    code: string | null;
+    name: string;
+  } | null;
   inventory_item: {
     id: string;
     item_code: string | null;
@@ -66,13 +72,13 @@ export type StockTakeEntryRecord = {
 };
 
 type StockTakeSessionInput = {
-  title: string;
-  stockLocationId: string;
+  stockLocationId: string | null;
   notes: string | null;
 };
 
 type StockTakeEntryInput = {
   inventoryItemId: string;
+  stockLocationId?: string | null;
   countedQuantity: number;
   notes: string | null;
 };
@@ -92,11 +98,17 @@ type StockTakeTransitionDefinition = {
   successMessage: string;
 };
 
+type StockLocationSummary = {
+  id: string;
+  code: string | null;
+  name: string;
+};
+
 const stockTakeSessionSelect =
   "id,title,stock_location_id,stock_location:stock_locations(id,code,name),status,notes,created_by,started_at,submitted_at,reviewed_at,closed_at,created_at,updated_at";
 
 const stockTakeEntrySelect =
-  "id,stock_take_session_id,inventory_item_id,inventory_item:inventory_items(id,item_code,name,unit),counted_quantity,notes,entered_by,entered_at,updated_at";
+  "id,stock_take_session_id,inventory_item_id,stock_location_id,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit),counted_quantity,notes,entered_by,entered_at,updated_at";
 
 const stockTakeTransitionDefinitions: Record<
   StockTakeTransitionAction,
@@ -139,6 +151,19 @@ const stockTakeTransitionDefinitions: Record<
 const createSessionHeaders = (session: AuthSession) => ({
   Authorization: `Bearer ${session.accessToken}`,
 });
+
+const formatStockTakeSessionTitle = ({
+  date,
+  locationName,
+}: {
+  date: Date;
+  locationName?: string | null;
+}) => {
+  const formattedDate = date.toISOString().slice(0, 10);
+  return locationName
+    ? `Stock take - ${formattedDate} - ${locationName}`
+    : `Stock take - ${formattedDate}`;
+};
 
 const assertApprovedAccount = async ({
   session,
@@ -239,6 +264,32 @@ const fetchSessionById = async (sessionId: string) => {
   return record;
 };
 
+const fetchStockLocationById = async (
+  stockLocationId: string,
+): Promise<StockLocationSummary> => {
+  const supabase = createServiceRoleSupabaseClient();
+  const response = await supabase.request(
+    `/rest/v1/stock_locations?id=eq.${stockLocationId}&select=id,code,name&limit=1`,
+    {
+      cache: "no-store",
+      headers: {
+        Prefer: "return=representation",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to load stock location");
+  }
+
+  const [record] = (await response.json()) as StockLocationSummary[];
+  if (!record) {
+    throw new Error("Stock location not found");
+  }
+
+  return record;
+};
+
 const logStockAdminEvent = async ({
   eventType,
   entityType,
@@ -324,6 +375,14 @@ export const createStockTakeSession = async ({
 }): Promise<StockTakeSessionRecord> => {
   await assertSessionCreateAccess({ session, accessContext });
 
+  const stockLocation = input.stockLocationId
+    ? await fetchStockLocationById(input.stockLocationId)
+    : null;
+  const title = formatStockTakeSessionTitle({
+    date: new Date(),
+    locationName: stockLocation?.name ?? null,
+  });
+
   const supabase = createServiceRoleSupabaseClient();
   const response = await supabase.request(
     `/rest/v1/stock_take_sessions?select=${stockTakeSessionSelect}`,
@@ -334,7 +393,7 @@ export const createStockTakeSession = async ({
         Prefer: "return=representation",
       },
       body: JSON.stringify({
-        title: input.title,
+        title,
         stock_location_id: input.stockLocationId,
         notes: input.notes,
         created_by: session.user.id,
@@ -507,18 +566,20 @@ export const upsertStockTakeEntry = async ({
   }
 
   const stockTakeSession = await fetchSessionById(sessionId);
-  if (![
-    "draft",
-    "in_progress",
-  ].includes(stockTakeSession.status)) {
+  if (!["draft", "in_progress"].includes(stockTakeSession.status)) {
     throw new Error(
       "Counts can only be recorded while a stock take session is draft or in progress",
     );
   }
 
+  const entryStockLocationId = input.stockLocationId ?? null;
+  const locationFilter = entryStockLocationId
+    ? `&stock_location_id=eq.${entryStockLocationId}`
+    : "&stock_location_id=is.null";
+
   const supabase = createServiceRoleSupabaseClient();
   const existingEntryResponse = await supabase.request(
-    `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&inventory_item_id=eq.${input.inventoryItemId}&select=${stockTakeEntrySelect}&limit=1`,
+    `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&inventory_item_id=eq.${input.inventoryItemId}${locationFilter}&select=${stockTakeEntrySelect}&limit=1`,
     {
       cache: "no-store",
       headers: {
@@ -553,6 +614,7 @@ export const upsertStockTakeEntry = async ({
           : {
               stock_take_session_id: sessionId,
               inventory_item_id: input.inventoryItemId,
+              stock_location_id: entryStockLocationId,
               counted_quantity: input.countedQuantity,
               notes: input.notes,
               entered_by: session.user.id,
@@ -586,9 +648,12 @@ export const upsertStockTakeEntry = async ({
       inventory_item_unit: savedEntry.inventory_item?.unit ?? null,
       counted_quantity: savedEntry.counted_quantity,
       notes: savedEntry.notes,
-      stock_location_id: stockTakeSession.stock_location_id,
-      stock_location_code: stockTakeSession.stock_location?.code ?? null,
-      stock_location_name: stockTakeSession.stock_location?.name ?? null,
+      session_stock_location_id: stockTakeSession.stock_location_id,
+      session_stock_location_code: stockTakeSession.stock_location?.code ?? null,
+      session_stock_location_name: stockTakeSession.stock_location?.name ?? null,
+      entry_stock_location_id: savedEntry.stock_location_id,
+      entry_stock_location_code: savedEntry.stock_location?.code ?? null,
+      entry_stock_location_name: savedEntry.stock_location?.name ?? null,
     },
   });
 
