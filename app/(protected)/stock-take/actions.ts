@@ -35,8 +35,18 @@ const toStockTakeDetailMessage = (
   sessionId: string,
   message: string,
   type: "success" | "error",
-) =>
-  redirect(`/stock-take/${sessionId}?${type}=${encodeURIComponent(message)}`);
+  inventoryItemId?: string,
+) => {
+  const params = new URLSearchParams({
+    [type]: message,
+  });
+
+  if (inventoryItemId) {
+    params.set("inventoryItemId", inventoryItemId);
+  }
+
+  redirect(`/stock-take/${sessionId}?${params.toString()}`);
+};
 
 export async function createStockTakeSessionAction(formData: FormData) {
   const stockLocationId = normalizeOptional(formData.get("stockLocationId"));
@@ -89,6 +99,7 @@ export async function saveStockTakeEntryAction(formData: FormData) {
       sessionId,
       "Item and counted quantity are required.",
       "error",
+      inventoryItemId,
     );
   }
 
@@ -114,12 +125,12 @@ export async function saveStockTakeEntryAction(formData: FormData) {
       error instanceof Error
         ? error.message
         : "Could not save counted quantity.";
-    toStockTakeDetailMessage(sessionId, message, "error");
+    toStockTakeDetailMessage(sessionId, message, "error", inventoryItemId);
   }
 
   revalidatePath("/stock-take");
   revalidatePath(`/stock-take/${sessionId}`);
-  toStockTakeDetailMessage(sessionId, "Count saved.", "success");
+  toStockTakeDetailMessage(sessionId, "Count saved.", "success", inventoryItemId);
 }
 
 export async function transitionStockTakeSessionAction(formData: FormData) {

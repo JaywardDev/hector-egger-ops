@@ -5,8 +5,9 @@ import {
   transitionStockTakeSessionAction,
 } from "@/app/(protected)/stock-take/actions";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
-import { listInventoryItemOptions } from "@/src/lib/inventory/items";
+import { listStockTakeInventoryItems } from "@/src/lib/inventory/items";
 import { listStockLocations } from "@/src/lib/inventory/locations";
+import { resolveStockTakeFieldConfigForItem } from "@/src/lib/stock-take/field-config";
 import {
   getNextStockTakeTransitionAction,
   getStockTakeSessionDetail,
@@ -21,6 +22,7 @@ type StockTakeSessionDetailPageProps = {
   searchParams: Promise<{
     success?: string;
     error?: string;
+    inventoryItemId?: string;
   }>;
 };
 
@@ -37,6 +39,8 @@ const statusBadgeClassName = {
 const formatLocationLabel = (location: { name: string; code: string | null }) =>
   location.code ? `${location.name} (${location.code})` : location.name;
 
+const formatReferenceValue = (value: string | number | null) => value ?? "—";
+
 export default async function StockTakeSessionDetailPage({
   params,
   searchParams,
@@ -51,24 +55,29 @@ export default async function StockTakeSessionDetailPage({
       const accessContext = { accountStatus: "approved" as const, roles };
 
       try {
-        const [stockTakeSession, stockTakeEntries, inventoryItems, stockLocations, query] =
-          await Promise.all([
-            getStockTakeSessionDetail({
-              session,
-              accessContext,
-              route,
-              sessionId,
-            }),
-            listStockTakeEntries({
-              session,
-              accessContext,
-              route,
-              sessionId,
-            }),
-            listInventoryItemOptions({ session, route }),
-            listStockLocations({ session, route }),
-            searchParams,
-          ]);
+        const [
+          stockTakeSession,
+          stockTakeEntries,
+          inventoryItems,
+          stockLocations,
+          query,
+        ] = await Promise.all([
+          getStockTakeSessionDetail({
+            session,
+            accessContext,
+            route,
+            sessionId,
+          }),
+          listStockTakeEntries({
+            session,
+            accessContext,
+            route,
+            sessionId,
+          }),
+          listStockTakeInventoryItems({ session, route }),
+          listStockLocations({ session, route }),
+          searchParams,
+        ]);
         const canEnterCounts =
           roles.includes("admin") ||
           roles.includes("supervisor") ||
@@ -79,6 +88,11 @@ export default async function StockTakeSessionDetailPage({
           stockTakeSession.status,
         );
         const nextTransition = getNextStockTakeTransitionAction(stockTakeSession);
+        const selectedInventoryItem =
+          inventoryItems.find((item) => item.id === query.inventoryItemId) ?? null;
+        const selectedFieldConfig = resolveStockTakeFieldConfigForItem(
+          selectedInventoryItem,
+        );
 
         return (
           <section className="space-y-4 text-sm text-zinc-700">
@@ -163,106 +177,180 @@ export default async function StockTakeSessionDetailPage({
               </p>
             ) : null}
 
-            {canEnterCounts ? (
-              <form
-                action={saveStockTakeEntryAction}
-                className="space-y-2 rounded-md border border-zinc-200 bg-white p-3"
-              >
-                <input
-                  type="hidden"
-                  name="sessionId"
-                  value={stockTakeSession.id}
-                />
-                <div className="flex items-center justify-between gap-2">
+            <div className="space-y-3 rounded-md border border-zinc-200 bg-white p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
                   <h3 className="font-medium text-zinc-900">
-                    Record counted quantity
+                    Stock-take item setup
                   </h3>
-                  <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-700">
-                    {isEntryOpen ? "Open for counting" : "Read-only status"}
+                  <p className="text-zinc-600">
+                    Select an inventory item to load its group-level stock-take
+                    fields.
+                  </p>
+                </div>
+                <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-700">
+                  Timber-first config
+                </span>
+              </div>
+              <form method="get" className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                <label className="space-y-1">
+                  <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Inventory item
                   </span>
-                </div>
-                <div className="grid gap-2 md:grid-cols-2">
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Inventory item
-                    </span>
-                    <select
-                      name="inventoryItemId"
-                      required
-                      defaultValue=""
-                      disabled={!isEntryOpen}
-                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                    >
-                      <option value="" disabled>
-                        Select inventory item
+                  <select
+                    name="inventoryItemId"
+                    required
+                    defaultValue={selectedInventoryItem?.id ?? ""}
+                    className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                  >
+                    <option value="" disabled>
+                      Select inventory item
+                    </option>
+                    {inventoryItems.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} {item.item_code ? `(${item.item_code})` : ""} —{" "}
+                        {item.unit}
                       </option>
-                      {inventoryItems.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} {item.item_code ? `(${item.item_code})` : ""} —{" "}
-                          {item.unit}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Counted quantity
-                    </span>
-                    <input
-                      name="countedQuantity"
-                      type="number"
-                      min="0"
-                      step="any"
-                      placeholder="Counted quantity"
-                      required
-                      disabled={!isEntryOpen}
-                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                    />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Location
-                    </span>
-                    <select
-                      name="stockLocationId"
-                      defaultValue={stockTakeSession.stock_location_id ?? ""}
-                      disabled={!isEntryOpen}
-                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                    >
-                      <option value="">No location</option>
-                      {stockLocations.map((location) => (
-                        <option key={location.id} value={location.id}>
-                          {formatLocationLabel(location)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="space-y-1 md:col-span-2">
-                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Notes
-                    </span>
-                    <textarea
-                      name="notes"
-                      placeholder="Entry notes (optional)"
-                      rows={3}
-                      disabled={!isEntryOpen}
-                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                    />
-                  </label>
-                </div>
+                    ))}
+                  </select>
+                </label>
                 <button
                   type="submit"
-                  disabled={!isEntryOpen}
-                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
                 >
-                  Save count
+                  Load item details
                 </button>
               </form>
-            ) : (
-              <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
-                You can view this stock take session, but cannot record counts.
-              </p>
-            )}
+
+              {selectedInventoryItem ? (
+                selectedFieldConfig ? (
+                  <>
+                    <div className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="font-medium text-zinc-900">
+                          {selectedInventoryItem.name}
+                        </h4>
+                        <span className="rounded-md bg-white px-2 py-1 text-xs text-zinc-700">
+                          Material group: {selectedInventoryItem.material_group?.label}
+                        </span>
+                      </div>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        {selectedFieldConfig.referenceFields.map(({ definition, value }) => (
+                          <div
+                            key={definition.key}
+                            className="rounded-md border border-zinc-200 bg-white p-3"
+                          >
+                            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                              {definition.label}
+                            </p>
+                            <p className="mt-1 text-sm text-zinc-900">
+                              {formatReferenceValue(value)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {canEnterCounts ? (
+                      <form
+                        action={saveStockTakeEntryAction}
+                        className="space-y-2 rounded-md border border-zinc-200 bg-white p-3"
+                      >
+                        <input type="hidden" name="sessionId" value={stockTakeSession.id} />
+                        <input
+                          type="hidden"
+                          name="inventoryItemId"
+                          value={selectedInventoryItem.id}
+                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <h3 className="font-medium text-zinc-900">
+                            Record counted quantity
+                          </h3>
+                          <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-700">
+                            {isEntryOpen ? "Open for counting" : "Read-only status"}
+                          </span>
+                        </div>
+                        <p className="text-zinc-600">
+                          Editable fields are resolved from the {selectedFieldConfig.materialGroupKey}
+                          {" "}stock-take config: {selectedFieldConfig.editableFields
+                            .map(({ definition }) => definition.label)
+                            .join(", ")}.
+                        </p>
+                        <div className="grid gap-2 md:grid-cols-2">
+                          <label className="space-y-1">
+                            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                              Counted quantity
+                            </span>
+                            <input
+                              name="countedQuantity"
+                              type="number"
+                              min="0"
+                              step="any"
+                              placeholder="Counted quantity"
+                              required
+                              disabled={!isEntryOpen}
+                              className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                            />
+                          </label>
+                          <label className="space-y-1">
+                            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                              Location
+                            </span>
+                            <select
+                              name="stockLocationId"
+                              defaultValue={stockTakeSession.stock_location_id ?? ""}
+                              disabled={!isEntryOpen}
+                              className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                            >
+                              <option value="">No location</option>
+                              {stockLocations.map((location) => (
+                                <option key={location.id} value={location.id}>
+                                  {formatLocationLabel(location)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="space-y-1 md:col-span-2">
+                            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                              Notes
+                            </span>
+                            <textarea
+                              name="notes"
+                              placeholder="Entry notes (optional)"
+                              rows={3}
+                              disabled={!isEntryOpen}
+                              className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                            />
+                          </label>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={!isEntryOpen}
+                          className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Save count
+                        </button>
+                      </form>
+                    ) : (
+                      <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
+                        You can view this stock take setup, but cannot record counts.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
+                    No stock-take field configuration is defined yet for the
+                    {" "}
+                    {selectedInventoryItem.material_group?.label ?? "selected"} group.
+                  </p>
+                )
+              ) : (
+                <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-zinc-600">
+                  Select an item to view its stock-take reference fields and entry
+                  fields.
+                </p>
+              )}
+            </div>
 
             <div className="space-y-2 rounded-md border border-zinc-200 bg-white p-3">
               <h3 className="font-medium text-zinc-900">Current entries</h3>

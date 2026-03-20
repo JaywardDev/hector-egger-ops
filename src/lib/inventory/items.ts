@@ -362,6 +362,11 @@ export type InventoryItemOptionRecord = Pick<
   "id" | "item_code" | "name" | "unit"
 >;
 
+export type StockTakeInventoryItemRecord = Pick<
+  InventoryItemRecord,
+  "id" | "item_code" | "name" | "unit" | "material_group" | "timber_spec"
+>;
+
 export const listInventoryItems = async ({
   session,
   route,
@@ -409,6 +414,32 @@ export const listInventoryItemOptions = async ({
       }
 
       return (await response.json()) as InventoryItemOptionRecord[];
+    },
+  });
+
+
+export const listStockTakeInventoryItems = async ({
+  session,
+  route,
+}: MutationActor): Promise<StockTakeInventoryItemRecord[]> =>
+  withServerTiming({
+    name: "listStockTakeInventoryItems",
+    route,
+    operation: async () => {
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        `/rest/v1/inventory_items?select=${inventoryItemSelect}&order=name.asc`,
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load stock take inventory items");
+      }
+
+      return (await response.json()) as StockTakeInventoryItemRecord[];
     },
   });
 
