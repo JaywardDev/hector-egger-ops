@@ -1,4 +1,9 @@
-import type { InventoryItemRecord } from "@/src/lib/inventory/items";
+import "server-only";
+
+import type { AuthSession } from "@/src/lib/auth/session";
+import { createServerSupabaseClient } from "@/src/lib/supabase/server";
+import type { InventoryItemRecord, MaterialGroupRecord } from "@/src/lib/inventory/items";
+import { withServerTiming } from "@/src/lib/server-timing";
 
 export type StockTakeFieldKey =
   | "item_name"
@@ -30,18 +35,31 @@ export type StockTakeFieldDefinition = {
   source: StockTakeFieldSource;
   control: StockTakeFieldControl;
   required: boolean;
+  supportsRequiredToggle?: boolean;
 };
 
 export type StockTakeFieldConfig = {
   materialGroupKey: string;
   referenceFieldKeys: StockTakeFieldKey[];
   editableFieldKeys: StockTakeFieldKey[];
+  requiredEditableFieldKeys: StockTakeFieldKey[];
 };
 
 export type StockTakeInventoryItemDetail = Pick<
   InventoryItemRecord,
   "id" | "item_code" | "name" | "unit" | "material_group" | "timber_spec"
 >;
+
+type GroupFieldSettingRecord = {
+  material_group_id: string;
+  field_key: StockTakeFieldKey;
+  is_enabled: boolean;
+  is_required: boolean;
+};
+
+const createSessionHeaders = (session: AuthSession) => ({
+  Authorization: `Bearer ${session.accessToken}`,
+});
 
 export const stockTakeFieldLibrary: Record<
   StockTakeFieldKey,
@@ -136,6 +154,7 @@ export const stockTakeFieldLibrary: Record<
     source: "entry",
     control: "select",
     required: false,
+    supportsRequiredToggle: true,
   },
   notes: {
     key: "notes",
@@ -145,10 +164,11 @@ export const stockTakeFieldLibrary: Record<
     source: "entry",
     control: "textarea",
     required: false,
+    supportsRequiredToggle: true,
   },
 };
 
-export const timberStockTakeFieldConfig: StockTakeFieldConfig = {
+const timberDefaultConfig: StockTakeFieldConfig = {
   materialGroupKey: "timber",
   referenceFieldKeys: [
     "item_name",
@@ -161,20 +181,7 @@ export const timberStockTakeFieldConfig: StockTakeFieldConfig = {
     "treatment",
   ],
   editableFieldKeys: ["counted_quantity", "stock_location_id", "notes"],
-};
-
-const stockTakeGroupConfigByKey: Record<string, StockTakeFieldConfig> = {
-  [timberStockTakeFieldConfig.materialGroupKey]: timberStockTakeFieldConfig,
-};
-
-export const resolveStockTakeFieldConfigForGroup = (
-  materialGroupKey: string | null | undefined,
-) => {
-  if (!materialGroupKey) {
-    return null;
-  }
-
-  return stockTakeGroupConfigByKey[materialGroupKey] ?? null;
+  requiredEditableFieldKeys: ["counted_quantity"],
 };
 
 const getInventoryFieldValue = (
@@ -203,14 +210,137 @@ const getInventoryFieldValue = (
   }
 };
 
-export const resolveStockTakeFieldConfigForItem = (
-  item: StockTakeInventoryItemDetail | null | undefined,
+const normalizeEditableConfig = (
+  editableFieldKeys: StockTakeFieldKey[],
+  requiredEditableFieldKeys: StockTakeFieldKey[],
 ) => {
-  if (!item) {
+  const editableSet = new Set(editableFieldKeys);
+  editableSet.add("counted_quantity");
+
+  const requiredSet = new Set(
+    requiredEditableFieldKeys.filter((key) => editableSet.has(key)),
+  );
+  requiredSet.add("counted_quantity");
+
+  return {
+    editableFieldKeys: Array.from(editableSet),
+    requiredEditableFieldKeys: Array.from(requiredSet),
+  };
+};
+
+const resolveStockTakeFieldConfigForGroupInternal = ({
+  group,
+  groupSettings,
+}: {
+  group: Pick<MaterialGroupRecord, "id" | "key">;
+  groupSettings: GroupFieldSettingRecord[];
+}): StockTakeFieldConfig | null => {
+  const settings = groupSettings.filter(
+    (setting) => setting.material_group_id === group.id,
+  );
+
+  if (settings.length === 0) {
+    return group.key === "timber" ? timberDefaultConfig : null;
+  }
+
+  const referenceFieldKeys = settings
+    .filter(
+      (setting) =>
+        setting.is_enabled && stockTakeFieldLibrary[setting.field_key].kind === "reference",
+    )
+    .map((setting) => setting.field_key);
+
+  const editableFieldKeys = settings
+    .filter(
+      (setting) =>
+        setting.is_enabled && stockTakeFieldLibrary[setting.field_key].kind === "editable",
+    )
+    .map((setting) => setting.field_key);
+
+  const requiredEditableFieldKeys = settings
+    .filter(
+      (setting) =>
+        setting.is_enabled &&
+        setting.is_required &&
+        stockTakeFieldLibrary[setting.field_key].kind === "editable",
+    )
+    .map((setting) => setting.field_key);
+
+  const normalizedEditableConfig = normalizeEditableConfig(
+    editableFieldKeys,
+    requiredEditableFieldKeys,
+  );
+
+  return {
+    materialGroupKey: group.key,
+    referenceFieldKeys,
+    editableFieldKeys: normalizedEditableConfig.editableFieldKeys,
+    requiredEditableFieldKeys: normalizedEditableConfig.requiredEditableFieldKeys,
+  };
+};
+
+export const listStockTakeGroupFieldSettings = async ({
+  session,
+  route,
+}: {
+  session: AuthSession;
+  route?: string;
+}): Promise<GroupFieldSettingRecord[]> =>
+  withServerTiming({
+    name: "listStockTakeGroupFieldSettings",
+    route,
+    operation: async () => {
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        "/rest/v1/stock_take_group_field_settings?select=material_group_id,field_key,is_enabled,is_required",
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load stock-take field settings");
+      }
+
+      return (await response.json()) as GroupFieldSettingRecord[];
+    },
+  });
+
+export const resolveStockTakeFieldConfigForGroup = ({
+  group,
+  groupSettings,
+}: {
+  group: Pick<MaterialGroupRecord, "id" | "key">;
+  groupSettings: GroupFieldSettingRecord[];
+}) => resolveStockTakeFieldConfigForGroupInternal({ group, groupSettings });
+
+export const resolveStockTakeFieldConfigForItem = ({
+  item,
+  materialGroups,
+  groupSettings,
+}: {
+  item: StockTakeInventoryItemDetail | null | undefined;
+  materialGroups: Pick<MaterialGroupRecord, "id" | "key">[];
+  groupSettings: GroupFieldSettingRecord[];
+}) => {
+  if (!item || !item.material_group?.id) {
     return null;
   }
 
-  const config = resolveStockTakeFieldConfigForGroup(item.material_group?.key);
+  const matchedGroup = materialGroups.find(
+    (group) => group.id === item.material_group?.id,
+  );
+
+  if (!matchedGroup) {
+    return null;
+  }
+
+  const config = resolveStockTakeFieldConfigForGroupInternal({
+    group: matchedGroup,
+    groupSettings,
+  });
+
   if (!config) {
     return null;
   }
@@ -222,7 +352,10 @@ export const resolveStockTakeFieldConfigForItem = (
       value: getInventoryFieldValue(item, fieldKey),
     })),
     editableFields: config.editableFieldKeys.map((fieldKey) => ({
-      definition: stockTakeFieldLibrary[fieldKey],
+      definition: {
+        ...stockTakeFieldLibrary[fieldKey],
+        required: config.requiredEditableFieldKeys.includes(fieldKey),
+      },
     })),
   };
 };

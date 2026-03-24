@@ -5,9 +5,15 @@ import {
   transitionStockTakeSessionAction,
 } from "@/app/(protected)/stock-take/actions";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
-import { listStockTakeInventoryItems } from "@/src/lib/inventory/items";
+import {
+  listMaterialGroups,
+  listStockTakeInventoryItems,
+} from "@/src/lib/inventory/items";
 import { listStockLocations } from "@/src/lib/inventory/locations";
-import { resolveStockTakeFieldConfigForItem } from "@/src/lib/stock-take/field-config";
+import {
+  listStockTakeGroupFieldSettings,
+  resolveStockTakeFieldConfigForItem,
+} from "@/src/lib/stock-take/field-config";
 import {
   getNextStockTakeTransitionAction,
   getStockTakeSessionDetail,
@@ -59,6 +65,8 @@ export default async function StockTakeSessionDetailPage({
           stockTakeSession,
           stockTakeEntries,
           inventoryItems,
+          materialGroups,
+          groupSettings,
           stockLocations,
           query,
         ] = await Promise.all([
@@ -75,6 +83,8 @@ export default async function StockTakeSessionDetailPage({
             sessionId,
           }),
           listStockTakeInventoryItems({ session, route }),
+          listMaterialGroups({ session, route }),
+          listStockTakeGroupFieldSettings({ session, route }),
           listStockLocations({ session, route }),
           searchParams,
         ]);
@@ -90,8 +100,31 @@ export default async function StockTakeSessionDetailPage({
         const nextTransition = getNextStockTakeTransitionAction(stockTakeSession);
         const selectedInventoryItem =
           inventoryItems.find((item) => item.id === query.inventoryItemId) ?? null;
-        const selectedFieldConfig = resolveStockTakeFieldConfigForItem(
-          selectedInventoryItem,
+        const selectedFieldConfig = resolveStockTakeFieldConfigForItem({
+          item: selectedInventoryItem,
+          materialGroups,
+          groupSettings,
+        });
+        const shouldShowLocationField = Boolean(
+          selectedFieldConfig?.editableFields.find(
+            ({ definition }) => definition.key === "stock_location_id",
+          ),
+        );
+        const isLocationRequired = Boolean(
+          selectedFieldConfig?.editableFields.find(
+            ({ definition }) =>
+              definition.key === "stock_location_id" && definition.required,
+          ),
+        );
+        const shouldShowNotesField = Boolean(
+          selectedFieldConfig?.editableFields.find(
+            ({ definition }) => definition.key === "notes",
+          ),
+        );
+        const isNotesRequired = Boolean(
+          selectedFieldConfig?.editableFields.find(
+            ({ definition }) => definition.key === "notes" && definition.required,
+          ),
         );
 
         return (
@@ -263,36 +296,42 @@ export default async function StockTakeSessionDetailPage({
                             className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
                           />
                         </label>
-                        <label className="space-y-1">
-                          <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                            Counted location
-                          </span>
-                          <select
-                            name="stockLocationId"
-                            defaultValue={stockTakeSession.stock_location_id ?? ""}
-                            disabled={!isEntryOpen}
-                            className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                          >
-                            <option value="">No location</option>
-                            {stockLocations.map((location) => (
-                              <option key={location.id} value={location.id}>
-                                {formatLocationLabel(location)}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label className="space-y-1 md:col-span-2">
-                          <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                            Notes
-                          </span>
-                          <textarea
-                            name="notes"
-                            placeholder="Entry notes (optional)"
-                            rows={3}
-                            disabled={!isEntryOpen}
-                            className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                          />
-                        </label>
+                        {shouldShowLocationField ? (
+                          <label className="space-y-1">
+                            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                              Counted location
+                            </span>
+                            <select
+                              name="stockLocationId"
+                              defaultValue={stockTakeSession.stock_location_id ?? ""}
+                              required={isLocationRequired}
+                              disabled={!isEntryOpen}
+                              className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                            >
+                              <option value="">No location</option>
+                              {stockLocations.map((location) => (
+                                <option key={location.id} value={location.id}>
+                                  {formatLocationLabel(location)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        ) : null}
+                        {shouldShowNotesField ? (
+                          <label className="space-y-1 md:col-span-2">
+                            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                              Notes
+                            </span>
+                            <textarea
+                              name="notes"
+                              placeholder="Entry notes (optional)"
+                              rows={3}
+                              required={isNotesRequired}
+                              disabled={!isEntryOpen}
+                              className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                            />
+                          </label>
+                        ) : null}
                       </div>
                       <button
                         type="submit"

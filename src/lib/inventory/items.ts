@@ -71,6 +71,10 @@ type InventoryItemInput = {
   timberLabelMode?: "auto" | "manual";
 };
 
+type MaterialGroupInput = {
+  label: string;
+};
+
 const TIMBER_GROUP_KEY = "timber";
 
 const createSessionHeaders = (session: AuthSession) => ({
@@ -201,6 +205,69 @@ const fetchMaterialGroup = async (materialGroupId: string | null) => {
   }
 
   return group;
+};
+
+const fetchMaterialGroupById = async (materialGroupId: string) => {
+  const supabase = createServiceRoleSupabaseClient();
+  const response = await supabase.request(
+    `/rest/v1/material_groups?select=id,key,label,sort_order,is_active&id=eq.${materialGroupId}&limit=1`,
+    {
+      cache: "no-store",
+      headers: {
+        Prefer: "return=representation",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to load material group");
+  }
+
+  const [group] = (await response.json()) as MaterialGroupRecord[];
+  if (!group) {
+    throw new Error("Material group not found");
+  }
+
+  return group;
+};
+
+const createMaterialGroupKeyFromLabel = (label: string) =>
+  label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "") || "group";
+
+const resolveMaterialGroupUniqueKey = async ({
+  keyBase,
+}: {
+  keyBase: string;
+}) => {
+  const supabase = createServiceRoleSupabaseClient();
+  const response = await supabase.request(
+    `/rest/v1/material_groups?select=key&key=like.${keyBase}%25`,
+    {
+      cache: "no-store",
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to validate material group key");
+  }
+
+  const existing = (await response.json()) as Pick<MaterialGroupRecord, "key">[];
+  const existingKeySet = new Set(existing.map((group) => group.key));
+
+  if (!existingKeySet.has(keyBase)) {
+    return keyBase;
+  }
+
+  let suffix = 2;
+  while (existingKeySet.has(`${keyBase}_${suffix}`)) {
+    suffix += 1;
+  }
+
+  return `${keyBase}_${suffix}`;
 };
 
 const fetchInventoryItemById = async (itemId: string) => {
@@ -467,6 +534,167 @@ export const listMaterialGroups = async ({
       return (await response.json()) as MaterialGroupRecord[];
     },
   });
+
+export const createMaterialGroup = async ({
+  session,
+  accessContext,
+  input,
+}: MutationActor & {
+  input: MaterialGroupInput;
+}): Promise<MaterialGroupRecord> => {
+  await assertInventoryMutationAccess({ session, accessContext });
+  const normalizedLabel = input.label.trim();
+  if (!normalizedLabel) {
+    throw new Error("Material group name is required.");
+  }
+
+  const keyBase = createMaterialGroupKeyFromLabel(normalizedLabel);
+  const key = await resolveMaterialGroupUniqueKey({ keyBase });
+
+  const existingGroups = await listMaterialGroups({
+    session,
+    accessContext,
+    route: "/inventory",
+  });
+  const maxSortOrder = existingGroups.reduce(
+    (max, group) => Math.max(max, group.sort_order ?? 0),
+    0,
+  );
+
+  const supabase = createServiceRoleSupabaseClient();
+  const response = await supabase.request(
+    "/rest/v1/material_groups?select=id,key,label,sort_order,is_active",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        key,
+        label: normalizedLabel,
+        sort_order: maxSortOrder + 10,
+        is_active: true,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to create material group");
+  }
+
+  const [group] = (await response.json()) as MaterialGroupRecord[];
+  if (!group) {
+    throw new Error("Failed to create material group");
+  }
+
+  return group;
+};
+
+export const updateMaterialGroup = async ({
+  session,
+  accessContext,
+  materialGroupId,
+  input,
+}: MutationActor & {
+  materialGroupId: string;
+  input: MaterialGroupInput;
+}): Promise<MaterialGroupRecord> => {
+  await assertInventoryMutationAccess({ session, accessContext });
+
+  const normalizedLabel = input.label.trim();
+  if (!normalizedLabel) {
+    throw new Error("Material group name is required.");
+  }
+
+  const existingGroup = await fetchMaterialGroupById(materialGroupId);
+  if (!existingGroup.is_active) {
+    throw new Error("Cannot edit an archived material group.");
+  }
+
+  const supabase = createServiceRoleSupabaseClient();
+  const response = await supabase.request(
+    `/rest/v1/material_groups?id=eq.${materialGroupId}&select=id,key,label,sort_order,is_active`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        label: normalizedLabel,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to update material group");
+  }
+
+  const [group] = (await response.json()) as MaterialGroupRecord[];
+  if (!group) {
+    throw new Error("Material group not found");
+  }
+
+  return group;
+};
+
+export const archiveMaterialGroup = async ({
+  session,
+  accessContext,
+  materialGroupId,
+}: MutationActor & {
+  materialGroupId: string;
+}): Promise<void> => {
+  await assertInventoryMutationAccess({ session, accessContext });
+
+  const group = await fetchMaterialGroupById(materialGroupId);
+  if (!group.is_active) {
+    return;
+  }
+
+  const supabase = createServiceRoleSupabaseClient();
+  const linkedItemCountResponse = await supabase.request(
+    `/rest/v1/inventory_items?material_group_id=eq.${materialGroupId}&select=id&limit=1`,
+    {
+      cache: "no-store",
+      headers: {
+        Prefer: "count=exact",
+      },
+    },
+  );
+
+  if (!linkedItemCountResponse.ok) {
+    throw new Error("Failed to validate material group usage");
+  }
+
+  const linkedItemCountHeader = linkedItemCountResponse.headers.get("content-range");
+  const linkedItemCount = Number(linkedItemCountHeader?.split("/")[1] ?? "0");
+
+  if (linkedItemCount > 0) {
+    throw new Error(
+      "Cannot archive this material group because it still has linked materials.",
+    );
+  }
+
+  const archiveResponse = await supabase.request(
+    `/rest/v1/material_groups?id=eq.${materialGroupId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        is_active: false,
+      }),
+    },
+  );
+
+  if (!archiveResponse.ok) {
+    throw new Error("Failed to archive material group");
+  }
+};
 
 export const createInventoryItem = async ({
   session,

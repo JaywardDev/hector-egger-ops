@@ -13,6 +13,14 @@ import {
   requireOperationalWriteAccess,
   requireProtectedAccess,
 } from "@/src/lib/auth/guards";
+import {
+  listStockTakeGroupFieldSettings,
+  resolveStockTakeFieldConfigForItem,
+} from "@/src/lib/stock-take/field-config";
+import {
+  listMaterialGroups,
+  listStockTakeInventoryItems,
+} from "@/src/lib/inventory/items";
 
 const normalizeOptional = (value: FormDataEntryValue | null) => {
   const normalized = String(value ?? "").trim();
@@ -104,8 +112,47 @@ export async function saveStockTakeEntryAction(formData: FormData) {
   }
 
   const { session, roles } = await requireProtectedAccess();
+  const route = `/stock-take/${sessionId}`;
 
   try {
+    const [inventoryItems, materialGroups, groupSettings] = await Promise.all([
+      listStockTakeInventoryItems({ session, route }),
+      listMaterialGroups({ session, route }),
+      listStockTakeGroupFieldSettings({ session, route }),
+    ]);
+
+    const selectedItem =
+      inventoryItems.find((item) => item.id === inventoryItemId) ?? null;
+    const config = resolveStockTakeFieldConfigForItem({
+      item: selectedItem,
+      materialGroups,
+      groupSettings,
+    });
+    const locationRequired = Boolean(
+      config?.requiredEditableFieldKeys.includes("stock_location_id"),
+    );
+    const notesRequired = Boolean(
+      config?.requiredEditableFieldKeys.includes("notes"),
+    );
+
+    if (locationRequired && !stockLocationId) {
+      toStockTakeDetailMessage(
+        sessionId,
+        "Counted location is required for this material group.",
+        "error",
+        inventoryItemId,
+      );
+    }
+
+    if (notesRequired && !notes) {
+      toStockTakeDetailMessage(
+        sessionId,
+        "Notes are required for this material group.",
+        "error",
+        inventoryItemId,
+      );
+    }
+
     await upsertStockTakeEntry({
       session,
       accessContext: {
