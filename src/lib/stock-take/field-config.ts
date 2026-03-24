@@ -206,7 +206,11 @@ const getInventoryFieldValue = (
 export const resolveStockTakeFieldConfigForItem = (
   item: StockTakeInventoryItemDetail | null | undefined,
 ) => {
-  const config = resolveStockTakeFieldConfigForGroup(item?.material_group?.key);
+  if (!item) {
+    return null;
+  }
+
+  const config = resolveStockTakeFieldConfigForGroup(item.material_group?.key);
   if (!config) {
     return null;
   }
