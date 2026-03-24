@@ -50,13 +50,8 @@ export default async function StockTakePage({
       return (
         <section className="space-y-4 text-sm text-zinc-700">
           <div>
-            <h2 className="text-base font-semibold text-zinc-900">
-              Stock take sessions
-            </h2>
-            <p className="text-zinc-600">
-              Create stock take events with an optional default location for
-              operational quantity capture.
-            </p>
+            <h2 className="text-base font-semibold text-zinc-900">Stock Take</h2>
+            <p className="text-zinc-600">Create and manage stock-take sessions.</p>
           </div>
 
           {params.success ? (
@@ -71,42 +66,53 @@ export default async function StockTakePage({
           ) : null}
 
           {canCreateSessions ? (
-            <form
-              action={createStockTakeSessionAction}
-              className="space-y-2 rounded-md border border-zinc-200 bg-white p-3"
-            >
-              <h3 className="font-medium text-zinc-900">Create session</h3>
-              <div className="grid gap-2 md:grid-cols-2">
-                <select
-                  name="stockLocationId"
-                  defaultValue=""
-                  className="rounded-md border border-zinc-300 px-2 py-1.5"
+            <details className="rounded-md border border-zinc-200 bg-white p-3">
+              <summary className="cursor-pointer list-none font-medium text-zinc-900">
+                Start new stock take
+              </summary>
+              <form action={createStockTakeSessionAction} className="mt-3 space-y-2">
+                <div className="grid gap-2 md:grid-cols-2">
+                  <label className="space-y-1">
+                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Default location
+                    </span>
+                    <select
+                      name="stockLocationId"
+                      defaultValue=""
+                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                    >
+                      <option value="">No default location</option>
+                      {stockLocations.map((location) => (
+                        <option key={location.id} value={location.id}>
+                          {formatLocationLabel(location)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
+                    Session title is generated automatically when the session is
+                    created.
+                  </p>
+                  <label className="space-y-1 md:col-span-2">
+                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Notes
+                    </span>
+                    <textarea
+                      name="notes"
+                      placeholder="Notes (optional)"
+                      rows={3}
+                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                    />
+                  </label>
+                </div>
+                <button
+                  type="submit"
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
                 >
-                  <option value="">No default location</option>
-                  {stockLocations.map((location) => (
-                    <option key={location.id} value={location.id}>
-                      {formatLocationLabel(location)}
-                    </option>
-                  ))}
-                </select>
-                <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-                  Session title is generated automatically when the session is
-                  created.
-                </p>
-                <textarea
-                  name="notes"
-                  placeholder="Notes (optional)"
-                  rows={3}
-                  className="rounded-md border border-zinc-300 px-2 py-1.5 md:col-span-2"
-                />
-              </div>
-              <button
-                type="submit"
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
-              >
-                Create session
-              </button>
-            </form>
+                  Start stock take
+                </button>
+              </form>
+            </details>
           ) : (
             <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
               You can review stock take sessions, but only supervisors and
@@ -114,49 +120,54 @@ export default async function StockTakePage({
             </p>
           )}
 
-          {stockTakeSessions.length === 0 ? (
-            <p className="rounded-md border border-zinc-200 bg-white px-3 py-3">
-              No stock take sessions yet.
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {stockTakeSessions.map((stockTakeSession) => (
-                <li
-                  key={stockTakeSession.id}
-                  className="rounded-md border border-zinc-200 bg-white p-3"
-                >
-                  <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                    <div className="space-y-1">
-                      <p className="font-medium text-zinc-900">
-                        {stockTakeSession.title}
-                      </p>
-                      <p>
-                        Default location: {" "}
-                        {stockTakeSession.stock_location
-                          ? formatLocationLabel(stockTakeSession.stock_location)
-                          : "None"}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span>Status:</span>
-                        <span
-                          className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${statusBadgeClassName[stockTakeSession.status]}`}
-                        >
-                          {stockTakeSession.status}
-                        </span>
+          <div className="space-y-2">
+            <h3 className="font-medium text-zinc-900">Sessions</h3>
+            {stockTakeSessions.length === 0 ? (
+              <p className="rounded-md border border-zinc-200 bg-white px-3 py-3">
+                No stock take sessions yet.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {stockTakeSessions.map((stockTakeSession) => (
+                  <li
+                    key={stockTakeSession.id}
+                    className="rounded-md border border-zinc-200 bg-white p-3"
+                  >
+                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                      <div className="space-y-1">
+                        <p className="font-medium text-zinc-900">
+                          {stockTakeSession.title}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span>Status:</span>
+                          <span
+                            className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${statusBadgeClassName[stockTakeSession.status]}`}
+                          >
+                            {stockTakeSession.status}
+                          </span>
+                        </div>
+                        <p>
+                          Default location:{" "}
+                          {stockTakeSession.stock_location
+                            ? formatLocationLabel(stockTakeSession.stock_location)
+                            : "None"}
+                        </p>
+                        {stockTakeSession.notes ? (
+                          <p>Notes: {stockTakeSession.notes}</p>
+                        ) : null}
                       </div>
-                      <p>Notes: {stockTakeSession.notes ?? "—"}</p>
+                      <Link
+                        href={`/stock-take/${stockTakeSession.id}`}
+                        className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
+                      >
+                        Open session
+                      </Link>
                     </div>
-                    <Link
-                      href={`/stock-take/${stockTakeSession.id}`}
-                      className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
-                    >
-                      Open session
-                    </Link>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
       );
     },
