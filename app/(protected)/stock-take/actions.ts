@@ -71,7 +71,7 @@ const toStockTakeDetailMessage = (
   message: string,
   type: "success" | "error",
   inventoryItemId?: string,
-) => {
+): never => {
   const params = new URLSearchParams({
     [type]: message,
   });
@@ -217,37 +217,38 @@ export async function saveStockTakeEntryAction(formData: FormData) {
       );
     }
 
-    let inventoryItemId = selectedInventoryItemId;
+    const resolvedInventoryItemId = createNewMaterial
+      ? (
+          await createInventoryItem({
+            session,
+            accessContext: {
+              accountStatus: "approved",
+              roles,
+            },
+            allowOperatorWrite: true,
+            input: {
+              itemCode,
+              name,
+              unit: unit ?? "",
+              description,
+              materialGroupId,
+              timberSpec,
+              timberLabelMode,
+            },
+          })
+        ).id
+      : selectedInventoryItemId;
 
-    if (createNewMaterial) {
-      const createdItem = await createInventoryItem({
-        session,
-        accessContext: {
-          accountStatus: "approved",
-          roles,
-        },
-        allowOperatorWrite: true,
-        input: {
-          itemCode,
-          name,
-          unit: unit ?? "",
-          description,
-          materialGroupId,
-          timberSpec,
-          timberLabelMode,
-        },
-      });
-
-      inventoryItemId = createdItem.id;
-    }
-
-    if (!inventoryItemId) {
+    if (resolvedInventoryItemId === null) {
       toStockTakeDetailMessage(
         sessionId,
         "Select a material before saving a count.",
         "error",
       );
+      throw new Error("Unreachable: stock take entry requires a material id.");
     }
+
+    const finalInventoryItemId = resolvedInventoryItemId;
 
     await upsertStockTakeEntry({
       session,
@@ -257,7 +258,7 @@ export async function saveStockTakeEntryAction(formData: FormData) {
       },
       sessionId,
       input: {
-        inventoryItemId,
+        inventoryItemId: finalInventoryItemId,
         stockLocationId,
         countedQuantity,
         notes,
@@ -266,7 +267,12 @@ export async function saveStockTakeEntryAction(formData: FormData) {
 
     revalidatePath("/stock-take");
     revalidatePath(`/stock-take/${sessionId}`);
-    toStockTakeDetailMessage(sessionId, "Count saved.", "success", inventoryItemId);
+    toStockTakeDetailMessage(
+      sessionId,
+      "Count saved.",
+      "success",
+      finalInventoryItemId,
+    );
   } catch (error) {
     const message =
       error instanceof Error
