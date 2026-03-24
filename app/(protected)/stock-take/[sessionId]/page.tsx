@@ -227,7 +227,7 @@ export default async function StockTakeSessionDetailPage({
                     {inventoryItems.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.name} {item.item_code ? `(${item.item_code})` : ""} —{" "}
-                        {item.unit}
+                        {item.unit} (quantity label)
                       </option>
                     ))}
                   </select>
@@ -375,8 +375,10 @@ export default async function StockTakeSessionDetailPage({
                       </p>
                       <p>Item code: {entry.inventory_item?.item_code ?? "—"}</p>
                       <p>
-                        Counted quantity: {entry.counted_quantity}{" "}
-                        {entry.inventory_item?.unit ?? ""}
+                        Counted quantity: {entry.counted_quantity}
+                        {entry.inventory_item?.unit
+                          ? ` (${entry.inventory_item.unit} quantity label)`
+                          : ""}
                       </p>
                       <p>
                         Location:{" "}

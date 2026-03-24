@@ -85,7 +85,7 @@ export const stockTakeFieldLibrary: Record<
   },
   unit: {
     key: "unit",
-    label: "Unit",
+    label: "Quantity label",
     kind: "reference",
     valueType: "text",
     source: "inventory",

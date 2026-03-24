@@ -232,54 +232,66 @@ export default async function InventoryPage({
                       <div className="mt-3 space-y-2">
                         <details className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
                           <summary className="cursor-pointer list-none font-medium text-zinc-900">
-                            Manage materials
+                            Materials in this group
                           </summary>
                           <div className="mt-3 space-y-3">
+                            <p className="text-sm text-zinc-600">
+                              Reference list of material definitions used for stock takes. Quantity changes are recorded in Stock Take sessions.
+                            </p>
                             {groupItems.length === 0 ? (
                               <p className="rounded-md border border-zinc-200 bg-white px-3 py-2">
                                 No materials in this group yet.
                               </p>
                             ) : (
-                              <ul className="space-y-2">
-                                {groupItems.map((item) => (
-                                  <li
-                                    key={item.id}
-                                    className="rounded-md border border-zinc-200 bg-white p-3"
-                                  >
-                                    <div className="space-y-1">
-                                      <p className="font-medium text-zinc-900">
-                                        {item.name}
-                                      </p>
-                                      <p>Unit: {item.unit}</p>
-                                      <p>Item code: {item.item_code ?? "—"}</p>
-                                      <p>
-                                        Timber spec: {getTimberSpecSummary(item.timber_spec)}
-                                      </p>
-                                      {item.description ? (
-                                        <p>Description: {item.description}</p>
-                                      ) : null}
-                                    </div>
-
-                                    {canWrite ? (
-                                      <details className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-                                        <summary className="cursor-pointer list-none font-medium text-zinc-800">
-                                          Edit material
-                                        </summary>
-                                        <div className="mt-3">
-                                          <InventoryItemForm
-                                            action={updateInventoryItemAction}
-                                            materialGroups={materialGroups}
-                                            item={item}
-                                            fixedMaterialGroupId={group.id}
-                                            hideMaterialGroupSelector
-                                            submitLabel="Save material"
-                                          />
-                                        </div>
-                                      </details>
-                                    ) : null}
-                                  </li>
-                                ))}
-                              </ul>
+                              <div className="overflow-x-auto rounded-md border border-zinc-200 bg-white">
+                                <table className="min-w-full border-collapse text-sm">
+                                  <thead className="bg-zinc-100 text-left text-xs uppercase tracking-wide text-zinc-600">
+                                    <tr>
+                                      <th className="px-3 py-2 font-medium">Material label</th>
+                                      <th className="px-3 py-2 font-medium">Item code</th>
+                                      <th className="px-3 py-2 font-medium">Quantity label</th>
+                                      <th className="px-3 py-2 font-medium">Specs summary</th>
+                                      {canWrite ? <th className="px-3 py-2 font-medium">Actions</th> : null}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {groupItems.map((item) => (
+                                      <tr key={item.id} className="border-t border-zinc-200 align-top">
+                                        <td className="px-3 py-2 text-zinc-900">
+                                          <p className="font-medium">{item.name}</p>
+                                          {item.description ? (
+                                            <p className="mt-1 text-xs text-zinc-600">{item.description}</p>
+                                          ) : null}
+                                        </td>
+                                        <td className="px-3 py-2 text-zinc-700">{item.item_code ?? "—"}</td>
+                                        <td className="px-3 py-2 text-zinc-700">{item.unit}</td>
+                                        <td className="px-3 py-2 text-zinc-700">
+                                          {getTimberSpecSummary(item.timber_spec)}
+                                        </td>
+                                        {canWrite ? (
+                                          <td className="px-3 py-2">
+                                            <details>
+                                              <summary className="cursor-pointer list-none rounded-md border border-zinc-300 px-2 py-1 text-xs font-medium text-zinc-800 hover:bg-zinc-50">
+                                                Edit definition
+                                              </summary>
+                                              <div className="mt-2 min-w-[18rem] rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                                                <InventoryItemForm
+                                                  action={updateInventoryItemAction}
+                                                  materialGroups={materialGroups}
+                                                  item={item}
+                                                  fixedMaterialGroupId={group.id}
+                                                  hideMaterialGroupSelector
+                                                  submitLabel="Save material"
+                                                />
+                                              </div>
+                                            </details>
+                                          </td>
+                                        ) : null}
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
                             )}
 
                             {canWrite ? (

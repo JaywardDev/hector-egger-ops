@@ -66,7 +66,7 @@ export async function createInventoryItemAction(formData: FormData) {
       : "manual";
 
   if (!unit) {
-    toInventoryMessage("Unit is required.", "error");
+    toInventoryMessage("Quantity label is required.", "error");
   }
 
   const { session, roles } = await requireOperationalWriteAccess();
@@ -117,7 +117,7 @@ export async function updateInventoryItemAction(formData: FormData) {
       : "manual";
 
   if (!itemId || !unit) {
-    toInventoryMessage("Item id and unit are required.", "error");
+    toInventoryMessage("Item id and quantity label are required.", "error");
   }
 
   const { session, roles } = await requireOperationalWriteAccess();

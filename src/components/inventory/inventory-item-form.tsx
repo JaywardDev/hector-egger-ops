@@ -87,7 +87,16 @@ export function InventoryItemForm({
             className={`${inputClassName} w-full`}
           />
         </label>
-        <input name="unit" defaultValue={item?.unit ?? ""} placeholder="Unit" required className={inputClassName} />
+        <label className="space-y-1 text-sm">
+          <span className="text-zinc-700">Quantity label</span>
+          <input
+            name="unit"
+            defaultValue={item?.unit ?? ""}
+            placeholder="Quantity label (for example: pcs, m, kg)"
+            required
+            className={`${inputClassName} w-full`}
+          />
+        </label>
         {!hideMaterialGroupSelector ? (
           <select
             name="materialGroupId"
