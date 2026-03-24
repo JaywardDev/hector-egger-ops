@@ -167,6 +167,16 @@ const stockTakeGroupConfigByKey: Record<string, StockTakeFieldConfig> = {
   [timberStockTakeFieldConfig.materialGroupKey]: timberStockTakeFieldConfig,
 };
 
+export const resolveStockTakeFieldConfigForGroup = (
+  materialGroupKey: string | null | undefined,
+) => {
+  if (!materialGroupKey) {
+    return null;
+  }
+
+  return stockTakeGroupConfigByKey[materialGroupKey] ?? null;
+};
+
 const getInventoryFieldValue = (
   item: StockTakeInventoryItemDetail,
   fieldKey: StockTakeFieldKey,
@@ -196,11 +206,7 @@ const getInventoryFieldValue = (
 export const resolveStockTakeFieldConfigForItem = (
   item: StockTakeInventoryItemDetail | null | undefined,
 ) => {
-  if (!item?.material_group?.key) {
-    return null;
-  }
-
-  const config = stockTakeGroupConfigByKey[item.material_group.key];
+  const config = resolveStockTakeFieldConfigForGroup(item?.material_group?.key);
   if (!config) {
     return null;
   }

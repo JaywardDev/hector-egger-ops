@@ -8,15 +8,25 @@ type InventoryItemFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   materialGroups: MaterialGroupRecord[];
   item?: InventoryItemRecord;
+  fixedMaterialGroupId?: string;
+  hideMaterialGroupSelector?: boolean;
+  submitLabel?: string;
 };
 
 const inputClassName = "rounded-md border border-zinc-300 px-2 py-1.5";
 const timberGridClassName = "grid gap-2 border border-amber-200 bg-amber-50/50 p-3 md:grid-cols-2";
 
-export function InventoryItemForm({ action, materialGroups, item }: InventoryItemFormProps) {
+export function InventoryItemForm({
+  action,
+  materialGroups,
+  item,
+  fixedMaterialGroupId,
+  hideMaterialGroupSelector = false,
+  submitLabel,
+}: InventoryItemFormProps) {
   const formId = useId();
   const timberGroupId = useMemo(() => materialGroups.find((group) => group.key === "timber")?.id ?? "", [materialGroups]);
-  const [materialGroupId, setMaterialGroupId] = useState(item?.material_group_id ?? "");
+  const [materialGroupId, setMaterialGroupId] = useState(fixedMaterialGroupId ?? item?.material_group_id ?? "");
   const isTimberSelected = materialGroupId !== "" && materialGroupId === timberGroupId;
   const [timberThicknessMm, setTimberThicknessMm] = useState(item?.timber_spec?.thickness_mm?.toString() ?? "");
   const [timberWidthMm, setTimberWidthMm] = useState(item?.timber_spec?.width_mm?.toString() ?? "");
@@ -53,6 +63,7 @@ export function InventoryItemForm({ action, materialGroups, item }: InventoryIte
     <form action={action} className="space-y-2">
       {item ? <input type="hidden" name="itemId" value={item.id} /> : null}
       <input type="hidden" name="timberLabelMode" value={isTimberSelected ? timberLabelMode : "manual"} />
+      {fixedMaterialGroupId ? <input type="hidden" name="materialGroupId" value={fixedMaterialGroupId} /> : null}
       <div className="grid gap-2 md:grid-cols-2">
         <input
           name="itemCode"
@@ -77,19 +88,21 @@ export function InventoryItemForm({ action, materialGroups, item }: InventoryIte
           />
         </label>
         <input name="unit" defaultValue={item?.unit ?? ""} placeholder="Unit" required className={inputClassName} />
-        <select
-          name="materialGroupId"
-          value={materialGroupId}
-          onChange={(event) => setMaterialGroupId(event.target.value)}
-          className={inputClassName}
-        >
-          <option value="">Material group (optional)</option>
-          {materialGroups.map((group) => (
-            <option key={group.id} value={group.id}>
-              {group.label}
-            </option>
-          ))}
-        </select>
+        {!hideMaterialGroupSelector ? (
+          <select
+            name="materialGroupId"
+            value={materialGroupId}
+            onChange={(event) => setMaterialGroupId(event.target.value)}
+            className={inputClassName}
+          >
+            <option value="">Material group (optional)</option>
+            {materialGroups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.label}
+              </option>
+            ))}
+          </select>
+        ) : null}
         <input
           name="description"
           defaultValue={item?.description ?? ""}
@@ -167,7 +180,7 @@ export function InventoryItemForm({ action, materialGroups, item }: InventoryIte
       {item ? <p className="text-xs text-zinc-500">Material group: {item.material_group?.label ?? "Unassigned"}</p> : null}
 
       <button type="submit" className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100">
-        {item ? "Save" : "Create"}
+        {submitLabel ?? (item ? "Save" : "Create")}
       </button>
     </form>
   );
