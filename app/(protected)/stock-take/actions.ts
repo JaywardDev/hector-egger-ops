@@ -15,11 +15,14 @@ import {
 } from "@/src/lib/auth/guards";
 import {
   listStockTakeGroupFieldSettings,
+  resolveStockTakeFieldConfigForGroup,
   resolveStockTakeFieldConfigForItem,
 } from "@/src/lib/stock-take/field-config";
 import {
+  createInventoryItem,
   listMaterialGroups,
   listStockTakeInventoryItems,
+  type TimberSpecInput,
 } from "@/src/lib/inventory/items";
 
 const normalizeOptional = (value: FormDataEntryValue | null) => {
@@ -34,6 +37,30 @@ const normalizeNonNegativeNumber = (value: FormDataEntryValue | null) => {
   const normalized = normalizeRequired(value);
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : Number.NaN;
+};
+
+const normalizeOptionalPositiveNumber = (value: FormDataEntryValue | null) => {
+  const normalized = normalizeOptional(value);
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const readTimberSpec = (formData: FormData): TimberSpecInput | null => {
+  const timberSpec = {
+    thicknessMm: normalizeOptionalPositiveNumber(
+      formData.get("timberThicknessMm"),
+    ),
+    widthMm: normalizeOptionalPositiveNumber(formData.get("timberWidthMm")),
+    lengthMm: normalizeOptionalPositiveNumber(formData.get("timberLengthMm")),
+    grade: normalizeOptional(formData.get("timberGrade")),
+    treatment: normalizeOptional(formData.get("timberTreatment")),
+  } satisfies TimberSpecInput;
+
+  return timberSpec;
 };
 
 const toStockTakeListMessage = (message: string, type: "success" | "error") =>
@@ -90,24 +117,49 @@ export async function createStockTakeSessionAction(formData: FormData) {
 
 export async function saveStockTakeEntryAction(formData: FormData) {
   const sessionId = normalizeRequired(formData.get("sessionId"));
-  const inventoryItemId = normalizeRequired(formData.get("inventoryItemId"));
+  const selectedInventoryItemId = normalizeOptional(formData.get("inventoryItemId"));
+  const createNewMaterial =
+    normalizeRequired(formData.get("entryMode")) === "create-material";
   const countedQuantity = normalizeNonNegativeNumber(
     formData.get("countedQuantity"),
   );
   const stockLocationId = normalizeOptional(formData.get("stockLocationId"));
   const notes = normalizeOptional(formData.get("notes"));
 
-  if (
-    !sessionId ||
-    !inventoryItemId ||
-    Number.isNaN(countedQuantity) ||
-    countedQuantity < 0
-  ) {
+  const itemCode = normalizeOptional(formData.get("itemCode"));
+  const name = normalizeOptional(formData.get("name"));
+  const unit = normalizeOptional(formData.get("unit"));
+  const description = normalizeOptional(formData.get("description"));
+  const materialGroupId = normalizeOptional(formData.get("materialGroupId"));
+  const timberSpec = readTimberSpec(formData);
+
+  const timberLabelMode =
+    String(formData.get("timberLabelMode") ?? "manual") === "auto"
+      ? "auto"
+      : "manual";
+
+  if (!sessionId || Number.isNaN(countedQuantity) || countedQuantity < 0) {
     toStockTakeDetailMessage(
       sessionId,
-      "Item and counted quantity are required.",
+      "Counted quantity is required.",
       "error",
-      inventoryItemId,
+      selectedInventoryItemId ?? undefined,
+    );
+  }
+
+  if (!selectedInventoryItemId && !createNewMaterial) {
+    toStockTakeDetailMessage(
+      sessionId,
+      "Select a material before saving a count.",
+      "error",
+    );
+  }
+
+  if (createNewMaterial && !unit) {
+    toStockTakeDetailMessage(
+      sessionId,
+      "Quantity label is required when capturing a new material.",
+      "error",
     );
   }
 
@@ -122,12 +174,24 @@ export async function saveStockTakeEntryAction(formData: FormData) {
     ]);
 
     const selectedItem =
-      inventoryItems.find((item) => item.id === inventoryItemId) ?? null;
-    const config = resolveStockTakeFieldConfigForItem({
-      item: selectedItem,
-      materialGroups,
-      groupSettings,
-    });
+      inventoryItems.find((item) => item.id === selectedInventoryItemId) ?? null;
+    const selectedGroup = materialGroups.find(
+      (group) => group.id === materialGroupId,
+    );
+
+    const config = createNewMaterial
+      ? selectedGroup
+        ? resolveStockTakeFieldConfigForGroup({
+            group: selectedGroup,
+            groupSettings,
+          })
+        : null
+      : resolveStockTakeFieldConfigForItem({
+          item: selectedItem,
+          materialGroups,
+          groupSettings,
+        });
+
     const locationRequired = Boolean(
       config?.requiredEditableFieldKeys.includes("stock_location_id"),
     );
@@ -140,7 +204,7 @@ export async function saveStockTakeEntryAction(formData: FormData) {
         sessionId,
         "Counted location is required for this material group.",
         "error",
-        inventoryItemId,
+        selectedInventoryItemId ?? undefined,
       );
     }
 
@@ -149,7 +213,39 @@ export async function saveStockTakeEntryAction(formData: FormData) {
         sessionId,
         "Notes are required for this material group.",
         "error",
-        inventoryItemId,
+        selectedInventoryItemId ?? undefined,
+      );
+    }
+
+    let inventoryItemId = selectedInventoryItemId;
+
+    if (createNewMaterial) {
+      const createdItem = await createInventoryItem({
+        session,
+        accessContext: {
+          accountStatus: "approved",
+          roles,
+        },
+        allowOperatorWrite: true,
+        input: {
+          itemCode,
+          name,
+          unit: unit ?? "",
+          description,
+          materialGroupId,
+          timberSpec,
+          timberLabelMode,
+        },
+      });
+
+      inventoryItemId = createdItem.id;
+    }
+
+    if (!inventoryItemId) {
+      toStockTakeDetailMessage(
+        sessionId,
+        "Select a material before saving a count.",
+        "error",
       );
     }
 
@@ -167,17 +263,22 @@ export async function saveStockTakeEntryAction(formData: FormData) {
         notes,
       },
     });
+
+    revalidatePath("/stock-take");
+    revalidatePath(`/stock-take/${sessionId}`);
+    toStockTakeDetailMessage(sessionId, "Count saved.", "success", inventoryItemId);
   } catch (error) {
     const message =
       error instanceof Error
         ? error.message
         : "Could not save counted quantity.";
-    toStockTakeDetailMessage(sessionId, message, "error", inventoryItemId);
+    toStockTakeDetailMessage(
+      sessionId,
+      message,
+      "error",
+      selectedInventoryItemId ?? undefined,
+    );
   }
-
-  revalidatePath("/stock-take");
-  revalidatePath(`/stock-take/${sessionId}`);
-  toStockTakeDetailMessage(sessionId, "Count saved.", "success", inventoryItemId);
 }
 
 export async function transitionStockTakeSessionAction(formData: FormData) {

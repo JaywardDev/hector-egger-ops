@@ -87,18 +87,20 @@ const inventoryItemSelect =
 const assertInventoryMutationAccess = async ({
   session,
   accessContext,
-}: MutationActor) => {
+  allowOperatorWrite = false,
+}: MutationActor & { allowOperatorWrite?: boolean }) => {
   const accountStatus =
     accessContext?.accountStatus ?? (await getCurrentAccountStatus(session));
   const roles = accessContext?.roles ?? (await getCurrentUserRoles(session));
+  const allowedRoles = allowOperatorWrite
+    ? ["admin", "supervisor", "operator"]
+    : ["admin", "supervisor"];
 
   if (
     accountStatus !== "approved" ||
-    (!roles.includes("admin") && !roles.includes("supervisor"))
+    !allowedRoles.some((role) => roles.includes(role))
   ) {
-    throw new Error(
-      "Supervisor or admin access is required for inventory writes",
-    );
+    throw new Error("Approved operational access is required for inventory writes");
   }
 };
 
@@ -699,11 +701,17 @@ export const archiveMaterialGroup = async ({
 export const createInventoryItem = async ({
   session,
   accessContext,
+  allowOperatorWrite,
   input,
 }: MutationActor & {
+  allowOperatorWrite?: boolean;
   input: InventoryItemInput;
 }): Promise<InventoryItemRecord> => {
-  await assertInventoryMutationAccess({ session, accessContext });
+  await assertInventoryMutationAccess({
+    session,
+    accessContext,
+    allowOperatorWrite,
+  });
   assertValidTimberSpec(input.timberSpec);
 
   const selectedMaterialGroup = await fetchMaterialGroup(input.materialGroupId);

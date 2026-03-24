@@ -126,6 +126,7 @@ export default async function StockTakeSessionDetailPage({
             ({ definition }) => definition.key === "notes" && definition.required,
           ),
         );
+        const defaultMaterialGroupId = materialGroups[0]?.id ?? "";
 
         return (
           <section className="space-y-4 text-sm text-zinc-700">
@@ -240,6 +241,191 @@ export default async function StockTakeSessionDetailPage({
                 </button>
               </form>
             </div>
+
+            {canEnterCounts ? (
+              <div className="space-y-3 rounded-md border border-zinc-200 bg-white p-3">
+                <div>
+                  <h3 className="font-medium text-zinc-900">
+                    Capture new material in this session
+                  </h3>
+                  <p className="text-zinc-600">
+                    Add a material record and save its first count in one step.
+                  </p>
+                </div>
+                <form action={saveStockTakeEntryAction} className="space-y-3">
+                  <input type="hidden" name="sessionId" value={stockTakeSession.id} />
+                  <input type="hidden" name="entryMode" value="create-material" />
+                  <input type="hidden" name="timberLabelMode" value="auto" />
+
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Material group
+                      </span>
+                      <select
+                        name="materialGroupId"
+                        required
+                        defaultValue={defaultMaterialGroupId}
+                        disabled={!isEntryOpen}
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                      >
+                        {materialGroups.map((group) => (
+                          <option key={group.id} value={group.id}>
+                            {group.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Item code
+                      </span>
+                      <input
+                        name="itemCode"
+                        placeholder="Item code (optional)"
+                        disabled={!isEntryOpen}
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Item label
+                      </span>
+                      <input
+                        name="name"
+                        placeholder="Item label"
+                        disabled={!isEntryOpen}
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Quantity label
+                      </span>
+                      <input
+                        name="unit"
+                        placeholder="pcs, m, kg..."
+                        required
+                        disabled={!isEntryOpen}
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                      />
+                    </label>
+                    <label className="space-y-1 md:col-span-2">
+                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Description
+                      </span>
+                      <input
+                        name="description"
+                        placeholder="Description (optional)"
+                        disabled={!isEntryOpen}
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3 md:grid-cols-2">
+                    <p className="md:col-span-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
+                      Timber spec (optional)
+                    </p>
+                    <input
+                      name="timberThicknessMm"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="Thickness (mm)"
+                      disabled={!isEntryOpen}
+                      className="rounded-md border border-zinc-300 px-2 py-1.5"
+                    />
+                    <input
+                      name="timberWidthMm"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="Width (mm)"
+                      disabled={!isEntryOpen}
+                      className="rounded-md border border-zinc-300 px-2 py-1.5"
+                    />
+                    <input
+                      name="timberLengthMm"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      placeholder="Length (mm)"
+                      disabled={!isEntryOpen}
+                      className="rounded-md border border-zinc-300 px-2 py-1.5"
+                    />
+                    <input
+                      name="timberGrade"
+                      placeholder="Grade"
+                      disabled={!isEntryOpen}
+                      className="rounded-md border border-zinc-300 px-2 py-1.5"
+                    />
+                    <input
+                      name="timberTreatment"
+                      placeholder="Treatment"
+                      disabled={!isEntryOpen}
+                      className="rounded-md border border-zinc-300 px-2 py-1.5 md:col-span-2"
+                    />
+                  </div>
+
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Counted quantity
+                      </span>
+                      <input
+                        name="countedQuantity"
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="Counted quantity"
+                        required
+                        disabled={!isEntryOpen}
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Counted location
+                      </span>
+                      <select
+                        name="stockLocationId"
+                        defaultValue={stockTakeSession.stock_location_id ?? ""}
+                        disabled={!isEntryOpen}
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                      >
+                        <option value="">No location</option>
+                        {stockLocations.map((location) => (
+                          <option key={location.id} value={location.id}>
+                            {formatLocationLabel(location)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="space-y-1 md:col-span-2">
+                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                        Notes
+                      </span>
+                      <textarea
+                        name="notes"
+                        placeholder="Entry notes (optional)"
+                        rows={3}
+                        disabled={!isEntryOpen}
+                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                      />
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={!isEntryOpen}
+                    className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Save new material + count
+                  </button>
+                </form>
+              </div>
+            ) : null}
 
             {selectedInventoryItem ? (
               selectedFieldConfig ? (

@@ -5,10 +5,7 @@ import { redirect } from "next/navigation";
 import {
   archiveMaterialGroup,
   createMaterialGroup,
-  createInventoryItem,
   updateMaterialGroup,
-  updateInventoryItem,
-  type TimberSpecInput,
 } from "@/src/lib/inventory/items";
 import { saveStockTakeFieldConfigForGroup } from "@/src/lib/stock-take/group-field-settings";
 import { requireOperationalWriteAccess } from "@/src/lib/auth/guards";
@@ -25,132 +22,6 @@ const normalizeOptionalUuid = (value: FormDataEntryValue | null) => {
   const normalized = normalizeOptional(value);
   return normalized && /^[0-9a-f-]{36}$/i.test(normalized) ? normalized : null;
 };
-
-const normalizeOptionalPositiveNumber = (value: FormDataEntryValue | null) => {
-  const normalized = normalizeOptional(value);
-  if (!normalized) {
-    return null;
-  }
-
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
-const readTimberSpec = (formData: FormData): TimberSpecInput | null => {
-  const timberSpec = {
-    thicknessMm: normalizeOptionalPositiveNumber(
-      formData.get("timberThicknessMm"),
-    ),
-    widthMm: normalizeOptionalPositiveNumber(formData.get("timberWidthMm")),
-    lengthMm: normalizeOptionalPositiveNumber(formData.get("timberLengthMm")),
-    grade: normalizeOptional(formData.get("timberGrade")),
-    treatment: normalizeOptional(formData.get("timberTreatment")),
-  } satisfies TimberSpecInput;
-
-  return timberSpec;
-};
-
-export async function createInventoryItemAction(formData: FormData) {
-  const itemCode = normalizeOptional(formData.get("itemCode"));
-  const name = normalizeOptional(formData.get("name"));
-  const unit = String(formData.get("unit") ?? "").trim();
-  const description = normalizeOptional(formData.get("description"));
-  const materialGroupId = normalizeOptionalUuid(
-    formData.get("materialGroupId"),
-  );
-  const timberSpec = readTimberSpec(formData);
-
-  const timberLabelMode =
-    String(formData.get("timberLabelMode") ?? "manual") === "auto"
-      ? "auto"
-      : "manual";
-
-  if (!unit) {
-    toInventoryMessage("Quantity label is required.", "error");
-  }
-
-  const { session, roles } = await requireOperationalWriteAccess();
-
-  try {
-    await createInventoryItem({
-      session,
-      accessContext: {
-        accountStatus: "approved",
-        roles,
-      },
-      input: {
-        itemCode,
-        name,
-        unit,
-        description,
-        materialGroupId,
-        timberSpec,
-        timberLabelMode,
-      },
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Could not create inventory item.";
-    toInventoryMessage(message, "error");
-  }
-
-  revalidatePath("/inventory");
-  toInventoryMessage("Inventory item created.", "success");
-}
-
-export async function updateInventoryItemAction(formData: FormData) {
-  const itemId = String(formData.get("itemId") ?? "").trim();
-  const itemCode = normalizeOptional(formData.get("itemCode"));
-  const name = normalizeOptional(formData.get("name"));
-  const unit = String(formData.get("unit") ?? "").trim();
-  const description = normalizeOptional(formData.get("description"));
-  const materialGroupId = normalizeOptionalUuid(
-    formData.get("materialGroupId"),
-  );
-  const timberSpec = readTimberSpec(formData);
-
-  const timberLabelMode =
-    String(formData.get("timberLabelMode") ?? "manual") === "auto"
-      ? "auto"
-      : "manual";
-
-  if (!itemId || !unit) {
-    toInventoryMessage("Item id and quantity label are required.", "error");
-  }
-
-  const { session, roles } = await requireOperationalWriteAccess();
-
-  try {
-    await updateInventoryItem({
-      session,
-      accessContext: {
-        accountStatus: "approved",
-        roles,
-      },
-      itemId,
-      input: {
-        itemCode,
-        name,
-        unit,
-        description,
-        materialGroupId,
-        timberSpec,
-        timberLabelMode,
-      },
-    });
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Could not update inventory item.";
-    toInventoryMessage(message, "error");
-  }
-
-  revalidatePath("/inventory");
-  toInventoryMessage("Inventory item updated.", "success");
-}
 
 export async function createMaterialGroupAction(formData: FormData) {
   const label = String(formData.get("label") ?? "").trim();
