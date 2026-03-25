@@ -12,6 +12,7 @@ import {
   listStockTakeGroupFieldSettings,
   resolveStockTakeFieldConfigForGroup,
   resolveStockTakeFieldConfigForItem,
+  stockTakeFieldLibrary,
 } from "@/src/lib/stock-take/field-config";
 import {
   getNextStockTakeTransitionAction,
@@ -103,31 +104,15 @@ export default async function StockTakeSessionDetailPage({
           groupSettings,
         });
 
-        const existingFieldBehavior = {
-          showLocation: Boolean(
-            selectedFieldConfig?.editableFields.find(
-              ({ definition }) => definition.key === "stock_location_id",
-            ),
-          ),
-          locationRequired: Boolean(
-            selectedFieldConfig?.editableFields.find(
-              ({ definition }) =>
-                definition.key === "stock_location_id" && definition.required,
-            ),
-          ),
-          showNotes: Boolean(
-            selectedFieldConfig?.editableFields.find(
-              ({ definition }) => definition.key === "notes",
-            ),
-          ),
-          notesRequired: Boolean(
-            selectedFieldConfig?.editableFields.find(
-              ({ definition }) => definition.key === "notes" && definition.required,
-            ),
-          ),
-        };
+        const existingEditableFields =
+          selectedFieldConfig?.editableFields.map(({ definition }) => ({
+            key: definition.key,
+            label: definition.label,
+            control: definition.control,
+            required: definition.required,
+          })) ?? [];
 
-        const groupFieldBehaviors = Object.fromEntries(
+        const groupFieldConfigs = Object.fromEntries(
           materialGroups.map((group) => {
             const config = resolveStockTakeFieldConfigForGroup({
               group,
@@ -136,16 +121,19 @@ export default async function StockTakeSessionDetailPage({
             return [
               group.id,
               {
-                showLocation: Boolean(
-                  config?.editableFieldKeys.includes("stock_location_id"),
-                ),
-                locationRequired: Boolean(
-                  config?.requiredEditableFieldKeys.includes("stock_location_id"),
-                ),
-                showNotes: Boolean(config?.editableFieldKeys.includes("notes")),
-                notesRequired: Boolean(
-                  config?.requiredEditableFieldKeys.includes("notes"),
-                ),
+                referenceFields:
+                  config?.referenceFieldKeys.map((fieldKey) => ({
+                    key: fieldKey,
+                    label: stockTakeFieldLibrary[fieldKey].label,
+                    control: stockTakeFieldLibrary[fieldKey].control,
+                  })) ?? [],
+                editableFields:
+                  config?.editableFieldKeys.map((fieldKey) => ({
+                    key: fieldKey,
+                    label: stockTakeFieldLibrary[fieldKey].label,
+                    control: stockTakeFieldLibrary[fieldKey].control,
+                    required: config.requiredEditableFieldKeys.includes(fieldKey),
+                  })) ?? [],
               },
             ];
           }),
@@ -269,8 +257,8 @@ export default async function StockTakeSessionDetailPage({
               materialGroups={materialGroups}
               stockLocations={stockLocations}
               defaultStockLocationId={stockTakeSession.stock_location_id}
-              existingFieldBehavior={existingFieldBehavior}
-              groupFieldBehaviors={groupFieldBehaviors}
+              selectedEditableFields={existingEditableFields}
+              groupFieldConfigs={groupFieldConfigs}
               stockTakeEntries={stockTakeEntryRows}
             />
           </section>

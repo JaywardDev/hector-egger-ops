@@ -29,11 +29,20 @@ type ReferenceField = {
   value: string | number | null;
 };
 
-type GroupFieldBehavior = {
-  showLocation: boolean;
-  locationRequired: boolean;
-  showNotes: boolean;
-  notesRequired: boolean;
+type EditableField = {
+  key: string;
+  label: string;
+  control: "number" | "textarea" | "select" | "text";
+  required: boolean;
+};
+
+type GroupFieldConfig = {
+  referenceFields: {
+    key: string;
+    label: string;
+    control: "number" | "textarea" | "select" | "text";
+  }[];
+  editableFields: EditableField[];
 };
 
 type EntryRow = {
@@ -57,12 +66,12 @@ type Props = {
   isEntryOpen: boolean;
   selectedInventoryItemId: string | null;
   selectedReferenceFields: ReferenceField[];
+  selectedEditableFields: EditableField[];
   inventoryItems: InventoryItemOption[];
   materialGroups: MaterialGroupOption[];
   stockLocations: StockLocationOption[];
   defaultStockLocationId: string | null;
-  existingFieldBehavior: GroupFieldBehavior;
-  groupFieldBehaviors: Record<string, GroupFieldBehavior>;
+  groupFieldConfigs: Record<string, GroupFieldConfig>;
   stockTakeEntries: EntryRow[];
 };
 
@@ -80,23 +89,117 @@ const formatValue = (value: string | number | null) => {
 const formatEntryTimestamp = (updatedAt: string | null, enteredAt: string) =>
   updatedAt ?? enteredAt;
 
+const fieldNameByKey = {
+  item_name: "name",
+  item_code: "itemCode",
+  unit: "unit",
+  thickness_mm: "timberThicknessMm",
+  width_mm: "timberWidthMm",
+  length_mm: "timberLengthMm",
+  grade: "timberGrade",
+  treatment: "timberTreatment",
+  counted_quantity: "countedQuantity",
+  stock_location_id: "stockLocationId",
+  notes: "notes",
+} as const;
+
+const numberStepByFieldKey: Record<string, string> = {
+  thickness_mm: "0.01",
+  width_mm: "0.01",
+  length_mm: "0.01",
+  counted_quantity: "any",
+};
+
+const numberMinByFieldKey: Record<string, string> = {
+  thickness_mm: "0.01",
+  width_mm: "0.01",
+  length_mm: "0.01",
+  counted_quantity: "0",
+};
+
 export function StockTakeSessionDetailClient(props: Props) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [materialGroupId, setMaterialGroupId] = useState(
     props.materialGroups[0]?.id ?? "",
   );
 
-  const activeGroupBehavior =
-    props.groupFieldBehaviors[materialGroupId] ?? {
-      showLocation: true,
-      locationRequired: false,
-      showNotes: true,
-      notesRequired: false,
-    };
+  const activeGroupConfig = props.groupFieldConfigs[materialGroupId] ?? {
+    referenceFields: [],
+    editableFields: [],
+  };
 
-  const isTimberGroup =
-    props.materialGroups.find((group) => group.id === materialGroupId)?.key ===
-    "timber";
+  const renderEntryField = ({
+    field,
+    mode,
+  }: {
+    field: EditableField | GroupFieldConfig["referenceFields"][number];
+    mode: "existing" | "new";
+  }) => {
+    const name = fieldNameByKey[field.key as keyof typeof fieldNameByKey];
+    if (!name) {
+      return null;
+    }
+
+    if (field.key === "stock_location_id") {
+      return (
+        <label key={`${mode}-${field.key}`} className="space-y-1">
+          <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            {field.label}
+          </span>
+          <select
+            name={name}
+            defaultValue={props.defaultStockLocationId ?? ""}
+            required={"required" in field ? field.required : false}
+            disabled={!props.isEntryOpen}
+            className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+          >
+            <option value="">No location</option>
+            {props.stockLocations.map((location) => (
+              <option key={location.id} value={location.id}>
+                {formatLocationLabel(location)}
+              </option>
+            ))}
+          </select>
+        </label>
+      );
+    }
+
+    if (field.control === "textarea") {
+      return (
+        <label key={`${mode}-${field.key}`} className="space-y-1 md:col-span-2">
+          <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+            {field.label}
+          </span>
+          <textarea
+            name={name}
+            rows={2}
+            required={"required" in field ? field.required : false}
+            disabled={!props.isEntryOpen}
+            className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+          />
+        </label>
+      );
+    }
+
+    const inputType = field.control === "number" ? "number" : "text";
+
+    return (
+      <label key={`${mode}-${field.key}`} className="space-y-1">
+        <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+          {field.label}
+        </span>
+        <input
+          name={name}
+          type={inputType}
+          min={inputType === "number" ? numberMinByFieldKey[field.key] : undefined}
+          step={inputType === "number" ? numberStepByFieldKey[field.key] : undefined}
+          required={"required" in field ? field.required : false}
+          disabled={!props.isEntryOpen}
+          className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+        />
+      </label>
+    );
+  };
 
   return (
     <div className="space-y-3 rounded-md border border-zinc-200 bg-white p-3">
@@ -130,7 +233,10 @@ export function StockTakeSessionDetailClient(props: Props) {
 
       {mode === "existing" ? (
         <div className="space-y-3 border-t border-zinc-200 pt-3">
-          <form method="get" className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <form
+            method="get"
+            className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
+          >
             <label className="space-y-1">
               <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                 Existing material
@@ -168,63 +274,31 @@ export function StockTakeSessionDetailClient(props: Props) {
                 {props.selectedReferenceFields.map((field) => (
                   <div key={field.key} className="flex gap-2">
                     <dt className="text-zinc-500">{field.label}:</dt>
-                    <dd className="font-medium text-zinc-900">{formatValue(field.value)}</dd>
+                    <dd className="font-medium text-zinc-900">
+                      {formatValue(field.value)}
+                    </dd>
                   </div>
                 ))}
               </dl>
             </div>
           ) : (
-            <p className="text-zinc-600">Select a material to view its details and record a count.</p>
+            <p className="text-zinc-600">
+              Select a material to view its details and record a count.
+            </p>
           )}
 
           {props.canEnterCounts && props.selectedInventoryItemId ? (
             <form action={saveStockTakeEntryAction} className="space-y-2">
               <input type="hidden" name="sessionId" value={props.sessionId} />
-              <input type="hidden" name="inventoryItemId" value={props.selectedInventoryItemId} />
+              <input
+                type="hidden"
+                name="inventoryItemId"
+                value={props.selectedInventoryItemId}
+              />
               <div className="grid gap-2 md:grid-cols-2">
-                <label className="space-y-1">
-                  <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Quantity counted</span>
-                  <input
-                    name="countedQuantity"
-                    type="number"
-                    min="0"
-                    step="any"
-                    required
-                    disabled={!props.isEntryOpen}
-                    className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                  />
-                </label>
-                {props.existingFieldBehavior.showLocation ? (
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Storage location</span>
-                    <select
-                      name="stockLocationId"
-                      defaultValue={props.defaultStockLocationId ?? ""}
-                      required={props.existingFieldBehavior.locationRequired}
-                      disabled={!props.isEntryOpen}
-                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                    >
-                      <option value="">No location</option>
-                      {props.stockLocations.map((location) => (
-                        <option key={location.id} value={location.id}>
-                          {formatLocationLabel(location)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-                {props.existingFieldBehavior.showNotes ? (
-                  <label className="space-y-1 md:col-span-2">
-                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Notes</span>
-                    <textarea
-                      name="notes"
-                      rows={2}
-                      required={props.existingFieldBehavior.notesRequired}
-                      disabled={!props.isEntryOpen}
-                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                    />
-                  </label>
-                ) : null}
+                {props.selectedEditableFields.map((field) =>
+                  renderEntryField({ field, mode: "existing" }),
+                )}
               </div>
               <button
                 type="submit"
@@ -248,7 +322,9 @@ export function StockTakeSessionDetailClient(props: Props) {
 
               <div className="grid gap-2 md:grid-cols-2">
                 <label className="space-y-1">
-                  <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Material group</span>
+                  <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Material group
+                  </span>
                   <select
                     name="materialGroupId"
                     required
@@ -264,65 +340,25 @@ export function StockTakeSessionDetailClient(props: Props) {
                     ))}
                   </select>
                 </label>
-                <label className="space-y-1">
-                  <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Material label</span>
-                  <input name="name" disabled={!props.isEntryOpen} className="w-full rounded-md border border-zinc-300 px-2 py-1.5" />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Code</span>
-                  <input name="itemCode" disabled={!props.isEntryOpen} className="w-full rounded-md border border-zinc-300 px-2 py-1.5" />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Unit</span>
-                  <input name="unit" required disabled={!props.isEntryOpen} className="w-full rounded-md border border-zinc-300 px-2 py-1.5" />
-                </label>
                 <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Description</span>
-                  <input name="description" disabled={!props.isEntryOpen} className="w-full rounded-md border border-zinc-300 px-2 py-1.5" />
+                  <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+                    Description
+                  </span>
+                  <input
+                    name="description"
+                    disabled={!props.isEntryOpen}
+                    className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                  />
                 </label>
               </div>
 
-              {isTimberGroup ? (
-                <div className="grid gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-2 md:grid-cols-2">
-                  <p className="md:col-span-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">Timber details</p>
-                  <input name="timberThicknessMm" type="number" min="0.01" step="0.01" placeholder="Thickness (mm)" disabled={!props.isEntryOpen} className="rounded-md border border-zinc-300 px-2 py-1.5" />
-                  <input name="timberWidthMm" type="number" min="0.01" step="0.01" placeholder="Width (mm)" disabled={!props.isEntryOpen} className="rounded-md border border-zinc-300 px-2 py-1.5" />
-                  <input name="timberLengthMm" type="number" min="0.01" step="0.01" placeholder="Length (mm)" disabled={!props.isEntryOpen} className="rounded-md border border-zinc-300 px-2 py-1.5" />
-                  <input name="timberGrade" placeholder="Grade" disabled={!props.isEntryOpen} className="rounded-md border border-zinc-300 px-2 py-1.5" />
-                  <input name="timberTreatment" placeholder="Treatment" disabled={!props.isEntryOpen} className="rounded-md border border-zinc-300 px-2 py-1.5 md:col-span-2" />
-                </div>
-              ) : null}
-
               <div className="grid gap-2 md:grid-cols-2">
-                <label className="space-y-1">
-                  <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Quantity counted</span>
-                  <input name="countedQuantity" type="number" min="0" step="any" required disabled={!props.isEntryOpen} className="w-full rounded-md border border-zinc-300 px-2 py-1.5" />
-                </label>
-                {activeGroupBehavior.showLocation ? (
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Storage location</span>
-                    <select
-                      name="stockLocationId"
-                      defaultValue={props.defaultStockLocationId ?? ""}
-                      required={activeGroupBehavior.locationRequired}
-                      disabled={!props.isEntryOpen}
-                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                    >
-                      <option value="">No location</option>
-                      {props.stockLocations.map((location) => (
-                        <option key={location.id} value={location.id}>
-                          {formatLocationLabel(location)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                ) : null}
-                {activeGroupBehavior.showNotes ? (
-                  <label className="space-y-1 md:col-span-2">
-                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">Notes</span>
-                    <textarea name="notes" rows={2} required={activeGroupBehavior.notesRequired} disabled={!props.isEntryOpen} className="w-full rounded-md border border-zinc-300 px-2 py-1.5" />
-                  </label>
-                ) : null}
+                {activeGroupConfig.referenceFields.map((field) =>
+                  renderEntryField({ field, mode: "new" }),
+                )}
+                {activeGroupConfig.editableFields.map((field) =>
+                  renderEntryField({ field, mode: "new" }),
+                )}
               </div>
 
               <button
@@ -334,7 +370,9 @@ export function StockTakeSessionDetailClient(props: Props) {
               </button>
             </form>
           ) : (
-            <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">You can view this session, but cannot record counts.</p>
+            <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
+              You can view this session, but cannot record counts.
+            </p>
           )}
         </div>
       ) : null}
@@ -352,7 +390,7 @@ export function StockTakeSessionDetailClient(props: Props) {
                   <th className="px-2 py-2">Code</th>
                   <th className="px-2 py-2">Group</th>
                   <th className="px-2 py-2">Qty</th>
-                  <th className="px-2 py-2">Location</th>
+                  <th className="px-2 py-2">Storage location</th>
                   <th className="px-2 py-2">Notes</th>
                   <th className="px-2 py-2">Updated</th>
                 </tr>
@@ -360,16 +398,24 @@ export function StockTakeSessionDetailClient(props: Props) {
               <tbody>
                 {props.stockTakeEntries.map((entry) => (
                   <tr key={entry.id} className="border-t border-zinc-100 align-top">
-                    <td className="px-2 py-2 font-medium text-zinc-900">{entry.inventory_item?.name ?? "—"}</td>
+                    <td className="px-2 py-2 font-medium text-zinc-900">
+                      {entry.inventory_item?.name ?? "—"}
+                    </td>
                     <td className="px-2 py-2">{entry.inventory_item?.item_code ?? "—"}</td>
-                    <td className="px-2 py-2">{entry.inventory_item?.material_group?.label ?? "—"}</td>
+                    <td className="px-2 py-2">
+                      {entry.inventory_item?.material_group?.label ?? "—"}
+                    </td>
                     <td className="px-2 py-2">
                       {entry.counted_quantity}
                       {entry.inventory_item?.unit ? ` ${entry.inventory_item.unit}` : ""}
                     </td>
-                    <td className="px-2 py-2">{entry.stock_location ? formatLocationLabel(entry.stock_location) : "—"}</td>
+                    <td className="px-2 py-2">
+                      {entry.stock_location ? formatLocationLabel(entry.stock_location) : "—"}
+                    </td>
                     <td className="px-2 py-2">{entry.notes ?? "—"}</td>
-                    <td className="px-2 py-2 whitespace-nowrap">{formatEntryTimestamp(entry.updated_at, entry.entered_at)}</td>
+                    <td className="px-2 py-2 whitespace-nowrap">
+                      {formatEntryTimestamp(entry.updated_at, entry.entered_at)}
+                    </td>
                   </tr>
                 ))}
               </tbody>

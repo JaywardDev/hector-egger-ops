@@ -67,7 +67,7 @@ export const stockTakeFieldLibrary: Record<
 > = {
   item_name: {
     key: "item_name",
-    label: "Item label",
+    label: "Material label",
     kind: "reference",
     valueType: "text",
     source: "inventory",
@@ -76,7 +76,7 @@ export const stockTakeFieldLibrary: Record<
   },
   item_code: {
     key: "item_code",
-    label: "Item code",
+    label: "Code",
     kind: "reference",
     valueType: "text",
     source: "inventory",
@@ -148,7 +148,7 @@ export const stockTakeFieldLibrary: Record<
   },
   stock_location_id: {
     key: "stock_location_id",
-    label: "Location",
+    label: "Storage location",
     kind: "editable",
     valueType: "location_id",
     source: "entry",

@@ -17,6 +17,8 @@ import {
   listStockTakeGroupFieldSettings,
   resolveStockTakeFieldConfigForGroup,
   resolveStockTakeFieldConfigForItem,
+  stockTakeFieldLibrary,
+  type StockTakeFieldKey,
 } from "@/src/lib/stock-take/field-config";
 import {
   createInventoryItem,
@@ -61,6 +63,31 @@ const readTimberSpec = (formData: FormData): TimberSpecInput | null => {
   } satisfies TimberSpecInput;
 
   return timberSpec;
+};
+
+const readFieldValueForValidation = ({
+  fieldKey,
+  countedQuantity,
+  stockLocationId,
+  notes,
+}: {
+  fieldKey: StockTakeFieldKey;
+  countedQuantity: number;
+  stockLocationId: string | null;
+  notes: string | null;
+}) => {
+  switch (fieldKey) {
+    case "counted_quantity":
+      return Number.isFinite(countedQuantity) && countedQuantity >= 0
+        ? String(countedQuantity)
+        : "";
+    case "stock_location_id":
+      return stockLocationId ?? "";
+    case "notes":
+      return notes ?? "";
+    default:
+      return "";
+  }
 };
 
 const toStockTakeListMessage = (message: string, type: "success" | "error") =>
@@ -155,10 +182,10 @@ export async function saveStockTakeEntryAction(formData: FormData) {
     );
   }
 
-  if (createNewMaterial && !unit) {
+  if (createNewMaterial && !materialGroupId) {
     toStockTakeDetailMessage(
       sessionId,
-      "Quantity label is required when capturing a new material.",
+      "Material group is required when capturing a new material.",
       "error",
     );
   }
@@ -192,29 +219,31 @@ export async function saveStockTakeEntryAction(formData: FormData) {
           groupSettings,
         });
 
-    const locationRequired = Boolean(
-      config?.requiredEditableFieldKeys.includes("stock_location_id"),
-    );
-    const notesRequired = Boolean(
-      config?.requiredEditableFieldKeys.includes("notes"),
-    );
-
-    if (locationRequired && !stockLocationId) {
+    if (!config) {
       toStockTakeDetailMessage(
         sessionId,
-        "Counted location is required for this material group.",
+        "This material group has no stock-take field configuration.",
         "error",
         selectedInventoryItemId ?? undefined,
       );
     }
+    const resolvedConfig = config as NonNullable<typeof config>;
 
-    if (notesRequired && !notes) {
-      toStockTakeDetailMessage(
-        sessionId,
-        "Notes are required for this material group.",
-        "error",
-        selectedInventoryItemId ?? undefined,
-      );
+    for (const fieldKey of resolvedConfig.requiredEditableFieldKeys) {
+      const value = readFieldValueForValidation({
+        fieldKey,
+        countedQuantity,
+        stockLocationId,
+        notes,
+      });
+      if (!String(value).trim()) {
+        toStockTakeDetailMessage(
+          sessionId,
+          `${stockTakeFieldLibrary[fieldKey].label} is required for this material group.`,
+          "error",
+          selectedInventoryItemId ?? undefined,
+        );
+      }
     }
 
     const resolvedInventoryItemId = createNewMaterial
