@@ -550,7 +550,7 @@ export const getNextStockTakeTransitionAction = (
   stockTakeSession: Pick<StockTakeSessionRecord, "status">,
 ) => getNextStockTakeTransition(stockTakeSession.status);
 
-export const upsertStockTakeEntry = async ({
+export const createStockTakeEntry = async ({
   session,
   accessContext,
   sessionId,
@@ -573,70 +573,36 @@ export const upsertStockTakeEntry = async ({
   }
 
   const entryStockLocationId = input.stockLocationId ?? null;
-  const locationFilter = entryStockLocationId
-    ? `&stock_location_id=eq.${entryStockLocationId}`
-    : "&stock_location_id=is.null";
-
   const supabase = createServiceRoleSupabaseClient();
-  const existingEntryResponse = await supabase.request(
-    `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&inventory_item_id=eq.${input.inventoryItemId}${locationFilter}&select=${stockTakeEntrySelect}&limit=1`,
-    {
-      cache: "no-store",
-      headers: {
-        Prefer: "return=representation",
-      },
-    },
-  );
-
-  if (!existingEntryResponse.ok) {
-    throw new Error("Failed to load stock take entry");
-  }
-
-  const [existingEntry] =
-    (await existingEntryResponse.json()) as StockTakeEntryRecord[];
   const response = await supabase.request(
-    existingEntry
-      ? `/rest/v1/stock_take_entries?id=eq.${existingEntry.id}&select=${stockTakeEntrySelect}`
-      : `/rest/v1/stock_take_entries?select=${stockTakeEntrySelect}`,
+    `/rest/v1/stock_take_entries?select=${stockTakeEntrySelect}`,
     {
-      method: existingEntry ? "PATCH" : "POST",
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
         Prefer: "return=representation",
       },
       body: JSON.stringify(
-        existingEntry
-          ? {
-              counted_quantity: input.countedQuantity,
-              notes: input.notes,
-              entered_by: session.user.id,
-            }
-          : {
-              stock_take_session_id: sessionId,
-              inventory_item_id: input.inventoryItemId,
-              stock_location_id: entryStockLocationId,
-              counted_quantity: input.countedQuantity,
-              notes: input.notes,
-              entered_by: session.user.id,
-            },
+        {
+          stock_take_session_id: sessionId,
+          inventory_item_id: input.inventoryItemId,
+          stock_location_id: entryStockLocationId,
+          counted_quantity: input.countedQuantity,
+          notes: input.notes,
+          entered_by: session.user.id,
+        },
       ),
     },
   );
 
   if (!response.ok) {
-    throw new Error(
-      existingEntry
-        ? "Failed to update stock take entry"
-        : "Failed to create stock take entry",
-    );
+    throw new Error("Failed to create stock take entry");
   }
 
   const [savedEntry] = (await response.json()) as StockTakeEntryRecord[];
 
   await logStockAdminEvent({
-    eventType: existingEntry
-      ? "stock_take_entry_updated"
-      : "stock_take_entry_created",
+    eventType: "stock_take_entry_created",
     entityType: "stock_take_entry",
     entityId: savedEntry.id,
     actorAuthUserId: session.user.id,

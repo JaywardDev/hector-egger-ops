@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   createStockTakeSession,
+  createStockTakeEntry,
   getStockTakeTransitionActionMetadata,
   transitionStockTakeSession,
-  upsertStockTakeEntry,
   type StockTakeTransitionAction,
 } from "@/src/lib/stock-take/sessions";
 import {
@@ -279,7 +279,7 @@ export async function saveStockTakeEntryAction(formData: FormData) {
 
     const finalInventoryItemId = resolvedInventoryItemId;
 
-    await upsertStockTakeEntry({
+    await createStockTakeEntry({
       session,
       accessContext: {
         accountStatus: "approved",

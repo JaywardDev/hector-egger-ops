@@ -1,0 +1,5 @@
+drop index if exists public.stock_take_entries_session_inventory_item_null_location_unique_idx;
+drop index if exists public.stock_take_entries_session_inventory_item_location_unique_idx;
+
+create index if not exists stock_take_entries_session_inventory_item_location_idx
+  on public.stock_take_entries (stock_take_session_id, inventory_item_id, stock_location_id);
