@@ -1,9 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import {
-  saveStockTakeEntryAction,
-  transitionStockTakeSessionAction,
-} from "@/app/(protected)/stock-take/actions";
+import { transitionStockTakeSessionAction } from "@/app/(protected)/stock-take/actions";
+import { StockTakeSessionDetailClient } from "@/app/(protected)/stock-take/[sessionId]/stock-take-session-detail-client";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import {
   listMaterialGroups,
@@ -12,6 +10,7 @@ import {
 import { listStockLocations } from "@/src/lib/inventory/locations";
 import {
   listStockTakeGroupFieldSettings,
+  resolveStockTakeFieldConfigForGroup,
   resolveStockTakeFieldConfigForItem,
 } from "@/src/lib/stock-take/field-config";
 import {
@@ -44,8 +43,6 @@ const statusBadgeClassName = {
 
 const formatLocationLabel = (location: { name: string; code: string | null }) =>
   location.code ? `${location.name} (${location.code})` : location.name;
-
-const formatReferenceValue = (value: string | number | null) => value ?? "—";
 
 export default async function StockTakeSessionDetailPage({
   params,
@@ -105,28 +102,69 @@ export default async function StockTakeSessionDetailPage({
           materialGroups,
           groupSettings,
         });
-        const shouldShowLocationField = Boolean(
-          selectedFieldConfig?.editableFields.find(
-            ({ definition }) => definition.key === "stock_location_id",
+
+        const existingFieldBehavior = {
+          showLocation: Boolean(
+            selectedFieldConfig?.editableFields.find(
+              ({ definition }) => definition.key === "stock_location_id",
+            ),
           ),
-        );
-        const isLocationRequired = Boolean(
-          selectedFieldConfig?.editableFields.find(
-            ({ definition }) =>
-              definition.key === "stock_location_id" && definition.required,
+          locationRequired: Boolean(
+            selectedFieldConfig?.editableFields.find(
+              ({ definition }) =>
+                definition.key === "stock_location_id" && definition.required,
+            ),
           ),
-        );
-        const shouldShowNotesField = Boolean(
-          selectedFieldConfig?.editableFields.find(
-            ({ definition }) => definition.key === "notes",
+          showNotes: Boolean(
+            selectedFieldConfig?.editableFields.find(
+              ({ definition }) => definition.key === "notes",
+            ),
           ),
-        );
-        const isNotesRequired = Boolean(
-          selectedFieldConfig?.editableFields.find(
-            ({ definition }) => definition.key === "notes" && definition.required,
+          notesRequired: Boolean(
+            selectedFieldConfig?.editableFields.find(
+              ({ definition }) => definition.key === "notes" && definition.required,
+            ),
           ),
+        };
+
+        const groupFieldBehaviors = Object.fromEntries(
+          materialGroups.map((group) => {
+            const config = resolveStockTakeFieldConfigForGroup({
+              group,
+              groupSettings,
+            });
+            return [
+              group.id,
+              {
+                showLocation: Boolean(
+                  config?.editableFieldKeys.includes("stock_location_id"),
+                ),
+                locationRequired: Boolean(
+                  config?.requiredEditableFieldKeys.includes("stock_location_id"),
+                ),
+                showNotes: Boolean(config?.editableFieldKeys.includes("notes")),
+                notesRequired: Boolean(
+                  config?.requiredEditableFieldKeys.includes("notes"),
+                ),
+              },
+            ];
+          }),
         );
-        const defaultMaterialGroupId = materialGroups[0]?.id ?? "";
+
+        const selectedReferenceFields =
+          selectedFieldConfig?.referenceFields
+            .filter(({ value }) => {
+              if (value === null) {
+                return false;
+              }
+              const normalized = String(value).trim();
+              return normalized.length > 0;
+            })
+            .map(({ definition, value }) => ({
+              key: definition.key,
+              label: definition.label,
+              value,
+            })) ?? [];
 
         return (
           <section className="space-y-4 text-sm text-zinc-700">
@@ -203,382 +241,20 @@ export default async function StockTakeSessionDetailPage({
               </p>
             ) : null}
 
-            <div className="space-y-3 rounded-md border border-zinc-200 bg-white p-3">
-              <div>
-                <h3 className="font-medium text-zinc-900">Record count</h3>
-                <p className="text-zinc-600">Select inventory item</p>
-              </div>
-              <form
-                method="get"
-                className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
-              >
-                <label className="space-y-1">
-                  <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                    Material
-                  </span>
-                  <select
-                    name="inventoryItemId"
-                    required
-                    defaultValue={selectedInventoryItem?.id ?? ""}
-                    className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                  >
-                    <option value="" disabled>
-                      Select inventory item
-                    </option>
-                    {inventoryItems.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name} {item.item_code ? `(${item.item_code})` : ""} —{" "}
-                        {item.unit} (quantity label)
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <button
-                  type="submit"
-                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
-                >
-                  Show material details
-                </button>
-              </form>
-            </div>
-
-            {canEnterCounts ? (
-              <div className="space-y-3 rounded-md border border-zinc-200 bg-white p-3">
-                <div>
-                  <h3 className="font-medium text-zinc-900">
-                    Capture new material in this session
-                  </h3>
-                  <p className="text-zinc-600">
-                    Add a material record and save its first count in one step.
-                  </p>
-                </div>
-                <form action={saveStockTakeEntryAction} className="space-y-3">
-                  <input type="hidden" name="sessionId" value={stockTakeSession.id} />
-                  <input type="hidden" name="entryMode" value="create-material" />
-                  <input type="hidden" name="timberLabelMode" value="auto" />
-
-                  <div className="grid gap-2 md:grid-cols-2">
-                    <label className="space-y-1">
-                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                        Material group
-                      </span>
-                      <select
-                        name="materialGroupId"
-                        required
-                        defaultValue={defaultMaterialGroupId}
-                        disabled={!isEntryOpen}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                      >
-                        {materialGroups.map((group) => (
-                          <option key={group.id} value={group.id}>
-                            {group.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="space-y-1">
-                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                        Item code
-                      </span>
-                      <input
-                        name="itemCode"
-                        placeholder="Item code (optional)"
-                        disabled={!isEntryOpen}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                      />
-                    </label>
-                    <label className="space-y-1">
-                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                        Item label
-                      </span>
-                      <input
-                        name="name"
-                        placeholder="Item label"
-                        disabled={!isEntryOpen}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                      />
-                    </label>
-                    <label className="space-y-1">
-                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                        Quantity label
-                      </span>
-                      <input
-                        name="unit"
-                        placeholder="pcs, m, kg..."
-                        required
-                        disabled={!isEntryOpen}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                      />
-                    </label>
-                    <label className="space-y-1 md:col-span-2">
-                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                        Description
-                      </span>
-                      <input
-                        name="description"
-                        placeholder="Description (optional)"
-                        disabled={!isEntryOpen}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                      />
-                    </label>
-                  </div>
-
-                  <div className="grid gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3 md:grid-cols-2">
-                    <p className="md:col-span-2 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Timber spec (optional)
-                    </p>
-                    <input
-                      name="timberThicknessMm"
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      placeholder="Thickness (mm)"
-                      disabled={!isEntryOpen}
-                      className="rounded-md border border-zinc-300 px-2 py-1.5"
-                    />
-                    <input
-                      name="timberWidthMm"
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      placeholder="Width (mm)"
-                      disabled={!isEntryOpen}
-                      className="rounded-md border border-zinc-300 px-2 py-1.5"
-                    />
-                    <input
-                      name="timberLengthMm"
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      placeholder="Length (mm)"
-                      disabled={!isEntryOpen}
-                      className="rounded-md border border-zinc-300 px-2 py-1.5"
-                    />
-                    <input
-                      name="timberGrade"
-                      placeholder="Grade"
-                      disabled={!isEntryOpen}
-                      className="rounded-md border border-zinc-300 px-2 py-1.5"
-                    />
-                    <input
-                      name="timberTreatment"
-                      placeholder="Treatment"
-                      disabled={!isEntryOpen}
-                      className="rounded-md border border-zinc-300 px-2 py-1.5 md:col-span-2"
-                    />
-                  </div>
-
-                  <div className="grid gap-2 md:grid-cols-2">
-                    <label className="space-y-1">
-                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                        Counted quantity
-                      </span>
-                      <input
-                        name="countedQuantity"
-                        type="number"
-                        min="0"
-                        step="any"
-                        placeholder="Counted quantity"
-                        required
-                        disabled={!isEntryOpen}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                      />
-                    </label>
-                    <label className="space-y-1">
-                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                        Counted location
-                      </span>
-                      <select
-                        name="stockLocationId"
-                        defaultValue={stockTakeSession.stock_location_id ?? ""}
-                        disabled={!isEntryOpen}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                      >
-                        <option value="">No location</option>
-                        {stockLocations.map((location) => (
-                          <option key={location.id} value={location.id}>
-                            {formatLocationLabel(location)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="space-y-1 md:col-span-2">
-                      <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                        Notes
-                      </span>
-                      <textarea
-                        name="notes"
-                        placeholder="Entry notes (optional)"
-                        rows={3}
-                        disabled={!isEntryOpen}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                      />
-                    </label>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={!isEntryOpen}
-                    className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    Save new material + count
-                  </button>
-                </form>
-              </div>
-            ) : null}
-
-            {selectedInventoryItem ? (
-              selectedFieldConfig ? (
-                <>
-                  <div className="space-y-3 rounded-md border border-zinc-200 bg-white p-3">
-                    <h3 className="font-medium text-zinc-900">Material details</h3>
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                      {selectedFieldConfig.referenceFields.map(({ definition, value }) => (
-                        <div
-                          key={definition.key}
-                          className="rounded-md border border-zinc-200 bg-zinc-50 p-3"
-                        >
-                          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                            {definition.label}
-                          </p>
-                          <p className="mt-1 text-sm text-zinc-900">
-                            {formatReferenceValue(value)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {canEnterCounts ? (
-                    <form
-                      action={saveStockTakeEntryAction}
-                      className="space-y-3 rounded-md border border-zinc-200 bg-white p-3"
-                    >
-                      <input type="hidden" name="sessionId" value={stockTakeSession.id} />
-                      <input
-                        type="hidden"
-                        name="inventoryItemId"
-                        value={selectedInventoryItem.id}
-                      />
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-medium text-zinc-900">Count details</h3>
-                        <span className="rounded-md bg-zinc-100 px-2 py-1 text-xs text-zinc-700">
-                          {isEntryOpen ? "Open for counting" : "Read-only status"}
-                        </span>
-                      </div>
-                      <div className="grid gap-2 md:grid-cols-2">
-                        <label className="space-y-1">
-                          <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                            Counted quantity
-                          </span>
-                          <input
-                            name="countedQuantity"
-                            type="number"
-                            min="0"
-                            step="any"
-                            placeholder="Counted quantity"
-                            required
-                            disabled={!isEntryOpen}
-                            className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                          />
-                        </label>
-                        {shouldShowLocationField ? (
-                          <label className="space-y-1">
-                            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                              Counted location
-                            </span>
-                            <select
-                              name="stockLocationId"
-                              defaultValue={stockTakeSession.stock_location_id ?? ""}
-                              required={isLocationRequired}
-                              disabled={!isEntryOpen}
-                              className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                            >
-                              <option value="">No location</option>
-                              {stockLocations.map((location) => (
-                                <option key={location.id} value={location.id}>
-                                  {formatLocationLabel(location)}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                        ) : null}
-                        {shouldShowNotesField ? (
-                          <label className="space-y-1 md:col-span-2">
-                            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                              Notes
-                            </span>
-                            <textarea
-                              name="notes"
-                              placeholder="Entry notes (optional)"
-                              rows={3}
-                              required={isNotesRequired}
-                              disabled={!isEntryOpen}
-                              className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                            />
-                          </label>
-                        ) : null}
-                      </div>
-                      <button
-                        type="submit"
-                        disabled={!isEntryOpen}
-                        className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Save count
-                      </button>
-                    </form>
-                  ) : (
-                    <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
-                      You can view this stock take setup, but cannot record counts.
-                    </p>
-                  )}
-                </>
-              ) : (
-                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-800">
-                  No stock-take field configuration is defined yet for the{" "}
-                  {selectedInventoryItem.material_group?.label ?? "selected"} group.
-                </p>
-              )
-            ) : (
-              <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-zinc-600">
-                Select a material to view its details before recording a count.
-              </p>
-            )}
-
-            <div className="space-y-2 rounded-md border border-zinc-200 bg-white p-3">
-              <h3 className="font-medium text-zinc-900">Current counts</h3>
-              {stockTakeEntries.length === 0 ? (
-                <p>No counts recorded yet.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {stockTakeEntries.map((entry) => (
-                    <li
-                      key={entry.id}
-                      className="rounded-md border border-zinc-200 p-3"
-                    >
-                      <p className="font-medium text-zinc-900">
-                        {entry.inventory_item?.name ?? "Unknown item"}
-                      </p>
-                      <p>Item code: {entry.inventory_item?.item_code ?? "—"}</p>
-                      <p>
-                        Counted quantity: {entry.counted_quantity}
-                        {entry.inventory_item?.unit
-                          ? ` (${entry.inventory_item.unit} quantity label)`
-                          : ""}
-                      </p>
-                      <p>
-                        Location:{" "}
-                        {entry.stock_location
-                          ? formatLocationLabel(entry.stock_location)
-                          : "No location"}
-                      </p>
-                      <p>Notes: {entry.notes ?? "—"}</p>
-                      <p>Timestamp: {entry.updated_at ?? entry.entered_at}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <StockTakeSessionDetailClient
+              sessionId={stockTakeSession.id}
+              canEnterCounts={canEnterCounts}
+              isEntryOpen={isEntryOpen}
+              selectedInventoryItemId={selectedInventoryItem?.id ?? null}
+              selectedReferenceFields={selectedReferenceFields}
+              inventoryItems={inventoryItems}
+              materialGroups={materialGroups}
+              stockLocations={stockLocations}
+              defaultStockLocationId={stockTakeSession.stock_location_id}
+              existingFieldBehavior={existingFieldBehavior}
+              groupFieldBehaviors={groupFieldBehaviors}
+              stockTakeEntries={stockTakeEntries}
+            />
           </section>
         );
       } catch {
