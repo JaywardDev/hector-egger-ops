@@ -166,6 +166,24 @@ export default async function StockTakeSessionDetailPage({
               value,
             })) ?? [];
 
+        const stockTakeEntryRows = stockTakeEntries.map((entry) => {
+          const inventoryItem = entry.inventory_item;
+          const inventoryItemWithGroup =
+            inventoryItem === null
+              ? null
+              : {
+                  ...inventoryItem,
+                  material_group:
+                    inventoryItems.find((item) => item.id === inventoryItem.id)
+                      ?.material_group ?? null,
+                };
+
+          return {
+            ...entry,
+            inventory_item: inventoryItemWithGroup,
+          };
+        });
+
         return (
           <section className="space-y-4 text-sm text-zinc-700">
             <div className="rounded-md border border-zinc-200 bg-white p-3">
@@ -253,7 +271,7 @@ export default async function StockTakeSessionDetailPage({
               defaultStockLocationId={stockTakeSession.stock_location_id}
               existingFieldBehavior={existingFieldBehavior}
               groupFieldBehaviors={groupFieldBehaviors}
-              stockTakeEntries={stockTakeEntries}
+              stockTakeEntries={stockTakeEntryRows}
             />
           </section>
         );
