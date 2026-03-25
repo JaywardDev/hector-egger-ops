@@ -118,7 +118,7 @@ export async function createStockTakeSessionAction(formData: FormData) {
 
   const { session, roles } = await requireOperationalWriteAccess();
 
-  let createdSessionId: string;
+  let createdSessionId: string | null = null;
 
   try {
     const createdSession = await createStockTakeSession({
@@ -142,6 +142,12 @@ export async function createStockTakeSessionAction(formData: FormData) {
   }
 
   revalidatePath("/stock-take");
+  if (!createdSessionId) {
+    toStockTakeListMessage(
+      toUserSafeErrorMessage("Unable to create stock take session."),
+      "error",
+    );
+  }
   redirect(
     `/stock-take/${createdSessionId}?success=${encodeURIComponent("Stock take session created.")}`,
   );
