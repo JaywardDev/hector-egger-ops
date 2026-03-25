@@ -110,11 +110,15 @@ const toStockTakeDetailMessage = (
   redirect(`/stock-take/${sessionId}?${params.toString()}`);
 };
 
+const toUserSafeErrorMessage = (fallback: string) => fallback;
+
 export async function createStockTakeSessionAction(formData: FormData) {
   const stockLocationId = normalizeOptional(formData.get("stockLocationId"));
   const notes = normalizeOptional(formData.get("notes"));
 
   const { session, roles } = await requireOperationalWriteAccess();
+
+  let createdSessionId: string;
 
   try {
     const createdSession = await createStockTakeSession({
@@ -129,17 +133,18 @@ export async function createStockTakeSessionAction(formData: FormData) {
       },
     });
 
-    revalidatePath("/stock-take");
-    redirect(
-      `/stock-take/${createdSession.id}?success=${encodeURIComponent("Stock take session created.")}`,
+    createdSessionId = createdSession.id;
+  } catch {
+    toStockTakeListMessage(
+      toUserSafeErrorMessage("Could not create stock take session."),
+      "error",
     );
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Could not create stock take session.";
-    toStockTakeListMessage(message, "error");
   }
+
+  revalidatePath("/stock-take");
+  redirect(
+    `/stock-take/${createdSessionId}?success=${encodeURIComponent("Stock take session created.")}`,
+  );
 }
 
 export async function saveStockTakeEntryAction(formData: FormData) {
@@ -192,6 +197,8 @@ export async function saveStockTakeEntryAction(formData: FormData) {
 
   const { session, roles } = await requireProtectedAccess();
   const route = `/stock-take/${sessionId}`;
+
+  let finalInventoryItemId: string | null = null;
 
   try {
     const [inventoryItems, materialGroups, groupSettings] = await Promise.all([
@@ -277,7 +284,7 @@ export async function saveStockTakeEntryAction(formData: FormData) {
       throw new Error("Unreachable: stock take entry requires a material id.");
     }
 
-    const finalInventoryItemId = resolvedInventoryItemId;
+    finalInventoryItemId = resolvedInventoryItemId;
 
     await createStockTakeEntry({
       session,
@@ -296,24 +303,23 @@ export async function saveStockTakeEntryAction(formData: FormData) {
 
     revalidatePath("/stock-take");
     revalidatePath(`/stock-take/${sessionId}`);
+  } catch {
     toStockTakeDetailMessage(
       sessionId,
-      "Count saved.",
-      "success",
-      finalInventoryItemId,
-    );
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Could not save counted quantity.";
-    toStockTakeDetailMessage(
-      sessionId,
-      message,
+      toUserSafeErrorMessage("Could not save counted quantity."),
       "error",
       selectedInventoryItemId ?? undefined,
     );
   }
+
+  revalidatePath("/stock-take");
+  revalidatePath(`/stock-take/${sessionId}`);
+  toStockTakeDetailMessage(
+    sessionId,
+    "Count saved.",
+    "success",
+    finalInventoryItemId ?? undefined,
+  );
 }
 
 export async function transitionStockTakeSessionAction(formData: FormData) {
@@ -328,8 +334,10 @@ export async function transitionStockTakeSessionAction(formData: FormData) {
 
   const { session, roles } = await requireOperationalWriteAccess();
 
+  let successMessage: string;
+
   try {
-    const updatedSession = await transitionStockTakeSession({
+    await transitionStockTakeSession({
       session,
       accessContext: {
         accountStatus: "approved",
@@ -340,15 +348,16 @@ export async function transitionStockTakeSessionAction(formData: FormData) {
     });
 
     const metadata = getStockTakeTransitionActionMetadata(action);
-
-    revalidatePath("/stock-take");
-    revalidatePath(`/stock-take/${sessionId}`);
-    toStockTakeDetailMessage(updatedSession.id, metadata.successMessage, "success");
-  } catch (error) {
-    const message =
-      error instanceof Error
-        ? error.message
-        : "Could not update stock take session status.";
-    toStockTakeDetailMessage(sessionId, message, "error");
+    successMessage = metadata.successMessage;
+  } catch {
+    toStockTakeDetailMessage(
+      sessionId,
+      toUserSafeErrorMessage("Could not update stock take session status."),
+      "error",
+    );
   }
+
+  revalidatePath("/stock-take");
+  revalidatePath(`/stock-take/${sessionId}`);
+  toStockTakeDetailMessage(sessionId, successMessage, "success");
 }
