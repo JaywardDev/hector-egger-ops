@@ -340,7 +340,7 @@ export async function transitionStockTakeSessionAction(formData: FormData) {
 
   const { session, roles } = await requireOperationalWriteAccess();
 
-  let successMessage: string;
+  let successMessage: string | null = null;
 
   try {
     await transitionStockTakeSession({
@@ -361,6 +361,15 @@ export async function transitionStockTakeSessionAction(formData: FormData) {
       toUserSafeErrorMessage("Could not update stock take session status."),
       "error",
     );
+  }
+
+  if (!successMessage) {
+    toStockTakeDetailMessage(
+      sessionId,
+      "Unable to complete the stock take action.",
+      "error",
+    );
+    return;
   }
 
   revalidatePath("/stock-take");
