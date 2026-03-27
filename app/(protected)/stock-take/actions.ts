@@ -374,5 +374,8 @@ export async function transitionStockTakeSessionAction(formData: FormData) {
 
   revalidatePath("/stock-take");
   revalidatePath(`/stock-take/${sessionId}`);
+  if (action === "close") {
+    revalidatePath("/inventory");
+  }
   toStockTakeDetailMessage(sessionId, successMessage, "success");
 }

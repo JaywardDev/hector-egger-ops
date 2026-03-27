@@ -144,7 +144,7 @@ const stockTakeTransitionDefinitions: Record<
     to: "closed",
     timestampField: "closed_at",
     buttonLabel: "Close session",
-    successMessage: "Session closed.",
+    successMessage: "Session closed and inventory balances updated.",
   },
 };
 
@@ -324,6 +324,38 @@ const logStockAdminEvent = async ({
   }
 };
 
+
+const closeReviewedStockTakeSession = async ({
+  sessionId,
+  actorAuthUserId,
+  closedAt,
+}: {
+  sessionId: string;
+  actorAuthUserId: string;
+  closedAt: string;
+}): Promise<StockTakeSessionRecord> => {
+  const supabase = createServiceRoleSupabaseClient();
+  const response = await supabase.request("/rest/v1/rpc/close_reviewed_stock_take_session", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+    },
+    body: JSON.stringify({
+      p_session_id: sessionId,
+      p_actor_auth_user_id: actorAuthUserId,
+      p_closed_at: closedAt,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to close stock take session and reset balances");
+  }
+
+  const closedSession = (await response.json()) as StockTakeSessionRecord;
+  return closedSession;
+};
+
 const getNextStockTakeTransition = (
   status: StockTakeSessionStatus,
 ): StockTakeTransitionDefinition | null => {
@@ -498,27 +530,38 @@ export const transitionStockTakeSession = async ({
       }
 
       const transitionedAt = new Date().toISOString();
-      const supabase = createServiceRoleSupabaseClient();
-      const response = await supabase.request(
-        `/rest/v1/stock_take_sessions?id=eq.${sessionId}&select=${stockTakeSessionSelect}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Prefer: "return=representation",
-          },
-          body: JSON.stringify({
-            status: transition.to,
-            [transition.timestampField]: transitionedAt,
-          }),
-        },
-      );
+      const updatedSession =
+        action === "close"
+          ? await closeReviewedStockTakeSession({
+              sessionId,
+              actorAuthUserId: session.user.id,
+              closedAt: transitionedAt,
+            })
+          : await (async () => {
+              const supabase = createServiceRoleSupabaseClient();
+              const response = await supabase.request(
+                `/rest/v1/stock_take_sessions?id=eq.${sessionId}&select=${stockTakeSessionSelect}`,
+                {
+                  method: "PATCH",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Prefer: "return=representation",
+                  },
+                  body: JSON.stringify({
+                    status: transition.to,
+                    [transition.timestampField]: transitionedAt,
+                  }),
+                },
+              );
 
-      if (!response.ok) {
-        throw new Error("Failed to update stock take session status");
-      }
+              if (!response.ok) {
+                throw new Error("Failed to update stock take session status");
+              }
 
-      const [updatedSession] = (await response.json()) as StockTakeSessionRecord[];
+              const [sessionRecord] =
+                (await response.json()) as StockTakeSessionRecord[];
+              return sessionRecord;
+            })();
 
       await logStockAdminEvent({
         eventType: "stock_take_session_updated",

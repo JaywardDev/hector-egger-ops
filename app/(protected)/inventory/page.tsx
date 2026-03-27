@@ -101,7 +101,8 @@ export default async function InventoryPage({
             </h2>
             <p className="text-zinc-600">
               Configure material groups, manage the materials inside them, and
-              define how each group appears in stock take.
+              define how each group appears in stock take. Current Qty defaults
+              to total stock across all locations per material.
             </p>
           </div>
 
@@ -222,6 +223,7 @@ export default async function InventoryPage({
                                 name: item.name,
                                 itemCode: item.item_code,
                                 unit: item.unit,
+                                currentQty: item.current_quantity ?? 0,
                                 description: item.description,
                                 timberSpec: item.timber_spec
                                   ? {

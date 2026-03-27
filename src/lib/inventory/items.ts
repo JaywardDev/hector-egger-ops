@@ -49,6 +49,7 @@ export type InventoryItemRecord = {
   material_group_id: string | null;
   material_group: Pick<MaterialGroupRecord, "id" | "key" | "label"> | null;
   timber_spec: TimberSpecRecord | null;
+  current_quantity?: number;
   created_at: string;
   updated_at: string;
 };
@@ -426,6 +427,38 @@ const syncTimberSpec = async ({
   });
 };
 
+
+type InventoryStockBalanceRecord = {
+  inventory_item_id: string;
+  quantity: number;
+};
+
+const listInventoryStockBalanceTotals = async ({
+  session,
+}: {
+  session: AuthSession;
+}): Promise<Map<string, number>> => {
+  const supabase = createServerSupabaseClient();
+  const response = await supabase.request(
+    "/rest/v1/inventory_stock_balances?select=inventory_item_id,quantity",
+    {
+      cache: "no-store",
+      headers: createSessionHeaders(session),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to load inventory stock balances");
+  }
+
+  const rows = (await response.json()) as InventoryStockBalanceRecord[];
+  return rows.reduce((acc, row) => {
+    const current = acc.get(row.inventory_item_id) ?? 0;
+    acc.set(row.inventory_item_id, current + Number(row.quantity));
+    return acc;
+  }, new Map<string, number>());
+};
+
 export type InventoryItemOptionRecord = Pick<
   InventoryItemRecord,
   "id" | "item_code" | "name" | "unit"
@@ -444,20 +477,30 @@ export const listInventoryItems = async ({
     name: "listInventoryItems",
     route,
     operation: async () => {
-      const supabase = createServerSupabaseClient();
-      const response = await supabase.request(
-        `/rest/v1/inventory_items?select=${inventoryItemSelect}&order=name.asc`,
-        {
-          cache: "no-store",
-          headers: createSessionHeaders(session),
-        },
-      );
+      const [itemsResponse, stockBalanceTotals] = await Promise.all([
+        (async () => {
+          const supabase = createServerSupabaseClient();
+          const response = await supabase.request(
+            `/rest/v1/inventory_items?select=${inventoryItemSelect}&order=name.asc`,
+            {
+              cache: "no-store",
+              headers: createSessionHeaders(session),
+            },
+          );
 
-      if (!response.ok) {
-        throw new Error("Failed to load inventory items");
-      }
+          if (!response.ok) {
+            throw new Error("Failed to load inventory items");
+          }
 
-      return (await response.json()) as InventoryItemRecord[];
+          return (await response.json()) as InventoryItemRecord[];
+        })(),
+        listInventoryStockBalanceTotals({ session }),
+      ]);
+
+      return itemsResponse.map((item) => ({
+        ...item,
+        current_quantity: stockBalanceTotals.get(item.id) ?? 0,
+      }));
     },
   });
 

@@ -7,6 +7,7 @@ type MaterialRow = {
   name: string;
   itemCode: string | null;
   unit: string;
+  currentQty: number;
   description: string | null;
   timberSpec: {
     thicknessMm: number | null;
@@ -26,6 +27,7 @@ type ColumnKey =
   | "name"
   | "code"
   | "quantityLabel"
+  | "currentQty"
   | "thickness"
   | "width"
   | "length"
@@ -39,7 +41,7 @@ type ColumnDefinition = {
   render: (material: MaterialRow) => string;
 };
 
-const defaultColumnKeys: ColumnKey[] = ["name", "code", "quantityLabel"];
+const defaultColumnKeys: ColumnKey[] = ["name", "code", "quantityLabel", "currentQty"];
 
 const allColumnDefinitions: Record<ColumnKey, ColumnDefinition> = {
   name: {
@@ -56,6 +58,11 @@ const allColumnDefinitions: Record<ColumnKey, ColumnDefinition> = {
     key: "quantityLabel",
     label: "Quantity label",
     render: (material) => material.unit,
+  },
+  currentQty: {
+    key: "currentQty",
+    label: "Current Qty",
+    render: (material) => material.currentQty.toLocaleString(),
   },
   thickness: {
     key: "thickness",
