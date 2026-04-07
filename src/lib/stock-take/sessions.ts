@@ -118,6 +118,8 @@ const stockTakeSessionSelect =
 const stockTakeEntrySelect =
   "id,stock_take_session_id,inventory_item_id,stock_location_id,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit),counted_quantity,notes,entered_by,entered_at,updated_at";
 
+const stockTakeEntryOrder = "entered_at.desc,id.desc";
+
 const stockTakeTransitionDefinitions: Record<
   StockTakeTransitionAction,
   StockTakeTransitionDefinition
@@ -527,7 +529,7 @@ export const listStockTakeEntries = async ({
 
       const supabase = createServerSupabaseClient();
       const response = await supabase.request(
-        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelect}&order=updated_at.desc`,
+        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelect}&order=${stockTakeEntryOrder}`,
         {
           cache: "no-store",
           headers: createSessionHeaders(session),
@@ -829,7 +831,7 @@ export const saveStockTakeEntriesBatch = async ({
       }
 
       const savedResponse = await supabase.request(
-        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelect}&order=updated_at.desc`,
+        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelect}&order=${stockTakeEntryOrder}`,
         {
           cache: "no-store",
           headers: { Prefer: "return=representation" },
