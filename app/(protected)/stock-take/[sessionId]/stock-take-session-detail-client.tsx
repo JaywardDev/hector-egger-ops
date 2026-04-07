@@ -67,6 +67,13 @@ type DraftRow = {
   updatedAt: string | null;
 };
 
+type RowEditBuffer = {
+  inventoryItemId: string | null;
+  countedQuantity: string;
+  stockLocationId: string;
+  notes: string;
+};
+
 type Props = {
   sessionId: string;
   canEnterCounts: boolean;
@@ -135,6 +142,8 @@ export function StockTakeSessionDetailClient(props: Props) {
   const [newMaterialTreatment, setNewMaterialTreatment] = useState("");
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [editingRowClientId, setEditingRowClientId] = useState<string | null>(null);
+  const [rowEditBuffer, setRowEditBuffer] = useState<RowEditBuffer | null>(null);
 
   const baselineSnapshot = useMemo(() => JSON.stringify(toComparableRows(baselineRows)), [baselineRows]);
   const draftSnapshot = useMemo(() => JSON.stringify(toComparableRows(draftRows)), [draftRows]);
@@ -287,6 +296,8 @@ export function StockTakeSessionDetailClient(props: Props) {
 
   const resetChanges = () => {
     setDraftRows(baselineRows);
+    setEditingRowClientId(null);
+    setRowEditBuffer(null);
     setFeedback({ type: "success", message: "Unsaved changes discarded." });
   };
 
@@ -298,6 +309,55 @@ export function StockTakeSessionDetailClient(props: Props) {
 
   const removeRow = (clientId: string) => {
     setDraftRows((current) => current.filter((row) => row.clientId !== clientId));
+    if (editingRowClientId === clientId) {
+      setEditingRowClientId(null);
+      setRowEditBuffer(null);
+    }
+  };
+
+  const startRowEdit = (row: DraftRow) => {
+    setEditingRowClientId(row.clientId);
+    setRowEditBuffer({
+      inventoryItemId: row.inventoryItemId,
+      countedQuantity: String(row.countedQuantity),
+      stockLocationId: row.stockLocationId ?? "",
+      notes: row.notes ?? "",
+    });
+  };
+
+  const cancelRowEdit = () => {
+    setEditingRowClientId(null);
+    setRowEditBuffer(null);
+  };
+
+  const applyRowEditToDraft = () => {
+    if (!editingRowClientId || !rowEditBuffer) return;
+    const qty = Number(rowEditBuffer.countedQuantity);
+    if (!Number.isFinite(qty) || qty < 0) {
+      setFeedback({ type: "error", message: "Provide a valid quantity before confirming row edits." });
+      return;
+    }
+
+    const rowBeingEdited = draftRows.find((row) => row.clientId === editingRowClientId);
+    if (!rowBeingEdited) {
+      cancelRowEdit();
+      return;
+    }
+
+    if (!rowBeingEdited.newMaterial && !rowEditBuffer.inventoryItemId) {
+      setFeedback({ type: "error", message: "Select a material before confirming row edits." });
+      return;
+    }
+
+    updateRow(editingRowClientId, {
+      inventoryItemId: rowBeingEdited.newMaterial ? rowBeingEdited.inventoryItemId : rowEditBuffer.inventoryItemId,
+      countedQuantity: qty,
+      stockLocationId: rowEditBuffer.stockLocationId || null,
+      notes: rowEditBuffer.notes.trim() ? rowEditBuffer.notes.trim() : null,
+    });
+    setEditingRowClientId(null);
+    setRowEditBuffer(null);
+    setFeedback(null);
   };
 
   return (
@@ -419,7 +479,7 @@ export function StockTakeSessionDetailClient(props: Props) {
         <table className="min-w-full text-left text-sm">
           <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
             <tr>
-              <th className="px-2 py-2">Material</th>
+              <th className="px-2 py-2">Material Label</th>
               <th className="px-2 py-2">Qty</th>
               <th className="px-2 py-2">Location</th>
               <th className="px-2 py-2">Notes</th>
@@ -434,69 +494,132 @@ export function StockTakeSessionDetailClient(props: Props) {
             ) : (
               draftRows.map((row) => {
                 const item = row.inventoryItemId ? inventoryItemById.get(row.inventoryItemId) : null;
+                const isEditingRow = editingRowClientId === row.clientId;
+                const activeRowBuffer = isEditingRow ? rowEditBuffer : null;
                 const materialLabel = row.newMaterial
                   ? `New material (${props.materialGroups.find((group) => group.id === row.newMaterial?.materialGroupId)?.label ?? "Unknown"})`
                   : (item?.name ?? "—");
+                const locationLabel = row.stockLocationId
+                  ? formatLocationLabel(props.stockLocations.find((location) => location.id === row.stockLocationId) ?? { name: "Unknown location", code: null })
+                  : "—";
 
                 return (
                   <tr key={row.clientId} className="border-t border-zinc-100 align-top">
                     <td className="px-2 py-2">
-                      {row.newMaterial ? (
-                        <span>{materialLabel}</span>
+                      {isEditingRow && activeRowBuffer ? (
+                        row.newMaterial ? (
+                          <span className="text-sm text-zinc-800">{materialLabel}</span>
+                        ) : (
+                          <select
+                            value={activeRowBuffer.inventoryItemId ?? ""}
+                            onChange={(event) =>
+                              setRowEditBuffer((current) => (current ? { ...current, inventoryItemId: event.target.value || null } : current))
+                            }
+                            className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                          >
+                            <option value="">Select material</option>
+                            {inventoryItems.map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.name} {option.item_code ? `(${option.item_code})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        )
                       ) : (
-                        <select
-                          value={row.inventoryItemId ?? ""}
-                          onChange={(event) => updateRow(row.clientId, { inventoryItemId: event.target.value || null })}
-                          className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                        >
-                          <option value="">Select material</option>
-                          {inventoryItems.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.name} {option.item_code ? `(${option.item_code})` : ""}
-                            </option>
-                          ))}
-                        </select>
+                        <span>{materialLabel}</span>
                       )}
                     </td>
                     <td className="px-2 py-2">
-                      <input
-                        type="number"
-                        min="0"
-                        step="any"
-                        value={String(row.countedQuantity)}
-                        onChange={(event) => updateRow(row.clientId, { countedQuantity: Number(event.target.value) })}
-                        className="w-28 rounded-md border border-zinc-300 px-2 py-1.5"
-                      />
+                      {isEditingRow && activeRowBuffer ? (
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          value={activeRowBuffer.countedQuantity}
+                          onChange={(event) =>
+                            setRowEditBuffer((current) => (current ? { ...current, countedQuantity: event.target.value } : current))
+                          }
+                          className="w-28 rounded-md border border-zinc-300 px-2 py-1.5"
+                        />
+                      ) : (
+                        <span>{row.countedQuantity}</span>
+                      )}
                     </td>
                     <td className="px-2 py-2">
-                      <select
-                        value={row.stockLocationId ?? ""}
-                        onChange={(event) => updateRow(row.clientId, { stockLocationId: event.target.value || null })}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                      >
-                        <option value="">No location</option>
-                        {props.stockLocations.map((location) => (
-                          <option key={location.id} value={location.id}>
-                            {formatLocationLabel(location)}
-                          </option>
-                        ))}
-                      </select>
+                      {isEditingRow && activeRowBuffer ? (
+                        <select
+                          value={activeRowBuffer.stockLocationId}
+                          onChange={(event) =>
+                            setRowEditBuffer((current) => (current ? { ...current, stockLocationId: event.target.value } : current))
+                          }
+                          className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                        >
+                          <option value="">No location</option>
+                          {props.stockLocations.map((location) => (
+                            <option key={location.id} value={location.id}>
+                              {formatLocationLabel(location)}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span>{locationLabel}</span>
+                      )}
                     </td>
                     <td className="px-2 py-2">
-                      <input
-                        value={row.notes ?? ""}
-                        onChange={(event) => updateRow(row.clientId, { notes: event.target.value || null })}
-                        className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                      />
+                      {isEditingRow && activeRowBuffer ? (
+                        <input
+                          value={activeRowBuffer.notes}
+                          onChange={(event) =>
+                            setRowEditBuffer((current) => (current ? { ...current, notes: event.target.value } : current))
+                          }
+                          className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
+                        />
+                      ) : (
+                        <span>{row.notes?.trim() ? row.notes : "—"}</span>
+                      )}
                     </td>
-                    <td className="px-2 py-2">
-                      <button
-                        type="button"
-                        onClick={() => removeRow(row.clientId)}
-                        className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
-                      >
-                        Delete
-                      </button>
+                    <td className="px-2 py-2 align-middle">
+                      <div className="flex items-center gap-1">
+                        {isEditingRow ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={applyRowEditToDraft}
+                              className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                              aria-label="Confirm row edits"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={cancelRowEdit}
+                              className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                              aria-label="Cancel row edits"
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => startRowEdit(row)}
+                              className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                              aria-label="Edit row"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeRow(row.clientId)}
+                              className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                              aria-label="Delete row"
+                            >
+                              🗑️
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
