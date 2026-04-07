@@ -633,6 +633,16 @@ export const createStockTakeEntry = async ({
   sessionId: string;
   input: StockTakeEntryInput;
 }): Promise<StockTakeEntryRecord> => {
+  let stepStartedAt = performance.now();
+  const logTimingStep = (step: string) => {
+    const now = performance.now();
+    const elapsedMs = Number((now - stepStartedAt).toFixed(1));
+    console.info(
+      `[stock-take-timing] action=saveStockTakeEntryAction step=${step} elapsed_ms=${elapsedMs}`,
+    );
+    stepStartedAt = now;
+  };
+
   await assertEntryWriteAccess({ session, accessContext });
 
   if (input.countedQuantity < 0) {
@@ -674,6 +684,7 @@ export const createStockTakeEntry = async ({
   }
 
   const [savedEntry] = (await response.json()) as StockTakeEntryRecord[];
+  logTimingStep("db_insert_stock_take_entries");
 
   await logStockAdminEvent({
     eventType: "stock_take_entry_created",
@@ -696,6 +707,7 @@ export const createStockTakeEntry = async ({
       entry_stock_location_name: savedEntry.stock_location?.name ?? null,
     },
   });
+  logTimingStep("audit_event_insert");
 
   return savedEntry;
 };

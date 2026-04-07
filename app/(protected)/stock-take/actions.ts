@@ -313,6 +313,20 @@ export async function createStockTakeSessionAction(formData: FormData) {
 export async function saveStockTakeEntryAction(
   formData: FormData,
 ): Promise<SaveStockTakeEntryActionResult> {
+  const actionStartedAt = performance.now();
+  let stepStartedAt = actionStartedAt;
+  const logTimingStep = (step: string) => {
+    const now = performance.now();
+    const elapsedMs = Number((now - stepStartedAt).toFixed(1));
+    const totalElapsedMs = Number((now - actionStartedAt).toFixed(1));
+    console.info(
+      `[stock-take-timing] action=saveStockTakeEntryAction step=${step} elapsed_ms=${elapsedMs} total_elapsed_ms=${totalElapsedMs}`,
+    );
+    stepStartedAt = now;
+  };
+
+  logTimingStep("action_start");
+
   const sessionId = normalizeRequired(formData.get("sessionId"));
   const selectedInventoryItemId = normalizeOptional(formData.get("inventoryItemId"));
   const createNewMaterial =
@@ -353,6 +367,7 @@ export async function saveStockTakeEntryAction(
   }
 
   const { session, roles } = await requireProtectedAccess();
+  logTimingStep("auth_validation");
   const route = `/stock-take/${sessionId}`;
 
   let finalInventoryItemId: string | null = null;
@@ -412,6 +427,7 @@ export async function saveStockTakeEntryAction(
         );
       }
     }
+    logTimingStep("config_resolution");
 
     const createdItem = createNewMaterial
       ? await createInventoryItem({
@@ -474,7 +490,7 @@ export async function saveStockTakeEntryAction(
       ? (selectedGroup?.label ?? null)
       : (selectedItem?.material_group?.label ?? null);
 
-    return {
+    const response = {
       ok: true,
       message: "Count saved.",
       entry: toClientEntryRow({
@@ -483,6 +499,8 @@ export async function saveStockTakeEntryAction(
       }),
       createdInventoryItem,
     };
+    logTimingStep("response_creation");
+    return response;
   } catch {
     return toSaveEntryErrorResult(
       toUserSafeErrorMessage("Could not save counted quantity."),
