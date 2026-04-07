@@ -142,19 +142,21 @@ type ExistingMaterialFieldConfig = {
   }[];
 };
 
+type CreatedInventoryItem = {
+  id: string;
+  name: string;
+  item_code: string | null;
+  unit: string;
+  material_group: { label: string | null } | null;
+  existingMaterialFieldConfig: ExistingMaterialFieldConfig;
+};
+
 export type SaveStockTakeEntryActionResult =
   | {
       ok: true;
       message: string;
       entry: SaveStockTakeEntryClientRow;
-      createdInventoryItem: {
-        id: string;
-        name: string;
-        item_code: string | null;
-        unit: string;
-        material_group: { label: string | null } | null;
-        existingMaterialFieldConfig: ExistingMaterialFieldConfig;
-      } | null;
+      createdInventoryItem: CreatedInventoryItem | null;
     }
   | {
       ok: false;
@@ -354,15 +356,7 @@ export async function saveStockTakeEntryAction(
   const route = `/stock-take/${sessionId}`;
 
   let finalInventoryItemId: string | null = null;
-  let createdInventoryItem:
-    | {
-        id: string;
-        name: string;
-        item_code: string | null;
-        unit: string;
-        material_group: { label: string | null } | null;
-      }
-    | null = null;
+  let createdInventoryItem: CreatedInventoryItem | null = null;
 
   try {
     const selectedItem =
