@@ -6,6 +6,7 @@ import {
   createStockTakeSession,
   createStockTakeEntry,
   getStockTakeTransitionActionMetadata,
+  saveStockTakeEntriesBatch,
   type StockTakeEntryRecord,
   transitionStockTakeSession,
   type StockTakeTransitionAction,
@@ -24,6 +25,7 @@ import {
   createInventoryItem,
   getActiveMaterialGroupById,
   getStockTakeInventoryItemById,
+  type StockTakeInventoryItemRecord,
   type TimberSpecInput,
 } from "@/src/lib/inventory/items";
 
@@ -150,6 +152,41 @@ type CreatedInventoryItem = {
   material_group: { label: string | null } | null;
   existingMaterialFieldConfig: ExistingMaterialFieldConfig;
 };
+
+type DraftNewMaterialInput = {
+  materialGroupId: string;
+  itemCode: string | null;
+  name: string | null;
+  unit: string | null;
+  description: string | null;
+  timberSpec: TimberSpecInput | null;
+};
+
+export type SaveStockTakeSessionDraftRowInput = {
+  entryId: string | null;
+  inventoryItemId: string | null;
+  countedQuantity: number;
+  stockLocationId: string | null;
+  notes: string | null;
+  newMaterial: DraftNewMaterialInput | null;
+};
+
+export type SaveStockTakeSessionDraftActionInput = {
+  sessionId: string;
+  rows: SaveStockTakeSessionDraftRowInput[];
+};
+
+export type SaveStockTakeSessionDraftActionResult =
+  | {
+      ok: true;
+      message: string;
+      rows: SaveStockTakeEntryClientRow[];
+      createdInventoryItems: CreatedInventoryItem[];
+    }
+  | {
+      ok: false;
+      message: string;
+    };
 
 export type SaveStockTakeEntryActionResult =
   | {
@@ -506,6 +543,210 @@ export async function saveStockTakeEntryAction(
       toUserSafeErrorMessage("Could not save counted quantity."),
       finalInventoryItemId ?? selectedInventoryItemId,
     );
+  }
+}
+
+const normalizeDraftRows = (rows: SaveStockTakeSessionDraftRowInput[]) =>
+  rows.map((row) => ({
+    entryId: row.entryId,
+    inventoryItemId: row.inventoryItemId,
+    countedQuantity: row.countedQuantity,
+    stockLocationId: row.stockLocationId,
+    notes: row.notes,
+    newMaterial: row.newMaterial,
+  }));
+
+export async function saveStockTakeSessionDraftAction(
+  input: SaveStockTakeSessionDraftActionInput,
+): Promise<SaveStockTakeSessionDraftActionResult> {
+  const sessionId = normalizeRequired(input.sessionId);
+  if (!sessionId) {
+    return { ok: false, message: "Session id is required." };
+  }
+
+  const rows = normalizeDraftRows(Array.isArray(input.rows) ? input.rows : []);
+  if (rows.some((row) => !Number.isFinite(row.countedQuantity) || row.countedQuantity < 0)) {
+    return { ok: false, message: "Counted quantity must be zero or greater." };
+  }
+
+  const { session, roles } = await requireProtectedAccess();
+  const route = `/stock-take/${sessionId}`;
+  const accessContext = { accountStatus: "approved" as const, roles };
+
+  try {
+    const createdInventoryItems: CreatedInventoryItem[] = [];
+    const resolvedRows: Array<{
+      entryId: string | null;
+      inventoryItemId: string;
+      countedQuantity: number;
+      stockLocationId: string | null;
+      notes: string | null;
+    }> = [];
+    const inventoryCache = new Map<string, StockTakeInventoryItemRecord>();
+
+    const getInventoryItem = async (itemId: string) => {
+      const cached = inventoryCache.get(itemId);
+      if (cached) return cached;
+      const item = await getStockTakeInventoryItemById({ session, route, itemId });
+      if (!item) {
+        throw new Error("Inventory item not found");
+      }
+      inventoryCache.set(itemId, item);
+      return item;
+    };
+
+    for (const row of rows) {
+      let resolvedInventoryItemId = row.inventoryItemId;
+      let item: StockTakeInventoryItemRecord | null = null;
+      if (row.newMaterial) {
+        const selectedGroup = await getActiveMaterialGroupById({
+          session,
+          route,
+          materialGroupId: row.newMaterial.materialGroupId,
+        });
+        if (!selectedGroup) {
+          return { ok: false, message: "Selected material group was not found." };
+        }
+        const createdItem = await createInventoryItem({
+          session,
+          accessContext,
+          allowOperatorWrite: true,
+          input: {
+            itemCode: row.newMaterial.itemCode,
+            name: row.newMaterial.name,
+            unit: row.newMaterial.unit ?? "",
+            description: row.newMaterial.description,
+            materialGroupId: row.newMaterial.materialGroupId,
+            timberSpec: row.newMaterial.timberSpec,
+            timberLabelMode: "auto",
+          },
+        });
+
+        resolvedInventoryItemId = createdItem.id;
+        inventoryCache.set(createdItem.id, {
+          id: createdItem.id,
+          item_code: createdItem.item_code,
+          name: createdItem.name,
+          unit: createdItem.unit,
+          material_group: {
+            id: selectedGroup.id,
+            key: selectedGroup.key,
+            label: selectedGroup.label,
+          },
+          timber_spec: createdItem.timber_spec,
+        });
+        const groupSettings = await listStockTakeGroupFieldSettingsForMaterialGroup({
+          session,
+          route,
+          materialGroupId: selectedGroup.id,
+        });
+        const config = resolveStockTakeFieldConfigForGroup({
+          group: selectedGroup,
+          groupSettings,
+        });
+        createdInventoryItems.push({
+          id: createdItem.id,
+          name: createdItem.name,
+          item_code: createdItem.item_code,
+          unit: createdItem.unit,
+          material_group: { label: selectedGroup.label },
+          existingMaterialFieldConfig: toExistingMaterialFieldConfig({
+            item: createdItem,
+            config: config ?? {
+              referenceFieldKeys: [],
+              editableFieldKeys: ["counted_quantity", "stock_location_id", "notes"],
+              requiredEditableFieldKeys: ["counted_quantity"],
+            },
+          }),
+        });
+      }
+
+      if (!resolvedInventoryItemId) {
+        return { ok: false, message: "Each row must have a material selected." };
+      }
+
+      item = item ?? (await getInventoryItem(resolvedInventoryItemId));
+      if (!item) {
+        return { ok: false, message: "Inventory item not found." };
+      }
+      const materialGroup = item.material_group;
+      if (!materialGroup) {
+        return { ok: false, message: "Each row material must have a material group." };
+      }
+
+      const groupSettings = await listStockTakeGroupFieldSettingsForMaterialGroup({
+        session,
+        route,
+        materialGroupId: materialGroup.id,
+      });
+      const config = resolveStockTakeFieldConfigForGroup({
+        group: materialGroup,
+        groupSettings,
+      });
+      if (!config) {
+        return {
+          ok: false,
+          message: `Material group ${materialGroup.label} has no stock-take field configuration.`,
+        };
+      }
+
+      for (const fieldKey of config.requiredEditableFieldKeys) {
+        const value = readFieldValueForValidation({
+          fieldKey,
+          countedQuantity: row.countedQuantity,
+          stockLocationId: row.stockLocationId,
+          notes: row.notes,
+        });
+        if (!String(value).trim()) {
+          return {
+            ok: false,
+            message: `${stockTakeFieldLibrary[fieldKey].label} is required for material group ${materialGroup.label}.`,
+          };
+        }
+      }
+
+      resolvedRows.push({
+        entryId: row.entryId,
+        inventoryItemId: resolvedInventoryItemId,
+        countedQuantity: row.countedQuantity,
+        stockLocationId: row.stockLocationId,
+        notes: row.notes,
+      });
+    }
+
+    const savedEntries = await saveStockTakeEntriesBatch({
+      session,
+      accessContext,
+      route,
+      sessionId,
+      rows: resolvedRows,
+    });
+
+    const clientRows: SaveStockTakeEntryClientRow[] = await Promise.all(
+      savedEntries.map(async (entry) => {
+        const inventoryItem = entry.inventory_item;
+        if (!inventoryItem) {
+          return toClientEntryRow({ entry, materialGroupLabel: null });
+        }
+        const item = await getInventoryItem(inventoryItem.id);
+        return toClientEntryRow({
+          entry,
+          materialGroupLabel: item.material_group?.label ?? null,
+        });
+      }),
+    );
+
+    revalidatePath(`/stock-take/${sessionId}`);
+    revalidatePath("/stock-take");
+
+    return {
+      ok: true,
+      message: "Changes saved.",
+      rows: clientRows,
+      createdInventoryItems,
+    };
+  } catch {
+    return { ok: false, message: "Could not save stock take draft changes." };
   }
 }
 

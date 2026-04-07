@@ -83,6 +83,14 @@ type StockTakeEntryInput = {
   notes: string | null;
 };
 
+type StockTakeEntryBatchInputRow = {
+  entryId: string | null;
+  inventoryItemId: string;
+  stockLocationId: string | null;
+  countedQuantity: number;
+  notes: string | null;
+};
+
 export type StockTakeTransitionAction =
   | "start"
   | "submit"
@@ -711,3 +719,126 @@ export const createStockTakeEntry = async ({
 
   return savedEntry;
 };
+
+export const saveStockTakeEntriesBatch = async ({
+  session,
+  accessContext,
+  route,
+  sessionId,
+  rows,
+}: SessionActor & {
+  sessionId: string;
+  rows: StockTakeEntryBatchInputRow[];
+}): Promise<StockTakeEntryRecord[]> =>
+  withServerTiming({
+    name: "saveStockTakeEntriesBatch",
+    route,
+    meta: { sessionId, rowCount: rows.length },
+    operation: async () => {
+      await assertEntryWriteAccess({ session, accessContext, route });
+
+      const stockTakeSession = await fetchSessionForEntryWriteById(sessionId);
+      if (!["draft", "in_progress"].includes(stockTakeSession.status)) {
+        throw new Error(
+          "Counts can only be recorded while a stock take session is draft or in progress",
+        );
+      }
+
+      const supabase = createServiceRoleSupabaseClient();
+      const existingResponse = await supabase.request(
+        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelect}`,
+        {
+          cache: "no-store",
+          headers: { Prefer: "return=representation" },
+        },
+      );
+      if (!existingResponse.ok) {
+        throw new Error("Failed to load stock take entries");
+      }
+      const existingEntries = (await existingResponse.json()) as StockTakeEntryRecord[];
+      const existingById = new Map(existingEntries.map((entry) => [entry.id, entry]));
+      const incomingExistingIds = new Set(
+        rows.map((row) => row.entryId).filter((id): id is string => Boolean(id)),
+      );
+
+      for (const entry of existingEntries) {
+        if (incomingExistingIds.has(entry.id)) continue;
+        const deleteResponse = await supabase.request(
+          `/rest/v1/stock_take_entries?id=eq.${entry.id}`,
+          {
+            method: "DELETE",
+            headers: { Prefer: "return=minimal" },
+          },
+        );
+        if (!deleteResponse.ok) {
+          throw new Error("Failed to delete stock take entry");
+        }
+      }
+
+      for (const row of rows) {
+        if (row.countedQuantity < 0) {
+          throw new Error("Counted quantity must be zero or greater");
+        }
+        if (row.entryId) {
+          if (!existingById.has(row.entryId)) {
+            throw new Error("Stock take entry not found for update");
+          }
+          const updateResponse = await supabase.request(
+            `/rest/v1/stock_take_entries?id=eq.${row.entryId}&select=${stockTakeEntrySelect}`,
+            {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Prefer: "return=representation",
+              },
+              body: JSON.stringify({
+                inventory_item_id: row.inventoryItemId,
+                stock_location_id: row.stockLocationId,
+                counted_quantity: row.countedQuantity,
+                notes: row.notes,
+              }),
+            },
+          );
+          if (!updateResponse.ok) {
+            throw new Error("Failed to update stock take entry");
+          }
+          continue;
+        }
+
+        const insertResponse = await supabase.request(
+          `/rest/v1/stock_take_entries?select=${stockTakeEntrySelect}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Prefer: "return=representation",
+            },
+            body: JSON.stringify({
+              stock_take_session_id: sessionId,
+              inventory_item_id: row.inventoryItemId,
+              stock_location_id: row.stockLocationId,
+              counted_quantity: row.countedQuantity,
+              notes: row.notes,
+              entered_by: session.user.id,
+            }),
+          },
+        );
+        if (!insertResponse.ok) {
+          throw new Error("Failed to create stock take entry");
+        }
+      }
+
+      const savedResponse = await supabase.request(
+        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelect}&order=updated_at.desc`,
+        {
+          cache: "no-store",
+          headers: { Prefer: "return=representation" },
+        },
+      );
+      if (!savedResponse.ok) {
+        throw new Error("Failed to load saved stock take entries");
+      }
+
+      return (await savedResponse.json()) as StockTakeEntryRecord[];
+    },
+  });
