@@ -497,18 +497,19 @@ export function StockTakeSessionDetailClient(props: Props) {
                 const item = row.inventoryItemId ? inventoryItemById.get(row.inventoryItemId) : null;
                 const isEditingRow = editingRowClientId === row.clientId;
                 const activeRowBuffer = isEditingRow ? rowEditBuffer : null;
-                const draftMaterialGroup = row.newMaterial
-                  ? props.materialGroups.find((group) => group.id === row.newMaterial.materialGroupId)
+                const draftNewMaterial = row.newMaterial;
+                const draftMaterialGroup = draftNewMaterial
+                  ? props.materialGroups.find((group) => group.id === draftNewMaterial.materialGroupId)
                   : null;
-                const draftPreviewLabel = row.newMaterial
+                const draftPreviewLabel = draftNewMaterial
                   ? resolveInventoryItemNameCandidate({
-                      name: row.newMaterial.name,
-                      timberSpec: row.newMaterial.timberSpec,
+                      name: draftNewMaterial.name,
+                      timberSpec: draftNewMaterial.timberSpec,
                       selectedMaterialGroupKey: draftMaterialGroup?.key,
                       timberLabelMode: "auto",
                     })
                   : null;
-                const materialLabel = row.newMaterial
+                const materialLabel = draftNewMaterial
                   ? (draftPreviewLabel ?? `New material (${draftMaterialGroup?.label ?? "Unknown"})`)
                   : (item?.name ?? "—");
                 const locationLabel = row.stockLocationId
