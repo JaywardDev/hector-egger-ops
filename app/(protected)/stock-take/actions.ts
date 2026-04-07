@@ -490,7 +490,7 @@ export async function saveStockTakeEntryAction(
       ? (selectedGroup?.label ?? null)
       : (selectedItem?.material_group?.label ?? null);
 
-    const response = {
+    const response: SaveStockTakeEntryActionResult = {
       ok: true,
       message: "Count saved.",
       entry: toClientEntryRow({
