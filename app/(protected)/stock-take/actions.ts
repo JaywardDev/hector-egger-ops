@@ -128,6 +128,20 @@ type SaveStockTakeEntryClientRow = {
   entered_at: string;
 };
 
+type ExistingMaterialFieldConfig = {
+  referenceFields: {
+    key: string;
+    label: string;
+    value: string | number | null;
+  }[];
+  editableFields: {
+    key: string;
+    label: string;
+    control: "number" | "textarea" | "select" | "text";
+    required: boolean;
+  }[];
+};
+
 export type SaveStockTakeEntryActionResult =
   | {
       ok: true;
@@ -139,6 +153,7 @@ export type SaveStockTakeEntryActionResult =
         item_code: string | null;
         unit: string;
         material_group: { label: string | null } | null;
+        existingMaterialFieldConfig: ExistingMaterialFieldConfig;
       } | null;
     }
   | {
@@ -182,6 +197,74 @@ const toClientEntryRow = ({
   notes: entry.notes,
   updated_at: entry.updated_at,
   entered_at: entry.entered_at,
+});
+
+const toExistingMaterialFieldConfig = ({
+  item,
+  config,
+}: {
+  item: {
+    name: string;
+    item_code: string | null;
+    unit: string;
+    timber_spec: {
+      thickness_mm: number | null;
+      width_mm: number | null;
+      length_mm: number | null;
+      grade: string | null;
+      treatment: string | null;
+    } | null;
+  };
+  config: {
+    referenceFieldKeys: StockTakeFieldKey[];
+    editableFieldKeys: StockTakeFieldKey[];
+    requiredEditableFieldKeys: StockTakeFieldKey[];
+  };
+}): ExistingMaterialFieldConfig => ({
+  referenceFields: config.referenceFieldKeys
+    .map((fieldKey) => {
+      const value = (() => {
+        switch (fieldKey) {
+          case "item_name":
+            return item.name;
+          case "item_code":
+            return item.item_code;
+          case "unit":
+            return item.unit;
+          case "thickness_mm":
+            return item.timber_spec?.thickness_mm ?? null;
+          case "width_mm":
+            return item.timber_spec?.width_mm ?? null;
+          case "length_mm":
+            return item.timber_spec?.length_mm ?? null;
+          case "grade":
+            return item.timber_spec?.grade ?? null;
+          case "treatment":
+            return item.timber_spec?.treatment ?? null;
+          default:
+            return null;
+        }
+      })();
+
+      return {
+        key: fieldKey,
+        label: stockTakeFieldLibrary[fieldKey].label,
+        value,
+      };
+    })
+    .filter(({ value }) => {
+      if (value === null) {
+        return false;
+      }
+      const normalized = String(value).trim();
+      return normalized.length > 0;
+    }),
+  editableFields: config.editableFieldKeys.map((fieldKey) => ({
+    key: fieldKey,
+    label: stockTakeFieldLibrary[fieldKey].label,
+    control: stockTakeFieldLibrary[fieldKey].control,
+    required: config.requiredEditableFieldKeys.includes(fieldKey),
+  })),
 });
 
 export async function createStockTakeSessionAction(formData: FormData) {
@@ -371,6 +454,10 @@ export async function saveStockTakeEntryAction(
         material_group: {
           label: selectedGroup?.label ?? null,
         },
+        existingMaterialFieldConfig: toExistingMaterialFieldConfig({
+          item: createdItem,
+          config: resolvedConfig,
+        }),
       };
     }
 

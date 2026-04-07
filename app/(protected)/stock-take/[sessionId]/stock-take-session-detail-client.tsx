@@ -132,6 +132,9 @@ export function StockTakeSessionDetailClient(props: Props) {
   } | null>(null);
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [inventoryItems, setInventoryItems] = useState(props.inventoryItems);
+  const [existingMaterialFieldConfigs, setExistingMaterialFieldConfigs] = useState(
+    props.existingMaterialFieldConfigs,
+  );
   const [stockTakeEntries, setStockTakeEntries] = useState(props.stockTakeEntries);
   const [selectedInventoryItemId, setSelectedInventoryItemId] = useState(
     props.initialSelectedInventoryItemId,
@@ -140,7 +143,7 @@ export function StockTakeSessionDetailClient(props: Props) {
     props.materialGroups[0]?.id ?? "",
   );
   const selectedExistingMaterialFieldConfig = selectedInventoryItemId
-    ? props.existingMaterialFieldConfigs[selectedInventoryItemId] ?? {
+    ? existingMaterialFieldConfigs[selectedInventoryItemId] ?? {
         referenceFields: [],
         editableFields: [],
       }
@@ -361,10 +364,11 @@ export function StockTakeSessionDetailClient(props: Props) {
                 setStockTakeEntries((current) => [result.entry, ...current]);
                 if (result.createdInventoryItem) {
                   const createdItem = result.createdInventoryItem;
-                  setInventoryItems((current) => [
-                    createdItem,
+                  setInventoryItems((current) => [createdItem, ...current]);
+                  setExistingMaterialFieldConfigs((current) => ({
                     ...current,
-                  ]);
+                    [createdItem.id]: createdItem.existingMaterialFieldConfig,
+                  }));
                   setSelectedInventoryItemId(createdItem.id);
                   setMode("existing");
                 }
