@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { transitionStockTakeSessionAction } from "@/app/(protected)/stock-take/actions";
+import {
+  deleteEmptyDraftStockTakeSessionAction,
+  transitionStockTakeSessionAction,
+} from "@/app/(protected)/stock-take/actions";
 import { StockTakeSessionDetailClient } from "@/app/(protected)/stock-take/[sessionId]/stock-take-session-detail-client";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import {
@@ -84,6 +87,10 @@ export default async function StockTakeSessionDetailPage({
           roles.includes("operator");
         const canTransitionStatus =
           roles.includes("admin") || roles.includes("supervisor");
+        const canDeleteEmptyDraft =
+          canTransitionStatus &&
+          stockTakeSession.status === "draft" &&
+          stockTakeEntries.length === 0;
         const isEntryOpen = ["draft", "in_progress"].includes(
           stockTakeSession.status,
         );
@@ -164,6 +171,28 @@ export default async function StockTakeSessionDetailPage({
                   >
                     Back to sessions
                   </Link>
+                  {canDeleteEmptyDraft ? (
+                    <form
+                      action={deleteEmptyDraftStockTakeSessionAction}
+                      onSubmit={(event) => {
+                        if (
+                          !window.confirm(
+                            "Delete this empty draft session? This action cannot be undone.",
+                          )
+                        ) {
+                          event.preventDefault();
+                        }
+                      }}
+                    >
+                      <input type="hidden" name="sessionId" value={stockTakeSession.id} />
+                      <button
+                        type="submit"
+                        className="inline-flex rounded-md border border-red-200 px-3 py-1.5 text-red-700 hover:bg-red-50"
+                      >
+                        Delete empty draft
+                      </button>
+                    </form>
+                  ) : null}
                 </div>
               </div>
             </div>

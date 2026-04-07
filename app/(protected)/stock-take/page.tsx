@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { createStockTakeSessionAction } from "@/app/(protected)/stock-take/actions";
+import {
+  createStockTakeSessionAction,
+  deleteEmptyDraftStockTakeSessionAction,
+} from "@/app/(protected)/stock-take/actions";
 import {
   hasSupervisorOrAdminRole,
   requireProtectedAccess,
@@ -46,6 +49,7 @@ export default async function StockTakePage({
         searchParams,
       ]);
       const canCreateSessions = hasSupervisorOrAdminRole(roles);
+      const canDeleteEmptyDraft = hasSupervisorOrAdminRole(roles);
 
       return (
         <section className="space-y-4 text-sm text-zinc-700">
@@ -156,12 +160,40 @@ export default async function StockTakePage({
                           <p>Notes: {stockTakeSession.notes}</p>
                         ) : null}
                       </div>
-                      <Link
-                        href={`/stock-take/${stockTakeSession.id}`}
-                        className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
-                      >
-                        Open session
-                      </Link>
+                      <div className="flex flex-col gap-2">
+                        <Link
+                          href={`/stock-take/${stockTakeSession.id}`}
+                          className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
+                        >
+                          Open session
+                        </Link>
+                        {canDeleteEmptyDraft && stockTakeSession.status === "draft" ? (
+                          <form
+                            action={deleteEmptyDraftStockTakeSessionAction}
+                            onSubmit={(event) => {
+                              if (
+                                !window.confirm(
+                                  "Delete this empty draft session? This action cannot be undone.",
+                                )
+                              ) {
+                                event.preventDefault();
+                              }
+                            }}
+                          >
+                            <input
+                              type="hidden"
+                              name="sessionId"
+                              value={stockTakeSession.id}
+                            />
+                            <button
+                              type="submit"
+                              className="inline-flex rounded-md border border-red-200 px-3 py-1.5 text-red-700 hover:bg-red-50"
+                            >
+                              Delete empty draft
+                            </button>
+                          </form>
+                        ) : null}
+                      </div>
                     </div>
                   </li>
                 ))}

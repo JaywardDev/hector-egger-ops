@@ -97,6 +97,13 @@ export type StockTakeTransitionAction =
   | "review"
   | "close";
 
+export class DeleteEmptyDraftStockTakeSessionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DeleteEmptyDraftStockTakeSessionError";
+  }
+}
+
 type StockTakeTransitionDefinition = {
   action: StockTakeTransitionAction;
   from: StockTakeSessionStatus;
@@ -411,6 +418,15 @@ export const getStockTakeTransitionActionMetadata = (
   action: StockTakeTransitionAction,
 ) => stockTakeTransitionDefinitions[action];
 
+const parsePostgrestErrorMessage = async (response: Response) => {
+  try {
+    const body = (await response.json()) as { message?: string };
+    return body.message?.trim() || null;
+  } catch {
+    return null;
+  }
+};
+
 export const listStockTakeSessions = async ({
   session,
   accessContext,
@@ -627,6 +643,52 @@ export const transitionStockTakeSession = async ({
       });
 
       return updatedSession;
+    },
+  });
+
+export const deleteEmptyDraftStockTakeSession = async ({
+  session,
+  accessContext,
+  route,
+  sessionId,
+}: SessionActor & {
+  sessionId: string;
+}): Promise<void> =>
+  withServerTiming({
+    name: "deleteEmptyDraftStockTakeSession",
+    route,
+    meta: { sessionId },
+    operation: async () => {
+      await assertSessionTransitionAccess({ session, accessContext, route });
+
+      const supabase = createServiceRoleSupabaseClient();
+      const response = await supabase.request(
+        "/rest/v1/rpc/delete_empty_draft_stock_take_session",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Prefer: "return=minimal",
+          },
+          body: JSON.stringify({
+            p_session_id: sessionId,
+            p_actor_auth_user_id: session.user.id,
+          }),
+        },
+      );
+
+      if (response.ok) {
+        return;
+      }
+
+      const errorMessage = await parsePostgrestErrorMessage(response);
+      if (errorMessage) {
+        throw new DeleteEmptyDraftStockTakeSessionError(errorMessage);
+      }
+
+      throw new DeleteEmptyDraftStockTakeSessionError(
+        "Could not delete empty draft session.",
+      );
     },
   });
 

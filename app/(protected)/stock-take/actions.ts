@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import {
   createStockTakeSession,
   createStockTakeEntry,
+  DeleteEmptyDraftStockTakeSessionError,
+  deleteEmptyDraftStockTakeSession,
   getStockTakeTransitionActionMetadata,
   saveStockTakeEntriesBatch,
   type StockTakeEntryRecord,
@@ -800,4 +802,38 @@ export async function transitionStockTakeSessionAction(formData: FormData) {
     revalidatePath("/inventory");
   }
   toStockTakeDetailMessage(sessionId, successMessage, "success");
+}
+
+export async function deleteEmptyDraftStockTakeSessionAction(formData: FormData) {
+  const sessionId = normalizeRequired(formData.get("sessionId"));
+  if (!sessionId) {
+    toStockTakeListMessage("Session id is required.", "error");
+  }
+
+  const { session, roles } = await requireOperationalWriteAccess();
+
+  try {
+    await deleteEmptyDraftStockTakeSession({
+      session,
+      accessContext: {
+        accountStatus: "approved",
+        roles,
+      },
+      route: `/stock-take/${sessionId}`,
+      sessionId,
+    });
+  } catch (error) {
+    if (error instanceof DeleteEmptyDraftStockTakeSessionError) {
+      toStockTakeDetailMessage(sessionId, error.message, "error");
+    }
+    toStockTakeDetailMessage(
+      sessionId,
+      "Could not delete empty draft session.",
+      "error",
+    );
+  }
+
+  revalidatePath("/stock-take");
+  revalidatePath(`/stock-take/${sessionId}`);
+  toStockTakeListMessage("Empty draft session deleted.", "success");
 }
