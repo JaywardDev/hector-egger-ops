@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { saveStockTakeEntryAction } from "@/app/(protected)/stock-take/actions";
+import {
+  saveStockTakeEntryAction,
+  type SaveStockTakeEntryActionResult,
+} from "@/app/(protected)/stock-take/actions";
 
 type MaterialGroupOption = {
   id: string;
@@ -123,7 +126,13 @@ const numberMinByFieldKey: Record<string, string> = {
 };
 
 export function StockTakeSessionDetailClient(props: Props) {
+  const [entryFeedback, setEntryFeedback] = useState<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
   const [mode, setMode] = useState<"existing" | "new">("existing");
+  const [inventoryItems, setInventoryItems] = useState(props.inventoryItems);
+  const [stockTakeEntries, setStockTakeEntries] = useState(props.stockTakeEntries);
   const [selectedInventoryItemId, setSelectedInventoryItemId] = useState(
     props.initialSelectedInventoryItemId,
   );
@@ -265,7 +274,7 @@ export function StockTakeSessionDetailClient(props: Props) {
                 <option value="">
                   Select a material
                 </option>
-                {props.inventoryItems.map((item) => (
+                {inventoryItems.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.name} {item.item_code ? `(${item.item_code})` : ""}
                   </option>
@@ -298,7 +307,22 @@ export function StockTakeSessionDetailClient(props: Props) {
           )}
 
           {props.canEnterCounts && selectedInventoryItemId ? (
-            <form action={saveStockTakeEntryAction} className="space-y-2">
+            <form
+              action={async (formData) => {
+                const result = await saveStockTakeEntryAction(formData);
+                if (!result.ok) {
+                  setEntryFeedback({ type: "error", message: result.message });
+                  if (result.inventoryItemId) {
+                    setSelectedInventoryItemId(result.inventoryItemId);
+                  }
+                  return;
+                }
+
+                setStockTakeEntries((current) => [result.entry, ...current]);
+                setEntryFeedback({ type: "success", message: result.message });
+              }}
+              className="space-y-2"
+            >
               <input type="hidden" name="sessionId" value={props.sessionId} />
               <input
                 type="hidden"
@@ -325,7 +349,29 @@ export function StockTakeSessionDetailClient(props: Props) {
       {mode === "new" ? (
         <div className="space-y-3 border-t border-zinc-200 pt-3">
           {props.canEnterCounts ? (
-            <form action={saveStockTakeEntryAction} className="space-y-3">
+            <form
+              action={async (formData) => {
+                const result: SaveStockTakeEntryActionResult =
+                  await saveStockTakeEntryAction(formData);
+                if (!result.ok) {
+                  setEntryFeedback({ type: "error", message: result.message });
+                  return;
+                }
+
+                setStockTakeEntries((current) => [result.entry, ...current]);
+                if (result.createdInventoryItem) {
+                  const createdItem = result.createdInventoryItem;
+                  setInventoryItems((current) => [
+                    createdItem,
+                    ...current,
+                  ]);
+                  setSelectedInventoryItemId(createdItem.id);
+                  setMode("existing");
+                }
+                setEntryFeedback({ type: "success", message: result.message });
+              }}
+              className="space-y-3"
+            >
               <input type="hidden" name="sessionId" value={props.sessionId} />
               <input type="hidden" name="entryMode" value="create-material" />
               <input type="hidden" name="timberLabelMode" value="auto" />
@@ -388,8 +434,19 @@ export function StockTakeSessionDetailClient(props: Props) {
       ) : null}
 
       <div className="border-t border-zinc-200 pt-3">
+        {entryFeedback ? (
+          <p
+            className={`mb-3 rounded-md border px-3 py-2 ${
+              entryFeedback.type === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-red-200 bg-red-50 text-red-700"
+            }`}
+          >
+            {entryFeedback.message}
+          </p>
+        ) : null}
         <h4 className="mb-2 font-medium text-zinc-900">Session entries</h4>
-        {props.stockTakeEntries.length === 0 ? (
+        {stockTakeEntries.length === 0 ? (
           <p className="text-zinc-600">No entries recorded yet.</p>
         ) : (
           <div className="overflow-x-auto rounded-md border border-zinc-200">
@@ -406,7 +463,7 @@ export function StockTakeSessionDetailClient(props: Props) {
                 </tr>
               </thead>
               <tbody>
-                {props.stockTakeEntries.map((entry) => (
+                {stockTakeEntries.map((entry) => (
                   <tr key={entry.id} className="border-t border-zinc-100 align-top">
                     <td className="px-2 py-2 font-medium text-zinc-900">
                       {entry.inventory_item?.name ?? "—"}

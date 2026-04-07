@@ -6,6 +6,7 @@ import {
   createStockTakeSession,
   createStockTakeEntry,
   getStockTakeTransitionActionMetadata,
+  type StockTakeEntryRecord,
   transitionStockTakeSession,
   type StockTakeTransitionAction,
 } from "@/src/lib/stock-take/sessions";
@@ -112,6 +113,78 @@ const toStockTakeDetailMessage = (
 
 const toUserSafeErrorMessage = (fallback: string) => fallback;
 
+type SaveStockTakeEntryClientRow = {
+  id: string;
+  inventory_item: {
+    id: string;
+    name: string;
+    item_code: string | null;
+    unit: string;
+    material_group: { label: string | null } | null;
+  } | null;
+  counted_quantity: number;
+  stock_location: { name: string; code: string | null } | null;
+  notes: string | null;
+  updated_at: string | null;
+  entered_at: string;
+};
+
+export type SaveStockTakeEntryActionResult =
+  | {
+      ok: true;
+      message: string;
+      entry: SaveStockTakeEntryClientRow;
+      createdInventoryItem: {
+        id: string;
+        name: string;
+        item_code: string | null;
+        unit: string;
+        material_group: { label: string | null } | null;
+      } | null;
+    }
+  | {
+      ok: false;
+      message: string;
+      inventoryItemId: string | null;
+    };
+
+const toSaveEntryErrorResult = (
+  message: string,
+  inventoryItemId?: string | null,
+): SaveStockTakeEntryActionResult => ({
+  ok: false,
+  message,
+  inventoryItemId: inventoryItemId ?? null,
+});
+
+const toClientEntryRow = ({
+  entry,
+  materialGroupLabel,
+}: {
+  entry: StockTakeEntryRecord;
+  materialGroupLabel: string | null;
+}): SaveStockTakeEntryClientRow => ({
+  id: entry.id,
+  inventory_item: entry.inventory_item
+    ? {
+        ...entry.inventory_item,
+        material_group: {
+          label: materialGroupLabel,
+        },
+      }
+    : null,
+  counted_quantity: entry.counted_quantity,
+  stock_location: entry.stock_location
+    ? {
+        name: entry.stock_location.name,
+        code: entry.stock_location.code,
+      }
+    : null,
+  notes: entry.notes,
+  updated_at: entry.updated_at,
+  entered_at: entry.entered_at,
+});
+
 export async function createStockTakeSessionAction(formData: FormData) {
   const stockLocationId = normalizeOptional(formData.get("stockLocationId"));
   const notes = normalizeOptional(formData.get("notes"));
@@ -153,7 +226,9 @@ export async function createStockTakeSessionAction(formData: FormData) {
   );
 }
 
-export async function saveStockTakeEntryAction(formData: FormData) {
+export async function saveStockTakeEntryAction(
+  formData: FormData,
+): Promise<SaveStockTakeEntryActionResult> {
   const sessionId = normalizeRequired(formData.get("sessionId"));
   const selectedInventoryItemId = normalizeOptional(formData.get("inventoryItemId"));
   const createNewMaterial =
@@ -177,27 +252,19 @@ export async function saveStockTakeEntryAction(formData: FormData) {
       : "manual";
 
   if (!sessionId || Number.isNaN(countedQuantity) || countedQuantity < 0) {
-    toStockTakeDetailMessage(
-      sessionId,
+    return toSaveEntryErrorResult(
       "Counted quantity is required.",
-      "error",
-      selectedInventoryItemId ?? undefined,
+      selectedInventoryItemId,
     );
   }
 
   if (!selectedInventoryItemId && !createNewMaterial) {
-    toStockTakeDetailMessage(
-      sessionId,
-      "Select a material before saving a count.",
-      "error",
-    );
+    return toSaveEntryErrorResult("Select a material before saving a count.");
   }
 
   if (createNewMaterial && !materialGroupId) {
-    toStockTakeDetailMessage(
-      sessionId,
+    return toSaveEntryErrorResult(
       "Material group is required when capturing a new material.",
-      "error",
     );
   }
 
@@ -205,6 +272,15 @@ export async function saveStockTakeEntryAction(formData: FormData) {
   const route = `/stock-take/${sessionId}`;
 
   let finalInventoryItemId: string | null = null;
+  let createdInventoryItem:
+    | {
+        id: string;
+        name: string;
+        item_code: string | null;
+        unit: string;
+        material_group: { label: string | null } | null;
+      }
+    | null = null;
 
   try {
     const [inventoryItems, materialGroups, groupSettings] = await Promise.all([
@@ -233,11 +309,9 @@ export async function saveStockTakeEntryAction(formData: FormData) {
         });
 
     if (!config) {
-      toStockTakeDetailMessage(
-        sessionId,
+      return toSaveEntryErrorResult(
         "This material group has no stock-take field configuration.",
-        "error",
-        selectedInventoryItemId ?? undefined,
+        selectedInventoryItemId,
       );
     }
     const resolvedConfig = config as NonNullable<typeof config>;
@@ -250,49 +324,52 @@ export async function saveStockTakeEntryAction(formData: FormData) {
         notes,
       });
       if (!String(value).trim()) {
-        toStockTakeDetailMessage(
-          sessionId,
+        return toSaveEntryErrorResult(
           `${stockTakeFieldLibrary[fieldKey].label} is required for this material group.`,
-          "error",
-          selectedInventoryItemId ?? undefined,
+          selectedInventoryItemId,
         );
       }
     }
 
-    const resolvedInventoryItemId = createNewMaterial
-      ? (
-          await createInventoryItem({
-            session,
-            accessContext: {
-              accountStatus: "approved",
-              roles,
-            },
-            allowOperatorWrite: true,
-            input: {
-              itemCode,
-              name,
-              unit: unit ?? "",
-              description,
-              materialGroupId,
-              timberSpec,
-              timberLabelMode,
-            },
-          })
-        ).id
-      : selectedInventoryItemId;
+    const createdItem = createNewMaterial
+      ? await createInventoryItem({
+          session,
+          accessContext: {
+            accountStatus: "approved",
+            roles,
+          },
+          allowOperatorWrite: true,
+          input: {
+            itemCode,
+            name,
+            unit: unit ?? "",
+            description,
+            materialGroupId,
+            timberSpec,
+            timberLabelMode,
+          },
+        })
+      : null;
+    const resolvedInventoryItemId = createdItem?.id ?? selectedInventoryItemId;
 
     if (resolvedInventoryItemId === null) {
-      toStockTakeDetailMessage(
-        sessionId,
-        "Select a material before saving a count.",
-        "error",
-      );
-      throw new Error("Unreachable: stock take entry requires a material id.");
+      return toSaveEntryErrorResult("Select a material before saving a count.");
     }
 
     finalInventoryItemId = resolvedInventoryItemId;
+    if (createdItem) {
+      createdInventoryItem = {
+        id: createdItem.id,
+        name: createdItem.name,
+        item_code: createdItem.item_code,
+        unit: createdItem.unit,
+        material_group: {
+          label: selectedGroup?.label ?? null,
+        },
+      };
+    }
 
-    await createStockTakeEntry({
+    const createdEntry = await createStockTakeEntry({
       session,
       accessContext: {
         accountStatus: "approved",
@@ -307,25 +384,25 @@ export async function saveStockTakeEntryAction(formData: FormData) {
       },
     });
 
-    revalidatePath("/stock-take");
-    revalidatePath(`/stock-take/${sessionId}`);
+    const entryMaterialGroupLabel = createNewMaterial
+      ? (selectedGroup?.label ?? null)
+      : (selectedItem?.material_group?.label ?? null);
+
+    return {
+      ok: true,
+      message: "Count saved.",
+      entry: toClientEntryRow({
+        entry: createdEntry,
+        materialGroupLabel: entryMaterialGroupLabel,
+      }),
+      createdInventoryItem,
+    };
   } catch {
-    toStockTakeDetailMessage(
-      sessionId,
+    return toSaveEntryErrorResult(
       toUserSafeErrorMessage("Could not save counted quantity."),
-      "error",
-      selectedInventoryItemId ?? undefined,
+      finalInventoryItemId ?? selectedInventoryItemId,
     );
   }
-
-  revalidatePath("/stock-take");
-  revalidatePath(`/stock-take/${sessionId}`);
-  toStockTakeDetailMessage(
-    sessionId,
-    "Count saved.",
-    "success",
-    finalInventoryItemId ?? undefined,
-  );
 }
 
 export async function transitionStockTakeSessionAction(formData: FormData) {
