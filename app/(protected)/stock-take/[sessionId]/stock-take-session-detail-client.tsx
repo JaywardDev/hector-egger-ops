@@ -64,9 +64,14 @@ type Props = {
   sessionId: string;
   canEnterCounts: boolean;
   isEntryOpen: boolean;
-  selectedInventoryItemId: string | null;
-  selectedReferenceFields: ReferenceField[];
-  selectedEditableFields: EditableField[];
+  initialSelectedInventoryItemId: string | null;
+  existingMaterialFieldConfigs: Record<
+    string,
+    {
+      referenceFields: ReferenceField[];
+      editableFields: EditableField[];
+    }
+  >;
   inventoryItems: InventoryItemOption[];
   materialGroups: MaterialGroupOption[];
   stockLocations: StockLocationOption[];
@@ -119,9 +124,18 @@ const numberMinByFieldKey: Record<string, string> = {
 
 export function StockTakeSessionDetailClient(props: Props) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
+  const [selectedInventoryItemId, setSelectedInventoryItemId] = useState(
+    props.initialSelectedInventoryItemId,
+  );
   const [materialGroupId, setMaterialGroupId] = useState(
     props.materialGroups[0]?.id ?? "",
   );
+  const selectedExistingMaterialFieldConfig = selectedInventoryItemId
+    ? props.existingMaterialFieldConfigs[selectedInventoryItemId] ?? {
+        referenceFields: [],
+        editableFields: [],
+      }
+    : { referenceFields: [], editableFields: [] };
 
   const activeGroupConfig = props.groupFieldConfigs[materialGroupId] ?? {
     referenceFields: [],
@@ -233,21 +247,22 @@ export function StockTakeSessionDetailClient(props: Props) {
 
       {mode === "existing" ? (
         <div className="space-y-3 border-t border-zinc-200 pt-3">
-          <form
-            method="get"
-            className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
-          >
+          <div className="grid gap-2">
             <label className="space-y-1">
               <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
                 Existing material
               </span>
               <select
-                name="inventoryItemId"
                 required
-                defaultValue={props.selectedInventoryItemId ?? ""}
+                value={selectedInventoryItemId ?? ""}
+                onChange={(event) =>
+                  setSelectedInventoryItemId(
+                    event.target.value.length > 0 ? event.target.value : null,
+                  )
+                }
                 className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
               >
-                <option value="" disabled>
+                <option value="">
                   Select a material
                 </option>
                 {props.inventoryItems.map((item) => (
@@ -257,21 +272,16 @@ export function StockTakeSessionDetailClient(props: Props) {
                 ))}
               </select>
             </label>
-            <button
-              type="submit"
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
-            >
-              Load material
-            </button>
-          </form>
+          </div>
 
-          {props.selectedInventoryItemId && props.selectedReferenceFields.length > 0 ? (
+          {selectedInventoryItemId &&
+          selectedExistingMaterialFieldConfig.referenceFields.length > 0 ? (
             <div className="rounded-md border border-zinc-200 bg-zinc-50 p-2">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                 Material details
               </p>
               <dl className="grid gap-x-4 gap-y-1 text-sm md:grid-cols-2 xl:grid-cols-3">
-                {props.selectedReferenceFields.map((field) => (
+                {selectedExistingMaterialFieldConfig.referenceFields.map((field) => (
                   <div key={field.key} className="flex gap-2">
                     <dt className="text-zinc-500">{field.label}:</dt>
                     <dd className="font-medium text-zinc-900">
@@ -287,16 +297,16 @@ export function StockTakeSessionDetailClient(props: Props) {
             </p>
           )}
 
-          {props.canEnterCounts && props.selectedInventoryItemId ? (
+          {props.canEnterCounts && selectedInventoryItemId ? (
             <form action={saveStockTakeEntryAction} className="space-y-2">
               <input type="hidden" name="sessionId" value={props.sessionId} />
               <input
                 type="hidden"
                 name="inventoryItemId"
-                value={props.selectedInventoryItemId}
+                value={selectedInventoryItemId}
               />
               <div className="grid gap-2 md:grid-cols-2">
-                {props.selectedEditableFields.map((field) =>
+                {selectedExistingMaterialFieldConfig.editableFields.map((field) =>
                   renderEntryField({ field, mode: "existing" }),
                 )}
               </div>

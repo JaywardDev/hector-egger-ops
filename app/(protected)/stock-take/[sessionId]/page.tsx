@@ -32,6 +32,20 @@ type StockTakeSessionDetailPageProps = {
   }>;
 };
 
+type ExistingMaterialFieldConfig = {
+  referenceFields: {
+    key: string;
+    label: string;
+    value: string | number | null;
+  }[];
+  editableFields: {
+    key: string;
+    label: string;
+    control: "number" | "textarea" | "select" | "text";
+    required: boolean;
+  }[];
+};
+
 const formatTimestamp = (value: string | null) => value ?? "—";
 
 const statusBadgeClassName = {
@@ -96,21 +110,50 @@ export default async function StockTakeSessionDetailPage({
           stockTakeSession.status,
         );
         const nextTransition = getNextStockTakeTransitionAction(stockTakeSession);
-        const selectedInventoryItem =
-          inventoryItems.find((item) => item.id === query.inventoryItemId) ?? null;
-        const selectedFieldConfig = resolveStockTakeFieldConfigForItem({
-          item: selectedInventoryItem,
-          materialGroups,
-          groupSettings,
-        });
+        const initialSelectedInventoryItemId =
+          inventoryItems.some((item) => item.id === query.inventoryItemId)
+            ? (query.inventoryItemId ?? null)
+            : null;
 
-        const existingEditableFields =
-          selectedFieldConfig?.editableFields.map(({ definition }) => ({
-            key: definition.key,
-            label: definition.label,
-            control: definition.control,
-            required: definition.required,
-          })) ?? [];
+        const existingMaterialFieldConfigs: Record<
+          string,
+          ExistingMaterialFieldConfig
+        > = Object.fromEntries(
+          inventoryItems.map((item) => {
+            const fieldConfig = resolveStockTakeFieldConfigForItem({
+              item,
+              materialGroups,
+              groupSettings,
+            });
+
+            return [
+              item.id,
+              {
+                referenceFields:
+                  fieldConfig?.referenceFields
+                    .filter(({ value }) => {
+                      if (value === null) {
+                        return false;
+                      }
+                      const normalized = String(value).trim();
+                      return normalized.length > 0;
+                    })
+                    .map(({ definition, value }) => ({
+                      key: definition.key,
+                      label: definition.label,
+                      value,
+                    })) ?? [],
+                editableFields:
+                  fieldConfig?.editableFields.map(({ definition }) => ({
+                    key: definition.key,
+                    label: definition.label,
+                    control: definition.control,
+                    required: definition.required,
+                  })) ?? [],
+              },
+            ];
+          }),
+        );
 
         const groupFieldConfigs = Object.fromEntries(
           materialGroups.map((group) => {
@@ -138,21 +181,6 @@ export default async function StockTakeSessionDetailPage({
             ];
           }),
         );
-
-        const selectedReferenceFields =
-          selectedFieldConfig?.referenceFields
-            .filter(({ value }) => {
-              if (value === null) {
-                return false;
-              }
-              const normalized = String(value).trim();
-              return normalized.length > 0;
-            })
-            .map(({ definition, value }) => ({
-              key: definition.key,
-              label: definition.label,
-              value,
-            })) ?? [];
 
         const stockTakeEntryRows = stockTakeEntries.map((entry) => {
           const inventoryItem = entry.inventory_item;
@@ -251,13 +279,12 @@ export default async function StockTakeSessionDetailPage({
               sessionId={stockTakeSession.id}
               canEnterCounts={canEnterCounts}
               isEntryOpen={isEntryOpen}
-              selectedInventoryItemId={selectedInventoryItem?.id ?? null}
-              selectedReferenceFields={selectedReferenceFields}
+              initialSelectedInventoryItemId={initialSelectedInventoryItemId}
+              existingMaterialFieldConfigs={existingMaterialFieldConfigs}
               inventoryItems={inventoryItems}
               materialGroups={materialGroups}
               stockLocations={stockLocations}
               defaultStockLocationId={stockTakeSession.stock_location_id}
-              selectedEditableFields={existingEditableFields}
               groupFieldConfigs={groupFieldConfigs}
               stockTakeEntries={stockTakeEntryRows}
             />
