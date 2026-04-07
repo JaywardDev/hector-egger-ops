@@ -5,6 +5,7 @@ import {
   saveStockTakeSessionDraftAction,
   type SaveStockTakeSessionDraftActionInput,
 } from "@/app/(protected)/stock-take/actions";
+import { resolveInventoryItemNameCandidate } from "@/src/lib/inventory/item-labels";
 
 type MaterialGroupOption = {
   id: string;
@@ -496,8 +497,19 @@ export function StockTakeSessionDetailClient(props: Props) {
                 const item = row.inventoryItemId ? inventoryItemById.get(row.inventoryItemId) : null;
                 const isEditingRow = editingRowClientId === row.clientId;
                 const activeRowBuffer = isEditingRow ? rowEditBuffer : null;
+                const draftMaterialGroup = row.newMaterial
+                  ? props.materialGroups.find((group) => group.id === row.newMaterial.materialGroupId)
+                  : null;
+                const draftPreviewLabel = row.newMaterial
+                  ? resolveInventoryItemNameCandidate({
+                      name: row.newMaterial.name,
+                      timberSpec: row.newMaterial.timberSpec,
+                      selectedMaterialGroupKey: draftMaterialGroup?.key,
+                      timberLabelMode: "auto",
+                    })
+                  : null;
                 const materialLabel = row.newMaterial
-                  ? `New material (${props.materialGroups.find((group) => group.id === row.newMaterial?.materialGroupId)?.label ?? "Unknown"})`
+                  ? (draftPreviewLabel ?? `New material (${draftMaterialGroup?.label ?? "Unknown"})`)
                   : (item?.name ?? "—");
                 const locationLabel = row.stockLocationId
                   ? formatLocationLabel(props.stockLocations.find((location) => location.id === row.stockLocationId) ?? { name: "Unknown location", code: null })

@@ -7,7 +7,11 @@ import {
 } from "@/src/lib/auth/profile-access";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
-import { buildTimberItemLabel } from "@/src/lib/inventory/item-labels";
+import {
+  buildTimberItemLabel,
+  resolveInventoryItemNameCandidate,
+  TIMBER_MATERIAL_GROUP_KEY,
+} from "@/src/lib/inventory/item-labels";
 import { withServerTiming } from "@/src/lib/server-timing";
 
 type ApprovedAccessContext = {
@@ -76,8 +80,6 @@ type MaterialGroupInput = {
   label: string;
 };
 
-const TIMBER_GROUP_KEY = "timber";
-
 const createSessionHeaders = (session: AuthSession) => ({
   Authorization: `Bearer ${session.accessToken}`,
 });
@@ -107,7 +109,7 @@ const assertInventoryMutationAccess = async ({
 
 const isTimberMaterialGroup = (
   item: Pick<InventoryItemRecord, "material_group">,
-) => item.material_group?.key === TIMBER_GROUP_KEY;
+) => item.material_group?.key === TIMBER_MATERIAL_GROUP_KEY;
 
 const hasTimberSpecValues = (timberSpec: TimberSpecInput | null) =>
   Boolean(
@@ -132,32 +134,19 @@ const resolveInventoryItemName = ({
   timberLabelMode?: "auto" | "manual";
   existingRecord?: InventoryItemRecord;
 }) => {
-  const trimmedName = name?.trim() ?? "";
-  const generatedLabel = buildTimberItemLabel(timberSpec);
-  const isTimber = selectedMaterialGroupKey === TIMBER_GROUP_KEY;
-
-  if (!isTimber) {
-    if (!trimmedName) {
-      throw new Error("Item label and unit are required.");
-    }
-
-    return trimmedName;
-  }
-
   const existingAutoLabel = existingRecord
     ? buildTimberItemLabel(existingRecord.timber_spec)
-    : "";
-  const shouldUseAutoLabel =
-    timberLabelMode === "auto" ||
-    (!trimmedName && generatedLabel.length > 0) ||
-    (Boolean(existingRecord) && trimmedName === existingAutoLabel);
+    : undefined;
+  const resolvedName = resolveInventoryItemNameCandidate({
+    name,
+    timberSpec,
+    selectedMaterialGroupKey,
+    timberLabelMode,
+    existingAutoLabel,
+  });
 
-  if (shouldUseAutoLabel && generatedLabel.length > 0) {
-    return generatedLabel;
-  }
-
-  if (trimmedName) {
-    return trimmedName;
+  if (resolvedName) {
+    return resolvedName;
   }
 
   throw new Error("Item label and unit are required.");
@@ -820,7 +809,7 @@ export const createInventoryItem = async ({
 
   const selectedMaterialGroup = await fetchMaterialGroup(input.materialGroupId);
   if (
-    selectedMaterialGroup?.key !== TIMBER_GROUP_KEY &&
+    selectedMaterialGroup?.key !== TIMBER_MATERIAL_GROUP_KEY &&
     hasTimberSpecValues(input.timberSpec)
   ) {
     throw new Error("Timber specs are only allowed for timber items");
@@ -910,14 +899,14 @@ export const updateInventoryItem = async ({
   const existingRecord = await fetchInventoryItemById(itemId);
   const selectedMaterialGroup = await fetchMaterialGroup(input.materialGroupId);
   if (
-    selectedMaterialGroup?.key !== TIMBER_GROUP_KEY &&
+    selectedMaterialGroup?.key !== TIMBER_MATERIAL_GROUP_KEY &&
     hasTimberSpecValues(input.timberSpec)
   ) {
     throw new Error("Timber specs are only allowed for timber items");
   }
   if (
-    existingRecord.material_group?.key === TIMBER_GROUP_KEY &&
-    selectedMaterialGroup?.key !== TIMBER_GROUP_KEY &&
+    existingRecord.material_group?.key === TIMBER_MATERIAL_GROUP_KEY &&
+    selectedMaterialGroup?.key !== TIMBER_MATERIAL_GROUP_KEY &&
     existingRecord.timber_spec
   ) {
     throw new Error(
