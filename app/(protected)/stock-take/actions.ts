@@ -15,16 +15,15 @@ import {
   requireProtectedAccess,
 } from "@/src/lib/auth/guards";
 import {
-  listStockTakeGroupFieldSettings,
+  listStockTakeGroupFieldSettingsForMaterialGroup,
   resolveStockTakeFieldConfigForGroup,
-  resolveStockTakeFieldConfigForItem,
   stockTakeFieldLibrary,
   type StockTakeFieldKey,
 } from "@/src/lib/stock-take/field-config";
 import {
   createInventoryItem,
-  listMaterialGroups,
-  listStockTakeInventoryItems,
+  getActiveMaterialGroupById,
+  getStockTakeInventoryItemById,
   type TimberSpecInput,
 } from "@/src/lib/inventory/items";
 
@@ -283,30 +282,36 @@ export async function saveStockTakeEntryAction(
     | null = null;
 
   try {
-    const [inventoryItems, materialGroups, groupSettings] = await Promise.all([
-      listStockTakeInventoryItems({ session, route }),
-      listMaterialGroups({ session, route }),
-      listStockTakeGroupFieldSettings({ session, route }),
-    ]);
-
     const selectedItem =
-      inventoryItems.find((item) => item.id === selectedInventoryItemId) ?? null;
-    const selectedGroup = materialGroups.find(
-      (group) => group.id === materialGroupId,
-    );
-
-    const config = createNewMaterial
-      ? selectedGroup
-        ? resolveStockTakeFieldConfigForGroup({
-            group: selectedGroup,
-            groupSettings,
+      !createNewMaterial && selectedInventoryItemId
+        ? await getStockTakeInventoryItemById({
+            session,
+            route,
+            itemId: selectedInventoryItemId,
           })
-        : null
-      : resolveStockTakeFieldConfigForItem({
-          item: selectedItem,
-          materialGroups,
+        : null;
+    const selectedGroup =
+      createNewMaterial && materialGroupId
+        ? await getActiveMaterialGroupById({
+            session,
+            route,
+            materialGroupId,
+          })
+        : selectedItem?.material_group ?? null;
+    const groupSettings = selectedGroup
+      ? await listStockTakeGroupFieldSettingsForMaterialGroup({
+          session,
+          route,
+          materialGroupId: selectedGroup.id,
+        })
+      : [];
+
+    const config = selectedGroup
+      ? resolveStockTakeFieldConfigForGroup({
+          group: selectedGroup,
           groupSettings,
-        });
+        })
+      : null;
 
     if (!config) {
       return toSaveEntryErrorResult(

@@ -469,6 +469,11 @@ export type StockTakeInventoryItemRecord = Pick<
   "id" | "item_code" | "name" | "unit" | "material_group" | "timber_spec"
 >;
 
+export type MaterialGroupOptionRecord = Pick<
+  MaterialGroupRecord,
+  "id" | "key" | "label"
+>;
+
 export const listInventoryItems = async ({
   session,
   route,
@@ -555,6 +560,34 @@ export const listStockTakeInventoryItems = async ({
     },
   });
 
+export const getStockTakeInventoryItemById = async ({
+  session,
+  route,
+  itemId,
+}: MutationActor & { itemId: string }): Promise<StockTakeInventoryItemRecord | null> =>
+  withServerTiming({
+    name: "getStockTakeInventoryItemById",
+    route,
+    meta: { itemId },
+    operation: async () => {
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        `/rest/v1/inventory_items?id=eq.${itemId}&select=${inventoryItemSelect}&limit=1`,
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load stock take inventory item");
+      }
+
+      const [item] = (await response.json()) as StockTakeInventoryItemRecord[];
+      return item ?? null;
+    },
+  });
+
 export const listMaterialGroups = async ({
   session,
   route,
@@ -577,6 +610,34 @@ export const listMaterialGroups = async ({
       }
 
       return (await response.json()) as MaterialGroupRecord[];
+    },
+  });
+
+export const getActiveMaterialGroupById = async ({
+  session,
+  route,
+  materialGroupId,
+}: MutationActor & { materialGroupId: string }): Promise<MaterialGroupOptionRecord | null> =>
+  withServerTiming({
+    name: "getActiveMaterialGroupById",
+    route,
+    meta: { materialGroupId },
+    operation: async () => {
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        `/rest/v1/material_groups?select=id,key,label&is_active=is.true&id=eq.${materialGroupId}&limit=1`,
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load material group");
+      }
+
+      const [group] = (await response.json()) as MaterialGroupOptionRecord[];
+      return group ?? null;
     },
   });
 

@@ -307,6 +307,37 @@ export const listStockTakeGroupFieldSettings = async ({
     },
   });
 
+export const listStockTakeGroupFieldSettingsForMaterialGroup = async ({
+  session,
+  route,
+  materialGroupId,
+}: {
+  session: AuthSession;
+  route?: string;
+  materialGroupId: string;
+}): Promise<GroupFieldSettingRecord[]> =>
+  withServerTiming({
+    name: "listStockTakeGroupFieldSettingsForMaterialGroup",
+    route,
+    meta: { materialGroupId },
+    operation: async () => {
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        `/rest/v1/stock_take_group_field_settings?select=material_group_id,field_key,is_enabled,is_required&material_group_id=eq.${materialGroupId}`,
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load stock-take field settings");
+      }
+
+      return (await response.json()) as GroupFieldSettingRecord[];
+    },
+  });
+
 export const resolveStockTakeFieldConfigForGroup = ({
   group,
   groupSettings,

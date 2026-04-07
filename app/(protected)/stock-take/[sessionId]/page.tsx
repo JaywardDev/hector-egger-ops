@@ -11,7 +11,6 @@ import { listStockLocations } from "@/src/lib/inventory/locations";
 import {
   listStockTakeGroupFieldSettings,
   resolveStockTakeFieldConfigForGroup,
-  resolveStockTakeFieldConfigForItem,
   stockTakeFieldLibrary,
 } from "@/src/lib/stock-take/field-config";
 import {
@@ -114,41 +113,85 @@ export default async function StockTakeSessionDetailPage({
           inventoryItems.some((item) => item.id === query.inventoryItemId)
             ? (query.inventoryItemId ?? null)
             : null;
+        const inventoryItemById = new Map(
+          inventoryItems.map((item) => [item.id, item] as const),
+        );
+        const groupSettingsById = new Map<string, typeof groupSettings>();
+        for (const setting of groupSettings) {
+          const existing = groupSettingsById.get(setting.material_group_id);
+          if (existing) {
+            existing.push(setting);
+            continue;
+          }
+          groupSettingsById.set(setting.material_group_id, [setting]);
+        }
+        const groupConfigById = new Map(
+          materialGroups.map((group) => {
+            const config = resolveStockTakeFieldConfigForGroup({
+              group,
+              groupSettings: groupSettingsById.get(group.id) ?? [],
+            });
+            return [group.id, config] as const;
+          }),
+        );
 
         const existingMaterialFieldConfigs: Record<
           string,
           ExistingMaterialFieldConfig
         > = Object.fromEntries(
           inventoryItems.map((item) => {
-            const fieldConfig = resolveStockTakeFieldConfigForItem({
-              item,
-              materialGroups,
-              groupSettings,
-            });
+            const fieldConfig = item.material_group?.id
+              ? (groupConfigById.get(item.material_group.id) ?? null)
+              : null;
 
             return [
               item.id,
               {
                 referenceFields:
-                  fieldConfig?.referenceFields
+                  fieldConfig?.referenceFieldKeys
+                    .map((fieldKey) => {
+                      const definition = stockTakeFieldLibrary[fieldKey];
+                      const value = (() => {
+                        switch (fieldKey) {
+                          case "item_name":
+                            return item.name;
+                          case "item_code":
+                            return item.item_code;
+                          case "unit":
+                            return item.unit;
+                          case "thickness_mm":
+                            return item.timber_spec?.thickness_mm ?? null;
+                          case "width_mm":
+                            return item.timber_spec?.width_mm ?? null;
+                          case "length_mm":
+                            return item.timber_spec?.length_mm ?? null;
+                          case "grade":
+                            return item.timber_spec?.grade ?? null;
+                          case "treatment":
+                            return item.timber_spec?.treatment ?? null;
+                          default:
+                            return null;
+                        }
+                      })();
+                      return {
+                        key: definition.key,
+                        label: definition.label,
+                        value,
+                      };
+                    })
                     .filter(({ value }) => {
                       if (value === null) {
                         return false;
                       }
                       const normalized = String(value).trim();
                       return normalized.length > 0;
-                    })
-                    .map(({ definition, value }) => ({
-                      key: definition.key,
-                      label: definition.label,
-                      value,
-                    })) ?? [],
+                    }) ?? [],
                 editableFields:
-                  fieldConfig?.editableFields.map(({ definition }) => ({
-                    key: definition.key,
-                    label: definition.label,
-                    control: definition.control,
-                    required: definition.required,
+                  fieldConfig?.editableFieldKeys.map((fieldKey) => ({
+                    key: fieldKey,
+                    label: stockTakeFieldLibrary[fieldKey].label,
+                    control: stockTakeFieldLibrary[fieldKey].control,
+                    required: fieldConfig.requiredEditableFieldKeys.includes(fieldKey),
                   })) ?? [],
               },
             ];
@@ -157,10 +200,7 @@ export default async function StockTakeSessionDetailPage({
 
         const groupFieldConfigs = Object.fromEntries(
           materialGroups.map((group) => {
-            const config = resolveStockTakeFieldConfigForGroup({
-              group,
-              groupSettings,
-            });
+            const config = groupConfigById.get(group.id) ?? null;
             return [
               group.id,
               {
@@ -190,8 +230,7 @@ export default async function StockTakeSessionDetailPage({
               : {
                   ...inventoryItem,
                   material_group:
-                    inventoryItems.find((item) => item.id === inventoryItem.id)
-                      ?.material_group ?? null,
+                    inventoryItemById.get(inventoryItem.id)?.material_group ?? null,
                 };
 
           return {

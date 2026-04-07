@@ -264,6 +264,37 @@ const fetchSessionById = async (sessionId: string) => {
   return record;
 };
 
+type StockTakeSessionEntryWriteRecord = Pick<
+  StockTakeSessionRecord,
+  "id" | "status" | "stock_location_id" | "stock_location"
+>;
+
+const fetchSessionForEntryWriteById = async (
+  sessionId: string,
+): Promise<StockTakeSessionEntryWriteRecord> => {
+  const supabase = createServiceRoleSupabaseClient();
+  const response = await supabase.request(
+    `/rest/v1/stock_take_sessions?id=eq.${sessionId}&select=id,status,stock_location_id,stock_location:stock_locations(code,name)&limit=1`,
+    {
+      cache: "no-store",
+      headers: {
+        Prefer: "return=representation",
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to load stock take session");
+  }
+
+  const [record] = (await response.json()) as StockTakeSessionEntryWriteRecord[];
+  if (!record) {
+    throw new Error("Stock take session not found");
+  }
+
+  return record;
+};
+
 const fetchStockLocationById = async (
   stockLocationId: string,
 ): Promise<StockLocationSummary> => {
@@ -608,7 +639,7 @@ export const createStockTakeEntry = async ({
     throw new Error("Counted quantity must be zero or greater");
   }
 
-  const stockTakeSession = await fetchSessionById(sessionId);
+  const stockTakeSession = await fetchSessionForEntryWriteById(sessionId);
   if (!["draft", "in_progress"].includes(stockTakeSession.status)) {
     throw new Error(
       "Counts can only be recorded while a stock take session is draft or in progress",
