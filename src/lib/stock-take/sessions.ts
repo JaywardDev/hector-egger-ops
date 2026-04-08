@@ -63,6 +63,17 @@ export type StockTakeEntryRecord = {
     item_code: string | null;
     name: string;
     unit: string;
+    timber_spec: {
+      thickness_mm: number | null;
+      width_mm: number | null;
+      length_mm: number | null;
+      grade: string | null;
+      treatment: string | null;
+    } | null;
+    material_group: {
+      key: string;
+      label: string | null;
+    } | null;
   } | null;
   counted_quantity: number;
   notes: string | null;
@@ -123,7 +134,7 @@ const stockTakeSessionSelect =
   "id,title,stock_location_id,stock_location:stock_locations(id,code,name),status,notes,created_by,started_at,submitted_at,reviewed_at,closed_at,created_at,updated_at";
 
 const stockTakeEntrySelect =
-  "id,stock_take_session_id,inventory_item_id,stock_location_id,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit),counted_quantity,notes,entered_by,entered_at,updated_at";
+  "id,stock_take_session_id,inventory_item_id,stock_location_id,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit,timber_spec(thickness_mm,width_mm,length_mm,grade,treatment),material_group:material_groups(key,label)),counted_quantity,notes,entered_by,entered_at,updated_at";
 
 const stockTakeEntryOrder = "entered_at.desc,id.desc";
 

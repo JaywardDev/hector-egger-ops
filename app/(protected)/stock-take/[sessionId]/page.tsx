@@ -165,12 +165,20 @@ export default async function StockTakeSessionDetailPage({
                       No further status actions available.
                     </p>
                   ) : null}
-                  <Link
-                    href="/stock-take"
-                    className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
-                  >
-                    Back to sessions
-                  </Link>
+                  <div className="flex flex-wrap gap-2">
+                    <Link
+                      href={`/stock-take/${stockTakeSession.id}/export`}
+                      className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
+                    >
+                      Export Excel
+                    </Link>
+                    <Link
+                      href="/stock-take"
+                      className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
+                    >
+                      Back to sessions
+                    </Link>
+                  </div>
                   {canDeleteEmptyDraft ? (
                     <form
                       action={deleteEmptyDraftStockTakeSessionAction}
