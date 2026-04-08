@@ -35,7 +35,9 @@ export async function GET(
     entries: stockTakeEntries,
   });
 
-  return new NextResponse(workbook.content, {
+  const bytes = new Uint8Array(workbook.content);
+
+  return new NextResponse(bytes, {
     headers: {
       "Content-Type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
