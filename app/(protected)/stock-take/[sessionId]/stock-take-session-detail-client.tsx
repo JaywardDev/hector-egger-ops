@@ -316,6 +316,47 @@ export function StockTakeSessionDetailClient(props: Props) {
     }
   };
 
+  const copyRow = (sourceRow: DraftRow) => {
+    const copiedRow: DraftRow = {
+      clientId: `local-${crypto.randomUUID()}`,
+      entryId: null,
+      inventoryItemId: sourceRow.inventoryItemId,
+      countedQuantity: sourceRow.countedQuantity,
+      stockLocationId: sourceRow.stockLocationId,
+      notes: sourceRow.notes,
+      newMaterial: sourceRow.newMaterial
+        ? {
+            materialGroupId: sourceRow.newMaterial.materialGroupId,
+            description: sourceRow.newMaterial.description,
+            unit: sourceRow.newMaterial.unit,
+            name: sourceRow.newMaterial.name,
+            itemCode: sourceRow.newMaterial.itemCode,
+            timberSpec: sourceRow.newMaterial.timberSpec
+              ? {
+                  thicknessMm: sourceRow.newMaterial.timberSpec.thicknessMm,
+                  widthMm: sourceRow.newMaterial.timberSpec.widthMm,
+                  lengthMm: sourceRow.newMaterial.timberSpec.lengthMm,
+                  grade: sourceRow.newMaterial.timberSpec.grade,
+                  treatment: sourceRow.newMaterial.timberSpec.treatment,
+                }
+              : null,
+          }
+        : null,
+      enteredAt: new Date().toISOString(),
+      updatedAt: null,
+    };
+
+    setDraftRows((current) => [copiedRow, ...current]);
+    setEditingRowClientId(copiedRow.clientId);
+    setRowEditBuffer({
+      inventoryItemId: copiedRow.inventoryItemId,
+      countedQuantity: String(copiedRow.countedQuantity),
+      stockLocationId: copiedRow.stockLocationId ?? "",
+      notes: copiedRow.notes ?? "",
+    });
+    setFeedback(null);
+  };
+
   const startRowEdit = (row: DraftRow) => {
     setEditingRowClientId(row.clientId);
     setRowEditBuffer({
@@ -621,6 +662,14 @@ export function StockTakeSessionDetailClient(props: Props) {
                               aria-label="Edit row"
                             >
                               ✏️
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => copyRow(row)}
+                              className="rounded-md border border-zinc-300 px-2 py-1 text-xs"
+                              aria-label="Copy row"
+                            >
+                              📄
                             </button>
                             <button
                               type="button"
