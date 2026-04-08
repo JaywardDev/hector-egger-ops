@@ -167,7 +167,7 @@ const stockTakeEntrySelectForDetail =
   "id,stock_take_session_id,inventory_item_id,stock_location_id,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit),counted_quantity,notes,entered_by,entered_at,updated_at";
 
 const stockTakeEntrySelectForExport =
-  "id,stock_take_session_id,inventory_item_id,stock_location_id,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit,timber_spec(thickness_mm,width_mm,length_mm,grade,treatment),material_group:material_groups(key,label)),counted_quantity,notes,entered_by,entered_at,updated_at";
+  "id,stock_take_session_id,inventory_item_id,stock_location_id,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit,timber_spec:inventory_item_timber_specs(thickness_mm,width_mm,length_mm,grade,treatment),material_group:material_groups(key,label)),counted_quantity,notes,entered_by,entered_at,updated_at";
 
 const stockTakeEntryOrder = "entered_at.desc,id.desc";
 
@@ -627,6 +627,12 @@ export const listStockTakeEntriesForExport = async ({
       );
 
       if (!response.ok) {
+        const errorBody = await response.text().catch(() => null);
+        console.error("Stock take export query failed", {
+          status: response.status,
+          body: errorBody,
+          sessionId,
+        });
         throw new Error("Failed to load stock take entries for export");
       }
 
