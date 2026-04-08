@@ -63,6 +63,29 @@ export type StockTakeEntryRecord = {
     item_code: string | null;
     name: string;
     unit: string;
+  } | null;
+  counted_quantity: number;
+  notes: string | null;
+  entered_by: string | null;
+  entered_at: string;
+  updated_at: string;
+};
+
+export type StockTakeEntryExportRecord = {
+  id: string;
+  stock_take_session_id: string;
+  inventory_item_id: string;
+  stock_location_id: string | null;
+  stock_location: {
+    id: string;
+    code: string | null;
+    name: string;
+  } | null;
+  inventory_item: {
+    id: string;
+    item_code: string | null;
+    name: string;
+    unit: string;
     timber_spec: {
       thickness_mm: number | null;
       width_mm: number | null;
@@ -115,6 +138,13 @@ export class DeleteEmptyDraftStockTakeSessionError extends Error {
   }
 }
 
+export class StockTakeSessionNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StockTakeSessionNotFoundError";
+  }
+}
+
 type StockTakeTransitionDefinition = {
   action: StockTakeTransitionAction;
   from: StockTakeSessionStatus;
@@ -133,7 +163,10 @@ type StockLocationSummary = {
 const stockTakeSessionSelect =
   "id,title,stock_location_id,stock_location:stock_locations(id,code,name),status,notes,created_by,started_at,submitted_at,reviewed_at,closed_at,created_at,updated_at";
 
-const stockTakeEntrySelect =
+const stockTakeEntrySelectForDetail =
+  "id,stock_take_session_id,inventory_item_id,stock_location_id,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit),counted_quantity,notes,entered_by,entered_at,updated_at";
+
+const stockTakeEntrySelectForExport =
   "id,stock_take_session_id,inventory_item_id,stock_location_id,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit,timber_spec(thickness_mm,width_mm,length_mm,grade,treatment),material_group:material_groups(key,label)),counted_quantity,notes,entered_by,entered_at,updated_at";
 
 const stockTakeEntryOrder = "entered_at.desc,id.desc";
@@ -286,7 +319,7 @@ const fetchSessionById = async (sessionId: string) => {
 
   const [record] = (await response.json()) as StockTakeSessionRecord[];
   if (!record) {
-    throw new Error("Stock take session not found");
+    throw new StockTakeSessionNotFoundError("Stock take session not found");
   }
 
   return record;
@@ -556,7 +589,7 @@ export const listStockTakeEntries = async ({
 
       const supabase = createServerSupabaseClient();
       const response = await supabase.request(
-        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelect}&order=${stockTakeEntryOrder}`,
+        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelectForDetail}&order=${stockTakeEntryOrder}`,
         {
           cache: "no-store",
           headers: createSessionHeaders(session),
@@ -568,6 +601,36 @@ export const listStockTakeEntries = async ({
       }
 
       return (await response.json()) as StockTakeEntryRecord[];
+    },
+  });
+
+export const listStockTakeEntriesForExport = async ({
+  session,
+  accessContext,
+  route,
+  sessionId,
+}: SessionActor & { sessionId: string }): Promise<StockTakeEntryExportRecord[]> =>
+  withServerTiming({
+    name: "listStockTakeEntriesForExport",
+    route,
+    meta: { sessionId },
+    operation: async () => {
+      await assertApprovedAccount({ session, accessContext, route });
+
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelectForExport}&order=${stockTakeEntryOrder}`,
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load stock take entries for export");
+      }
+
+      return (await response.json()) as StockTakeEntryExportRecord[];
     },
   });
 
@@ -742,7 +805,7 @@ export const createStockTakeEntry = async ({
   const entryStockLocationId = input.stockLocationId ?? null;
   const supabase = createServiceRoleSupabaseClient();
   const response = await supabase.request(
-    `/rest/v1/stock_take_entries?select=${stockTakeEntrySelect}`,
+    `/rest/v1/stock_take_entries?select=${stockTakeEntrySelectForDetail}`,
     {
       method: "POST",
       headers: {
@@ -821,7 +884,7 @@ export const saveStockTakeEntriesBatch = async ({
 
       const supabase = createServiceRoleSupabaseClient();
       const existingResponse = await supabase.request(
-        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelect}`,
+        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelectForDetail}`,
         {
           cache: "no-store",
           headers: { Prefer: "return=representation" },
@@ -859,7 +922,7 @@ export const saveStockTakeEntriesBatch = async ({
             throw new Error("Stock take entry not found for update");
           }
           const updateResponse = await supabase.request(
-            `/rest/v1/stock_take_entries?id=eq.${row.entryId}&select=${stockTakeEntrySelect}`,
+            `/rest/v1/stock_take_entries?id=eq.${row.entryId}&select=${stockTakeEntrySelectForDetail}`,
             {
               method: "PATCH",
               headers: {
@@ -881,7 +944,7 @@ export const saveStockTakeEntriesBatch = async ({
         }
 
         const insertResponse = await supabase.request(
-          `/rest/v1/stock_take_entries?select=${stockTakeEntrySelect}`,
+          `/rest/v1/stock_take_entries?select=${stockTakeEntrySelectForDetail}`,
           {
             method: "POST",
             headers: {
@@ -904,7 +967,7 @@ export const saveStockTakeEntriesBatch = async ({
       }
 
       const savedResponse = await supabase.request(
-        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelect}&order=${stockTakeEntryOrder}`,
+        `/rest/v1/stock_take_entries?stock_take_session_id=eq.${sessionId}&select=${stockTakeEntrySelectForDetail}&order=${stockTakeEntryOrder}`,
         {
           cache: "no-store",
           headers: { Prefer: "return=representation" },

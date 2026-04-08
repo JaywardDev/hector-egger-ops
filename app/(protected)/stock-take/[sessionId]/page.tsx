@@ -15,6 +15,7 @@ import {
   getNextStockTakeTransitionAction,
   getStockTakeSessionDetail,
   listStockTakeEntries,
+  StockTakeSessionNotFoundError,
 } from "@/src/lib/stock-take/sessions";
 import { withServerTiming } from "@/src/lib/server-timing";
 
@@ -239,8 +240,11 @@ export default async function StockTakeSessionDetailPage({
             />
           </section>
         );
-      } catch {
-        notFound();
+      } catch (error) {
+        if (error instanceof StockTakeSessionNotFoundError) {
+          notFound();
+        }
+        throw error;
       }
     },
   });

@@ -3,7 +3,7 @@ import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import { buildStockTakeSessionExcelExport } from "@/src/lib/stock-take/session-excel-export";
 import {
   getStockTakeSessionDetail,
-  listStockTakeEntries,
+  listStockTakeEntriesForExport,
 } from "@/src/lib/stock-take/sessions";
 
 export async function GET(
@@ -22,7 +22,7 @@ export async function GET(
       route,
       sessionId,
     }),
-    listStockTakeEntries({
+    listStockTakeEntriesForExport({
       session,
       accessContext,
       route,

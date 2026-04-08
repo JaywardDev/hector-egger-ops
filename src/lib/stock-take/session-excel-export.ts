@@ -2,7 +2,7 @@ import "server-only";
 
 import { resolveInventoryItemNameCandidate } from "@/src/lib/inventory/item-labels";
 import type {
-  StockTakeEntryRecord,
+  StockTakeEntryExportRecord,
   StockTakeSessionRecord,
 } from "@/src/lib/stock-take/sessions";
 
@@ -107,7 +107,7 @@ const parseBayLevelHint = (value: string | null): LayoutCoordinate | null => {
   return null;
 };
 
-const toMaterialLabel = (entry: StockTakeEntryRecord) => {
+const toMaterialLabel = (entry: StockTakeEntryExportRecord) => {
   const inventoryItem = entry.inventory_item;
   if (!inventoryItem) {
     return "Unknown material";
@@ -124,7 +124,7 @@ const toMaterialLabel = (entry: StockTakeEntryRecord) => {
   );
 };
 
-const toLocationLabel = (entry: StockTakeEntryRecord) => {
+const toLocationLabel = (entry: StockTakeEntryExportRecord) => {
   const location = entry.stock_location;
   if (!location) {
     return "";
@@ -133,7 +133,7 @@ const toLocationLabel = (entry: StockTakeEntryRecord) => {
   return location.code ? `${location.name} (${location.code})` : location.name;
 };
 
-const normalizeRows = (entries: StockTakeEntryRecord[]): NormalizedExportRow[] =>
+const normalizeRows = (entries: StockTakeEntryExportRecord[]): NormalizedExportRow[] =>
   entries.map((entry) => {
     const mapping =
       parseBayLevelHint(entry.stock_location?.code ?? null) ??
@@ -479,7 +479,7 @@ export const buildStockTakeSessionExcelExport = ({
   entries,
 }: {
   session: StockTakeSessionRecord;
-  entries: StockTakeEntryRecord[];
+  entries: StockTakeEntryExportRecord[];
 }): ExportFile => {
   const rows = normalizeRows(entries);
   const sheets = [
