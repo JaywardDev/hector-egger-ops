@@ -22,6 +22,8 @@ type StockTakeAddExistingFormProps = {
   onStockLocationIdChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onSubmit: () => void;
+  showHeader?: boolean;
+  headerClassName?: string;
 };
 
 export function StockTakeAddExistingForm({
@@ -36,10 +38,14 @@ export function StockTakeAddExistingForm({
   onStockLocationIdChange,
   onNotesChange,
   onSubmit,
+  showHeader = true,
+  headerClassName,
 }: StockTakeAddExistingFormProps) {
   return (
     <div className="space-y-2">
-      <SectionHeader title="Add row (existing material)" />
+      {showHeader ? (
+        <SectionHeader title="Add row (existing material)" className={headerClassName} />
+      ) : null}
 
       <FormField label="Material">
         <Select

@@ -7,8 +7,11 @@ import {
 } from "@/app/(protected)/stock-take/actions";
 import { resolveInventoryItemNameCandidate } from "@/src/lib/inventory/item-labels";
 import { Alert } from "@/src/components/ui/alert";
+import { Button } from "@/src/components/ui/button";
 import { Card } from "@/src/components/ui/card";
+import { SectionHeader } from "@/src/components/layout/section-header";
 import { Stack } from "@/src/components/layout/stack";
+import { cn } from "@/src/lib/utils";
 import { StockTakeAddExistingForm } from "@/app/(protected)/stock-take/[sessionId]/components/stock-take-add-existing-form";
 import { StockTakeAddNewMaterialForm } from "@/app/(protected)/stock-take/[sessionId]/components/stock-take-add-new-material-form";
 import { StockTakeDraftActions } from "@/app/(protected)/stock-take/[sessionId]/components/stock-take-draft-actions";
@@ -47,6 +50,7 @@ type Props = {
 };
 
 export function StockTakeSessionDetailClient(props: Props) {
+  const [mobileAddRowMode, setMobileAddRowMode] = useState<"existing" | "new">("existing");
   const [inventoryItems, setInventoryItems] = useState(props.inventoryItems);
   const [baselineRows, setBaselineRows] = useState<DraftRow[]>(() =>
     toDraftRows(props.stockTakeEntries),
@@ -390,46 +394,84 @@ export function StockTakeSessionDetailClient(props: Props) {
           isEntryOpen={props.isEntryOpen}
         />
 
-        <div className="grid gap-3 border-t border-zinc-200 pt-3 md:grid-cols-2">
-          <StockTakeAddExistingForm
-            inventoryItems={inventoryItems}
-            stockLocations={props.stockLocations}
-            selectedInventoryItemId={selectedInventoryItemId}
-            countedQuantity={countedQuantity}
-            stockLocationId={stockLocationId}
-            notes={notes}
-            onSelectedInventoryItemIdChange={setSelectedInventoryItemId}
-            onCountedQuantityChange={setCountedQuantity}
-            onStockLocationIdChange={setStockLocationId}
-            onNotesChange={setNotes}
-            onSubmit={addExistingRow}
-          />
+        <div className="space-y-3 border-t border-zinc-200 pt-3">
+          <div className="space-y-2 md:hidden">
+            <SectionHeader title="Add row" />
+            <div
+              className="inline-flex w-full rounded-md border border-zinc-300 bg-zinc-50 p-1"
+              role="tablist"
+              aria-label="Add row mode"
+            >
+              <Button
+                variant={mobileAddRowMode === "existing" ? "default" : "ghost"}
+                size="md"
+                className={cn("h-9 flex-1", mobileAddRowMode === "existing" && "bg-white")}
+                onClick={() => setMobileAddRowMode("existing")}
+                role="tab"
+                aria-selected={mobileAddRowMode === "existing"}
+              >
+                Existing
+              </Button>
+              <Button
+                variant={mobileAddRowMode === "new" ? "default" : "ghost"}
+                size="md"
+                className={cn("h-9 flex-1", mobileAddRowMode === "new" && "bg-white")}
+                onClick={() => setMobileAddRowMode("new")}
+                role="tab"
+                aria-selected={mobileAddRowMode === "new"}
+              >
+                New material
+              </Button>
+            </div>
+          </div>
 
-          <StockTakeAddNewMaterialForm
-            materialGroups={props.materialGroups}
-            stockLocations={props.stockLocations}
-            newMaterialGroupId={newMaterialGroupId}
-            newMaterialDescription={newMaterialDescription}
-            newMaterialThicknessMm={newMaterialThicknessMm}
-            newMaterialWidthMm={newMaterialWidthMm}
-            newMaterialLengthMm={newMaterialLengthMm}
-            newMaterialGrade={newMaterialGrade}
-            newMaterialTreatment={newMaterialTreatment}
-            newMaterialQty={newMaterialQty}
-            newMaterialLocationId={newMaterialLocationId}
-            newMaterialNotes={newMaterialNotes}
-            onMaterialGroupIdChange={setNewMaterialGroupId}
-            onDescriptionChange={setNewMaterialDescription}
-            onThicknessMmChange={setNewMaterialThicknessMm}
-            onWidthMmChange={setNewMaterialWidthMm}
-            onLengthMmChange={setNewMaterialLengthMm}
-            onGradeChange={setNewMaterialGrade}
-            onTreatmentChange={setNewMaterialTreatment}
-            onQuantityChange={setNewMaterialQty}
-            onLocationChange={setNewMaterialLocationId}
-            onNotesChange={setNewMaterialNotes}
-            onSubmit={addNewMaterialRow}
-          />
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className={cn(mobileAddRowMode === "existing" ? "block" : "hidden", "md:block")}>
+              <StockTakeAddExistingForm
+                inventoryItems={inventoryItems}
+                stockLocations={props.stockLocations}
+                selectedInventoryItemId={selectedInventoryItemId}
+                countedQuantity={countedQuantity}
+                stockLocationId={stockLocationId}
+                notes={notes}
+                onSelectedInventoryItemIdChange={setSelectedInventoryItemId}
+                onCountedQuantityChange={setCountedQuantity}
+                onStockLocationIdChange={setStockLocationId}
+                onNotesChange={setNotes}
+                onSubmit={addExistingRow}
+                headerClassName="hidden md:block"
+              />
+            </div>
+
+            <div className={cn(mobileAddRowMode === "new" ? "block" : "hidden", "md:block")}>
+              <StockTakeAddNewMaterialForm
+                materialGroups={props.materialGroups}
+                stockLocations={props.stockLocations}
+                newMaterialGroupId={newMaterialGroupId}
+                newMaterialDescription={newMaterialDescription}
+                newMaterialThicknessMm={newMaterialThicknessMm}
+                newMaterialWidthMm={newMaterialWidthMm}
+                newMaterialLengthMm={newMaterialLengthMm}
+                newMaterialGrade={newMaterialGrade}
+                newMaterialTreatment={newMaterialTreatment}
+                newMaterialQty={newMaterialQty}
+                newMaterialLocationId={newMaterialLocationId}
+                newMaterialNotes={newMaterialNotes}
+                onMaterialGroupIdChange={setNewMaterialGroupId}
+                onDescriptionChange={setNewMaterialDescription}
+                onThicknessMmChange={setNewMaterialThicknessMm}
+                onWidthMmChange={setNewMaterialWidthMm}
+                onLengthMmChange={setNewMaterialLengthMm}
+                onGradeChange={setNewMaterialGrade}
+                onTreatmentChange={setNewMaterialTreatment}
+                onQuantityChange={setNewMaterialQty}
+                onLocationChange={setNewMaterialLocationId}
+                onNotesChange={setNewMaterialNotes}
+                onSubmit={addNewMaterialRow}
+                headerClassName="hidden md:block"
+              />
+            </div>
+          </div>
         </div>
 
         <StockTakeFeedbackAlert feedback={feedback} />

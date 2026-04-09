@@ -34,6 +34,8 @@ type StockTakeAddNewMaterialFormProps = {
   onLocationChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onSubmit: () => void;
+  showHeader?: boolean;
+  headerClassName?: string;
 };
 
 export function StockTakeAddNewMaterialForm({
@@ -60,10 +62,14 @@ export function StockTakeAddNewMaterialForm({
   onLocationChange,
   onNotesChange,
   onSubmit,
+  showHeader = true,
+  headerClassName,
 }: StockTakeAddNewMaterialFormProps) {
   return (
     <div className="space-y-2">
-      <SectionHeader title="Add row (new material)" />
+      {showHeader ? (
+        <SectionHeader title="Add row (new material)" className={headerClassName} />
+      ) : null}
 
       <FormField label="Material group">
         <Select
