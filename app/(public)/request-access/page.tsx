@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { FormErrorText, FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { Stack } from "@/components/ui/layout";
 import { getAuthContext } from "@/src/lib/auth/guards";
 import { requestAccessAction } from "@/app/(public)/request-access/actions";
 
@@ -23,50 +27,44 @@ export default async function RequestAccessPage({ searchParams }: RequestAccessP
   const params = await searchParams;
 
   return (
-    <section className="space-y-4">
+    <Stack>
       <p className="text-sm text-zinc-700">Request access to Hector Egger Ops.</p>
       <form action={requestAccessAction} className="space-y-3">
-        <label className="block space-y-1 text-sm">
-          <span className="text-zinc-700">Full name</span>
-          <input
+        <FormField label="Full name" htmlFor="request-access-full-name">
+          <Input
+            id="request-access-full-name"
             required
             type="text"
             name="fullName"
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
             placeholder="Jane Doe"
           />
-        </label>
+        </FormField>
 
-        <label className="block space-y-1 text-sm">
-          <span className="text-zinc-700">Email</span>
-          <input
+        <FormField label="Email" htmlFor="request-access-email">
+          <Input
+            id="request-access-email"
             required
             type="email"
             name="email"
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
             placeholder="you@company.com"
           />
-        </label>
+        </FormField>
 
-        <label className="block space-y-1 text-sm">
-          <span className="text-zinc-700">Password</span>
-          <input
+        <FormField label="Password" htmlFor="request-access-password">
+          <Input
+            id="request-access-password"
             required
             type="password"
             name="password"
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
             placeholder="••••••••"
           />
-        </label>
+        </FormField>
 
-        {params.error ? <p className="text-sm text-red-600">{params.error}</p> : null}
+        {params.error ? <FormErrorText>{params.error}</FormErrorText> : null}
 
-        <button
-          type="submit"
-          className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
-        >
+        <Button type="submit" className="w-full">
           Request access
-        </button>
+        </Button>
       </form>
 
       <p className="text-sm text-zinc-600">
@@ -75,6 +73,6 @@ export default async function RequestAccessPage({ searchParams }: RequestAccessP
           Sign in
         </Link>
       </p>
-    </section>
+    </Stack>
   );
 }

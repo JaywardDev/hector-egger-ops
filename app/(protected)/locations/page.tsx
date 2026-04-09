@@ -2,6 +2,14 @@ import {
   createStockLocationAction,
   updateStockLocationAction,
 } from "@/app/(protected)/locations/actions";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { PageContainer, Stack } from "@/components/ui/layout";
+import { PageHeader, SectionHeader } from "@/components/ui/page-header";
+import { Textarea } from "@/components/ui/textarea";
 import {
   hasSupervisorOrAdminRole,
   requireProtectedAccess,
@@ -36,130 +44,141 @@ export default async function LocationsPage({
       const canWrite = hasSupervisorOrAdminRole(roles);
 
       return (
-        <section className="space-y-4 text-sm text-zinc-700">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900">Locations</h2>
-            <p className="text-zinc-600">
-              Operational areas used for stock take and material tracking.
-            </p>
-          </div>
+        <PageContainer className="text-sm text-zinc-700">
+          <PageHeader
+            title="Locations"
+            description="Operational areas used for stock take and material tracking."
+          />
 
-          {params.success ? (
-            <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800">
-              {params.success}
-            </p>
-          ) : null}
-          {params.error ? (
-            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700">
-              {params.error}
-            </p>
-          ) : null}
+          {params.success ? <Alert variant="success">{params.success}</Alert> : null}
+          {params.error ? <Alert variant="error">{params.error}</Alert> : null}
 
           {canWrite ? (
-            <details className="space-y-2 rounded-md border border-zinc-200 bg-white p-3">
+            <details className="space-y-2">
               <summary className="cursor-pointer list-none font-medium text-zinc-900">
                 Add location
               </summary>
-              <form action={createStockLocationAction} className="mt-3 space-y-2">
+              <Card className="mt-2">
+                <form action={createStockLocationAction} className="space-y-3">
                 <div className="grid gap-2 md:grid-cols-2">
-                  <input
-                    name="name"
-                    placeholder="Location name"
-                    required
-                    className="rounded-md border border-zinc-300 px-2 py-1.5"
-                  />
-                  <input
-                    name="code"
-                    placeholder="Location code (optional)"
-                    className="rounded-md border border-zinc-300 px-2 py-1.5"
-                  />
-                  <input
-                    name="description"
-                    placeholder="Notes / description (optional)"
-                    className="rounded-md border border-zinc-300 px-2 py-1.5 md:col-span-2"
-                  />
+                  <FormField label="Location name" htmlFor="create-location-name">
+                    <Input
+                      id="create-location-name"
+                      name="name"
+                      placeholder="Location name"
+                      required
+                    />
+                  </FormField>
+                  <FormField label="Location code" htmlFor="create-location-code" helperText="Optional">
+                    <Input
+                      id="create-location-code"
+                      name="code"
+                      placeholder="Location code (optional)"
+                    />
+                  </FormField>
+                  <FormField
+                    className="md:col-span-2"
+                    label="Notes / description"
+                    htmlFor="create-location-description"
+                    helperText="Optional"
+                  >
+                    <Textarea
+                      id="create-location-description"
+                      name="description"
+                      placeholder="Notes / description (optional)"
+                      rows={2}
+                    />
+                  </FormField>
                 </div>
-                <button
-                  type="submit"
-                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
-                >
-                  Add location
-                </button>
-              </form>
+                  <Button type="submit" variant="secondary">
+                    Add location
+                  </Button>
+                </form>
+              </Card>
             </details>
           ) : (
-            <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
-              You have read-only access to locations.
-            </p>
+            <Alert>You have read-only access to locations.</Alert>
           )}
 
-          <div className="space-y-2">
-            <h3 className="font-medium text-zinc-900">Locations</h3>
+          <Stack className="space-y-2">
+            <SectionHeader title="Locations" />
             {locations.length === 0 ? (
-              <p className="rounded-md border border-zinc-200 bg-white px-3 py-3">
-                No locations yet.
-              </p>
+              <Card>No locations yet.</Card>
             ) : (
               <ul className="space-y-3">
                 {locations.map((location) => (
-                  <li
-                    key={location.id}
-                    className="rounded-md border border-zinc-200 bg-white p-3"
-                  >
-                    <div className="space-y-1">
-                      <p className="font-medium text-zinc-900">{location.name}</p>
-                      {location.code ? <p>Code: {location.code}</p> : null}
-                      {location.description ? (
-                        <p>Description: {location.description}</p>
-                      ) : null}
-                    </div>
+                  <li key={location.id}>
+                    <Card>
+                      <div className="space-y-1">
+                        <p className="font-medium text-zinc-900">{location.name}</p>
+                        {location.code ? <p>Code: {location.code}</p> : null}
+                        {location.description ? (
+                          <p>Description: {location.description}</p>
+                        ) : null}
+                      </div>
 
-                    {canWrite ? (
-                      <details className="mt-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-                        <summary className="cursor-pointer list-none font-medium text-zinc-800">
-                          Edit {formatLocationLabel(location)}
-                        </summary>
-                        <form
-                          action={updateStockLocationAction}
-                          className="mt-3 space-y-3"
-                        >
-                          <input type="hidden" name="locationId" value={location.id} />
-                          <div className="grid gap-2 md:grid-cols-2">
-                            <input
-                              name="name"
-                              defaultValue={location.name}
-                              placeholder="Location name"
-                              required
-                              className="rounded-md border border-zinc-300 px-2 py-1.5"
-                            />
-                            <input
-                              name="code"
-                              defaultValue={location.code ?? ""}
-                              placeholder="Location code (optional)"
-                              className="rounded-md border border-zinc-300 px-2 py-1.5"
-                            />
-                            <input
-                              name="description"
-                              defaultValue={location.description ?? ""}
-                              placeholder="Notes / description (optional)"
-                              className="rounded-md border border-zinc-300 px-2 py-1.5 md:col-span-2"
-                            />
-                          </div>
-                          <button
-                            type="submit"
-                            className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
-                          >
-                            Save
-                          </button>
-                        </form>
-                      </details>
-                    ) : null}
+                      {canWrite ? (
+                        <Card className="mt-3 bg-zinc-50">
+                          <details>
+                            <summary className="cursor-pointer list-none font-medium text-zinc-800">
+                              Edit {formatLocationLabel(location)}
+                            </summary>
+                            <form
+                              action={updateStockLocationAction}
+                              className="mt-3 space-y-3"
+                            >
+                              <input type="hidden" name="locationId" value={location.id} />
+                              <div className="grid gap-2 md:grid-cols-2">
+                                <FormField label="Location name" htmlFor={`edit-location-name-${location.id}`}>
+                                  <Input
+                                    id={`edit-location-name-${location.id}`}
+                                    name="name"
+                                    defaultValue={location.name}
+                                    placeholder="Location name"
+                                    required
+                                  />
+                                </FormField>
+                                <FormField
+                                  label="Location code"
+                                  htmlFor={`edit-location-code-${location.id}`}
+                                  helperText="Optional"
+                                >
+                                  <Input
+                                    id={`edit-location-code-${location.id}`}
+                                    name="code"
+                                    defaultValue={location.code ?? ""}
+                                    placeholder="Location code (optional)"
+                                  />
+                                </FormField>
+                                <FormField
+                                  className="md:col-span-2"
+                                  label="Notes / description"
+                                  htmlFor={`edit-location-description-${location.id}`}
+                                  helperText="Optional"
+                                >
+                                  <Textarea
+                                    id={`edit-location-description-${location.id}`}
+                                    name="description"
+                                    defaultValue={location.description ?? ""}
+                                    placeholder="Notes / description (optional)"
+                                    rows={2}
+                                  />
+                                </FormField>
+                              </div>
+                              <Button type="submit" variant="secondary">
+                                Save
+                              </Button>
+                            </form>
+                          </details>
+                        </Card>
+                      ) : null}
+                    </Card>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
-        </section>
+          </Stack>
+        </PageContainer>
       );
     },
   });

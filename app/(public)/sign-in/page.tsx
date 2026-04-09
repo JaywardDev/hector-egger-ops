@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { FormErrorText, FormField } from "@/components/ui/form-field";
+import { Input } from "@/components/ui/input";
+import { Stack } from "@/components/ui/layout";
 import { getAuthContext } from "@/src/lib/auth/guards";
 import { signInAction } from "@/app/(public)/sign-in/actions";
 
@@ -23,39 +27,34 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
 
   return (
-    <section className="space-y-4">
+    <Stack>
       <p className="text-sm text-zinc-700">Sign in with your Supabase credentials.</p>
       <form action={signInAction} className="space-y-3">
-        <label className="block space-y-1 text-sm">
-          <span className="text-zinc-700">Email</span>
-          <input
+        <FormField label="Email" htmlFor="sign-in-email">
+          <Input
+            id="sign-in-email"
             required
             type="email"
             name="email"
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
             placeholder="you@company.com"
           />
-        </label>
+        </FormField>
 
-        <label className="block space-y-1 text-sm">
-          <span className="text-zinc-700">Password</span>
-          <input
+        <FormField label="Password" htmlFor="sign-in-password">
+          <Input
+            id="sign-in-password"
             required
             type="password"
             name="password"
-            className="w-full rounded-md border border-zinc-300 px-3 py-2"
             placeholder="••••••••"
           />
-        </label>
+        </FormField>
 
-        {params.error ? <p className="text-sm text-red-600">{params.error}</p> : null}
+        {params.error ? <FormErrorText>{params.error}</FormErrorText> : null}
 
-        <button
-          type="submit"
-          className="w-full rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white"
-        >
+        <Button type="submit" className="w-full">
           Sign in
-        </button>
+        </Button>
       </form>
 
       <p className="text-sm text-zinc-600">
@@ -64,6 +63,6 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
           Request access
         </Link>
       </p>
-    </section>
+    </Stack>
   );
 }
