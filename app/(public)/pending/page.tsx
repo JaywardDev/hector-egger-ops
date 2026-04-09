@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Stack } from "@/components/ui/layout";
+import { Alert } from "@/src/components/ui/alert";
+import { Badge } from "@/src/components/ui/badge";
+import { Card } from "@/src/components/ui/card";
+import { Stack } from "@/src/components/layout/stack";
 import { requirePendingAccess } from "@/src/lib/auth/guards";
 
 type PendingPageProps = {

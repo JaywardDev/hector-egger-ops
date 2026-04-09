@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/src/lib/utils";
 
-type ButtonVariant = "default" | "danger" | "ghost";
+type ButtonVariant = "default" | "secondary" | "danger" | "ghost";
 type ButtonSize = "sm" | "md";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -11,6 +11,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 
 const variantClassNames: Record<ButtonVariant, string> = {
   default: "border-zinc-300 text-zinc-800 hover:bg-zinc-100",
+  secondary: "border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100",
   danger: "border-red-300 text-red-700 hover:bg-red-50",
   ghost: "border-transparent text-zinc-700 hover:bg-zinc-100",
 };

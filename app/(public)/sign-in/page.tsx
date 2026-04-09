@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { FormErrorText, FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
-import { Stack } from "@/components/ui/layout";
+import { Button } from "@/src/components/ui/button";
+import { FormErrorText, FormField } from "@/src/components/ui/form-field";
+import { Input } from "@/src/components/ui/input";
+import { Stack } from "@/src/components/layout/stack";
 import { getAuthContext } from "@/src/lib/auth/guards";
 import { signInAction } from "@/app/(public)/sign-in/actions";
 

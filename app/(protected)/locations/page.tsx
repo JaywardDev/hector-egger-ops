@@ -2,14 +2,16 @@ import {
   createStockLocationAction,
   updateStockLocationAction,
 } from "@/app/(protected)/locations/actions";
-import { Alert } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
-import { PageContainer, Stack } from "@/components/ui/layout";
-import { PageHeader, SectionHeader } from "@/components/ui/page-header";
-import { Textarea } from "@/components/ui/textarea";
+import { Alert } from "@/src/components/ui/alert";
+import { Button } from "@/src/components/ui/button";
+import { Card } from "@/src/components/ui/card";
+import { FormField } from "@/src/components/ui/form-field";
+import { Input } from "@/src/components/ui/input";
+import { PageContainer } from "@/src/components/layout/page-container";
+import { Stack } from "@/src/components/layout/stack";
+import { PageHeader } from "@/src/components/layout/page-header";
+import { SectionHeader } from "@/src/components/layout/section-header";
+import { Textarea } from "@/src/components/ui/textarea";
 import {
   hasSupervisorOrAdminRole,
   requireProtectedAccess,
