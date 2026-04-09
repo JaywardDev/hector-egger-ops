@@ -1,6 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Badge } from "@/src/components/ui/badge";
+import { Button } from "@/src/components/ui/button";
+import { Card } from "@/src/components/ui/card";
+import { cn } from "@/src/lib/utils";
 
 type MaterialRow = {
   id: string;
@@ -172,10 +176,10 @@ export function MaterialsGroupTable({
           Reference list of material definitions used for stock takes.
         </p>
         <details className="relative">
-          <summary className="cursor-pointer list-none rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-xs font-medium text-zinc-800 hover:bg-zinc-50">
-            Add column
+          <summary className="list-none">
+            <Button size="sm">Add column</Button>
           </summary>
-          <div className="absolute right-0 z-10 mt-2 w-52 rounded-md border border-zinc-200 bg-white p-3 shadow-sm">
+          <Card className="absolute right-0 z-10 mt-2 w-52 p-3 shadow-sm">
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Available columns
             </p>
@@ -188,7 +192,10 @@ export function MaterialsGroupTable({
                 return (
                   <label
                     key={columnKey}
-                    className="flex items-center gap-2 text-sm text-zinc-700"
+                    className={cn(
+                      "flex items-center gap-2 text-sm text-zinc-700",
+                      isDefaultColumn ? "opacity-70" : "",
+                    )}
                   >
                     <input
                       type="checkbox"
@@ -199,18 +206,17 @@ export function MaterialsGroupTable({
                       }
                     />
                     <span>{definition.label}</span>
+                    {isDefaultColumn ? <Badge>Default</Badge> : null}
                   </label>
                 );
               })}
             </div>
-          </div>
+          </Card>
         </details>
       </div>
 
       {materials.length === 0 ? (
-        <p className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-          No materials in this group yet.
-        </p>
+        <Card className="py-2">No materials in this group yet.</Card>
       ) : (
         <div className="overflow-x-auto rounded-md border border-zinc-200 bg-white">
           <table className="min-w-full border-collapse text-sm">

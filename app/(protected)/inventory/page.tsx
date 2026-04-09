@@ -4,6 +4,7 @@ import {
   saveGroupStockTakeConfigAction,
   updateMaterialGroupAction,
 } from "@/app/(protected)/inventory/actions";
+import { SectionHeader } from "@/src/components/layout/section-header";
 import { MaterialsGroupTable } from "@/src/components/inventory/materials-group-table";
 import {
   hasSupervisorOrAdminRole,
@@ -20,6 +21,15 @@ import {
   stockTakeFieldLibrary,
 } from "@/src/lib/stock-take/field-config";
 import { withServerTiming } from "@/src/lib/server-timing";
+import { PageContainer } from "@/src/components/layout/page-container";
+import { PageHeader } from "@/src/components/layout/page-header";
+import { Stack } from "@/src/components/layout/stack";
+import { Alert } from "@/src/components/ui/alert";
+import { Button } from "@/src/components/ui/button";
+import { Card } from "@/src/components/ui/card";
+import { FormField } from "@/src/components/ui/form-field";
+import { Input } from "@/src/components/ui/input";
+import { Label } from "@/src/components/ui/label";
 
 type InventoryPageProps = {
   searchParams: Promise<{
@@ -94,37 +104,21 @@ export default async function InventoryPage({
       const itemsByGroup = listItemsByGroup(items);
 
       return (
-        <section className="space-y-4 text-sm text-zinc-700">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900">
-              Materials Setup
-            </h2>
-            <p className="text-zinc-600">
-              Configure material groups, manage the materials inside them, and
-              define how each group appears in stock take. Current Qty defaults
-              to total stock across all locations per material.
-            </p>
-          </div>
+        <PageContainer>
+          <PageHeader
+            title="Materials Setup"
+            description="Configure material groups, manage the materials inside them, and define how each group appears in stock take. Current Qty defaults to total stock across all locations per material."
+          />
 
-          {params.success ? (
-            <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800">
-              {params.success}
-            </p>
-          ) : null}
-          {params.error ? (
-            <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-red-700">
-              {params.error}
-            </p>
-          ) : null}
+          {params.success ? <Alert variant="success">{params.success}</Alert> : null}
+          {params.error ? <Alert variant="error">{params.error}</Alert> : null}
 
           {!canWrite ? (
-            <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
-              You have read-only access to materials setup.
-            </p>
+            <Alert>You have read-only access to materials setup.</Alert>
           ) : null}
 
-          <div className="space-y-3">
-            <h3 className="font-medium text-zinc-900">Material Groups</h3>
+          <Stack>
+            <SectionHeader title="Material Groups" />
 
             {canWrite ? (
               <details className="rounded-md border border-zinc-200 bg-white p-3">
@@ -132,33 +126,25 @@ export default async function InventoryPage({
                   Add material group
                 </summary>
                 <form action={createMaterialGroupAction} className="mt-3 flex flex-wrap items-end gap-2">
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Group name
-                    </span>
-                    <input
+                  <FormField>
+                    <Label htmlFor="new-group-label">Group name</Label>
+                    <Input
+                      id="new-group-label"
                       name="label"
                       required
                       placeholder="Material group name"
-                      className="rounded-md border border-zinc-300 px-2 py-1.5"
+                      className="w-auto min-w-60"
                     />
-                  </label>
-                  <button
-                    type="submit"
-                    className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
-                  >
-                    Create group
-                  </button>
+                  </FormField>
+                  <Button type="submit">Create group</Button>
                 </form>
               </details>
             ) : null}
 
             {materialGroups.length === 0 ? (
-              <p className="rounded-md border border-zinc-200 bg-white px-3 py-3">
-                No material groups found.
-              </p>
+              <Card>No material groups found.</Card>
             ) : (
-              <ul className="space-y-3">
+              <Stack>
                 {materialGroups.map((group) => {
                   const groupItems = itemsByGroup[group.id] ?? [];
                   const groupConfig = resolveStockTakeFieldConfigForGroup({
@@ -166,10 +152,7 @@ export default async function InventoryPage({
                     groupSettings,
                   });
                   return (
-                    <li
-                      key={group.id}
-                      className="rounded-md border border-zinc-200 bg-white p-3"
-                    >
+                    <Card key={group.id}>
                       <div className="space-y-1">
                         <p className="font-medium text-zinc-900">{group.label}</p>
                         <p>
@@ -179,33 +162,23 @@ export default async function InventoryPage({
                         <p>{getStockTakeFieldConfigSummary({ group, groupSettings })}</p>
                       </div>
                       {canWrite ? (
-                        <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end">
+                        <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
                           <form action={updateMaterialGroupAction} className="space-y-1">
                             <input type="hidden" name="materialGroupId" value={group.id} />
-                            <label className="space-y-1 text-xs font-medium uppercase tracking-wide text-zinc-500">
-                              Group name
-                              <input
+                            <FormField>
+                              <Label htmlFor={`group-label-${group.id}`}>Group name</Label>
+                              <Input
+                                id={`group-label-${group.id}`}
                                 name="label"
                                 defaultValue={group.label}
                                 required
-                                className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm font-normal normal-case tracking-normal"
                               />
-                            </label>
-                            <button
-                              type="submit"
-                              className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
-                            >
-                              Save group
-                            </button>
+                            </FormField>
+                            <Button type="submit">Save group</Button>
                           </form>
                           <form action={archiveMaterialGroupAction}>
                             <input type="hidden" name="materialGroupId" value={group.id} />
-                            <button
-                              type="submit"
-                              className="rounded-md border border-red-300 px-3 py-1.5 text-red-700 hover:bg-red-50"
-                            >
-                              Archive group
-                            </button>
+                            <Button type="submit" variant="danger">Archive group</Button>
                           </form>
                         </div>
                       ) : null}
@@ -249,86 +222,79 @@ export default async function InventoryPage({
                             </p>
 
                             {!groupConfig ? (
-                              <p className="rounded-md border border-zinc-200 bg-white px-3 py-2">
-                                No stock-take form configured yet.
-                              </p>
+                              <Card className="py-2">No stock-take form configured yet.</Card>
                             ) : (
-                              <>
-                                <div className="rounded-md border border-zinc-200 bg-white p-3">
-                                  <p className="font-medium text-zinc-900">
-                                    Selected stock-take fields
-                                  </p>
-                                  <ul className="mt-2 list-disc space-y-1 pl-5">
-                                    {[
-                                      ...groupConfig.referenceFieldKeys,
-                                      ...groupConfig.editableFieldKeys,
-                                    ].map((fieldKey) => (
-                                      <li key={fieldKey}>
-                                        {stockTakeFieldLibrary[fieldKey].label}
-                                        {groupConfig.requiredEditableFieldKeys.includes(fieldKey) ? " (required)" : ""}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </>
+                              <Card>
+                                <p className="font-medium text-zinc-900">
+                                  Selected stock-take fields
+                                </p>
+                                <ul className="mt-2 list-disc space-y-1 pl-5">
+                                  {[
+                                    ...groupConfig.referenceFieldKeys,
+                                    ...groupConfig.editableFieldKeys,
+                                  ].map((fieldKey) => (
+                                    <li key={fieldKey}>
+                                      {stockTakeFieldLibrary[fieldKey].label}
+                                      {groupConfig.requiredEditableFieldKeys.includes(fieldKey) ? " (required)" : ""}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </Card>
                             )}
 
                             {canWrite ? (
-                              <form action={saveGroupStockTakeConfigAction} className="rounded-md border border-zinc-200 bg-white p-3">
-                                <input type="hidden" name="materialGroupId" value={group.id} />
-                                <p className="font-medium text-zinc-900">Stock-take fields</p>
-                                <div className="mt-2 space-y-2">
-                                  {Object.values(stockTakeFieldLibrary).map((field) => {
-                                    const isEnabled = Boolean(
-                                      groupConfig &&
-                                        [...groupConfig.referenceFieldKeys, ...groupConfig.editableFieldKeys].includes(field.key),
-                                    );
-                                    const isRequired = Boolean(
-                                      groupConfig?.requiredEditableFieldKeys.includes(field.key),
-                                    );
+                              <Card>
+                                <form action={saveGroupStockTakeConfigAction}>
+                                  <input type="hidden" name="materialGroupId" value={group.id} />
+                                  <p className="font-medium text-zinc-900">Stock-take fields</p>
+                                  <div className="mt-2 space-y-2">
+                                    {Object.values(stockTakeFieldLibrary).map((field) => {
+                                      const isEnabled = Boolean(
+                                        groupConfig &&
+                                          [...groupConfig.referenceFieldKeys, ...groupConfig.editableFieldKeys].includes(field.key),
+                                      );
+                                      const isRequired = Boolean(
+                                        groupConfig?.requiredEditableFieldKeys.includes(field.key),
+                                      );
 
-                                    return (
-                                      <div key={field.key} className="rounded-md border border-zinc-200 p-2">
-                                        <label className="flex items-center gap-2">
-                                          <input
-                                            type="checkbox"
-                                            name="enabledFieldKeys"
-                                            value={field.key}
-                                            defaultChecked={isEnabled}
-                                            disabled={field.key === "counted_quantity"}
-                                          />
-                                          <span>
-                                            {field.label}
-                                            <span className="text-zinc-500">
-                                              {" "}
-                                              ({field.kind === "reference" ? "Reference" : "Editable"})
-                                            </span>
-                                          </span>
-                                        </label>
-                                        {field.kind === "editable" && field.supportsRequiredToggle ? (
-                                          <label className="mt-1 flex items-center gap-2 pl-6 text-xs text-zinc-600">
+                                      return (
+                                        <div key={field.key} className="rounded-md border border-zinc-200 p-2">
+                                          <label className="flex items-center gap-2">
                                             <input
                                               type="checkbox"
-                                              name="requiredFieldKeys"
+                                              name="enabledFieldKeys"
                                               value={field.key}
-                                              defaultChecked={isRequired}
+                                              defaultChecked={isEnabled}
+                                              disabled={field.key === "counted_quantity"}
                                             />
-                                            Required
+                                            <span>
+                                              {field.label}
+                                              <span className="text-zinc-500">
+                                                {" "}
+                                                ({field.kind === "reference" ? "Reference" : "Editable"})
+                                              </span>
+                                            </span>
                                           </label>
-                                        ) : null}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                                <button
-                                  type="submit"
-                                  className="mt-3 rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
-                                >
-                                  Save stock-take form
-                                </button>
-                              </form>
+                                          {field.kind === "editable" && field.supportsRequiredToggle ? (
+                                            <label className="mt-1 flex items-center gap-2 pl-6 text-xs text-zinc-600">
+                                              <input
+                                                type="checkbox"
+                                                name="requiredFieldKeys"
+                                                value={field.key}
+                                                defaultChecked={isRequired}
+                                              />
+                                              Required
+                                            </label>
+                                          ) : null}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                  <Button type="submit" className="mt-3">Save stock-take form</Button>
+                                </form>
+                              </Card>
                             ) : (
-                              <div className="rounded-md border border-zinc-200 bg-white p-3">
+                              <Card>
                                 <p className="font-medium text-zinc-900">
                                   Available field library
                                 </p>
@@ -343,18 +309,18 @@ export default async function InventoryPage({
                                     </li>
                                   ))}
                                 </ul>
-                              </div>
+                              </Card>
                             )}
                           </div>
                         </details>
                       </div>
-                    </li>
+                    </Card>
                   );
                 })}
-              </ul>
+              </Stack>
             )}
-          </div>
-        </section>
+          </Stack>
+        </PageContainer>
       );
     },
   });

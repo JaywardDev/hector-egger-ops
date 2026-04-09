@@ -1,6 +1,7 @@
 "use client";
 
 import { deleteEmptyDraftStockTakeSessionAction } from "@/app/(protected)/stock-take/actions";
+import { Button } from "@/src/components/ui/button";
 
 type DeleteEmptyDraftFormProps = {
   sessionId: string;
@@ -21,12 +22,9 @@ export function DeleteEmptyDraftForm({ sessionId }: DeleteEmptyDraftFormProps) {
       }}
     >
       <input type="hidden" name="sessionId" value={sessionId} />
-      <button
-        type="submit"
-        className="inline-flex rounded-md border border-red-200 px-3 py-1.5 text-red-700 hover:bg-red-50"
-      >
+      <Button type="submit" variant="danger">
         Delete empty draft
-      </button>
+      </Button>
     </form>
   );
 }

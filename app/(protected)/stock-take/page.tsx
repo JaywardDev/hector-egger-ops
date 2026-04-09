@@ -1,12 +1,22 @@
 import Link from "next/link";
-import {
-  createStockTakeSessionAction
-} from "@/app/(protected)/stock-take/actions";
+import { createStockTakeSessionAction } from "@/app/(protected)/stock-take/actions";
+import { DeleteEmptyDraftForm } from "@/app/(protected)/stock-take/delete-empty-draft-form";
+import { PageContainer } from "@/src/components/layout/page-container";
+import { PageHeader } from "@/src/components/layout/page-header";
+import { SectionHeader } from "@/src/components/layout/section-header";
+import { Stack } from "@/src/components/layout/stack";
+import { Alert } from "@/src/components/ui/alert";
+import { Badge } from "@/src/components/ui/badge";
+import { Button } from "@/src/components/ui/button";
+import { Card } from "@/src/components/ui/card";
+import { FormField } from "@/src/components/ui/form-field";
+import { Label } from "@/src/components/ui/label";
+import { Select } from "@/src/components/ui/select";
+import { Textarea } from "@/src/components/ui/textarea";
 import {
   hasSupervisorOrAdminRole,
   requireProtectedAccess,
 } from "@/src/lib/auth/guards";
-import { DeleteEmptyDraftForm } from "@/app/(protected)/stock-take/delete-empty-draft-form";
 import { listStockLocations } from "@/src/lib/inventory/locations";
 import { withServerTiming } from "@/src/lib/server-timing";
 import { listStockTakeSessions } from "@/src/lib/stock-take/sessions";
@@ -18,13 +28,13 @@ type StockTakePageProps = {
   }>;
 };
 
-const statusBadgeClassName = {
-  draft: "bg-zinc-100 text-zinc-700",
-  in_progress: "bg-blue-100 text-blue-800",
-  submitted: "bg-amber-100 text-amber-800",
-  reviewed: "bg-violet-100 text-violet-800",
-  closed: "bg-emerald-100 text-emerald-800",
-};
+const statusBadgeVariant = {
+  draft: "neutral",
+  in_progress: "info",
+  submitted: "warning",
+  reviewed: "accent",
+  closed: "success",
+} as const;
 
 const formatLocationLabel = (location: { name: string; code: string | null }) =>
   location.code ? `${location.name} (${location.code})` : location.name;
@@ -52,22 +62,14 @@ export default async function StockTakePage({
       const canDeleteEmptyDraft = hasSupervisorOrAdminRole(roles);
 
       return (
-        <section className="space-y-4 text-sm text-zinc-700">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900">Stock Take</h2>
-            <p className="text-zinc-600">Create and manage stock-take sessions.</p>
-          </div>
+        <PageContainer>
+          <PageHeader
+            title="Stock Take"
+            description="Create and manage stock-take sessions."
+          />
 
-          {params.success ? (
-            <p className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-emerald-800">
-              {params.success}
-            </p>
-          ) : null}
-          {params.error ? (
-            <p className="rounded-md border border-red-50 bg-red-50 px-3 py-2 text-red-700">
-              {params.error}
-            </p>
-          ) : null}
+          {params.success ? <Alert variant="success">{params.success}</Alert> : null}
+          {params.error ? <Alert variant="error">{params.error}</Alert> : null}
 
           {canCreateSessions ? (
             <details className="rounded-md border border-zinc-200 bg-white p-3">
@@ -76,79 +78,55 @@ export default async function StockTakePage({
               </summary>
               <form action={createStockTakeSessionAction} className="mt-3 space-y-2">
                 <div className="grid gap-2 md:grid-cols-2">
-                  <label className="space-y-1">
-                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Default location
-                    </span>
-                    <select
-                      name="stockLocationId"
-                      defaultValue=""
-                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
-                    >
+                  <FormField>
+                    <Label htmlFor="stock-location">Default location</Label>
+                    <Select id="stock-location" name="stockLocationId" defaultValue="">
                       <option value="">No default location</option>
                       {stockLocations.map((location) => (
                         <option key={location.id} value={location.id}>
                           {formatLocationLabel(location)}
                         </option>
                       ))}
-                    </select>
-                  </label>
-                  <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-600">
-                    Session title is generated automatically when the session is
-                    created.
-                  </p>
-                  <label className="space-y-1 md:col-span-2">
-                    <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-                      Notes
-                    </span>
-                    <textarea
+                    </Select>
+                  </FormField>
+                  <Alert variant="info" className="text-xs">
+                    Session title is generated automatically when the session is created.
+                  </Alert>
+                  <FormField className="md:col-span-2">
+                    <Label htmlFor="new-session-notes">Notes</Label>
+                    <Textarea
+                      id="new-session-notes"
                       name="notes"
                       placeholder="Notes (optional)"
                       rows={3}
-                      className="w-full rounded-md border border-zinc-300 px-2 py-1.5"
                     />
-                  </label>
+                  </FormField>
                 </div>
-                <button
-                  type="submit"
-                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
-                >
-                  Start stock take
-                </button>
+                <Button type="submit">Start stock take</Button>
               </form>
             </details>
           ) : (
-            <p className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
-              You can review stock take sessions, but only supervisors and
-              admins can create them.
-            </p>
+            <Alert>
+              You can review stock take sessions, but only supervisors and admins can create them.
+            </Alert>
           )}
 
-          <div className="space-y-2">
-            <h3 className="font-medium text-zinc-900">Sessions</h3>
+          <Stack gap="sm">
+            <SectionHeader title="Sessions" />
             {stockTakeSessions.length === 0 ? (
-              <p className="rounded-md border border-zinc-200 bg-white px-3 py-3">
-                No stock take sessions yet.
-              </p>
+              <Card>No stock take sessions yet.</Card>
             ) : (
-              <ul className="space-y-3">
+              <Stack>
                 {stockTakeSessions.map((stockTakeSession) => (
-                  <li
-                    key={stockTakeSession.id}
-                    className="rounded-md border border-zinc-200 bg-white p-3"
-                  >
+                  <Card key={stockTakeSession.id}>
                     <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                       <div className="space-y-1">
-                        <p className="font-medium text-zinc-900">
-                          {stockTakeSession.title}
-                        </p>
+                        <p className="font-medium text-zinc-900">{stockTakeSession.title}</p>
                         <div className="flex flex-wrap items-center gap-2">
                           <span>Status:</span>
-                          <span
-                            className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${statusBadgeClassName[stockTakeSession.status]}`}
-                          >
+                          <Badge variant={statusBadgeVariant[stockTakeSession.status]}>
                             {stockTakeSession.status}
-                          </span>
+                          </Badge>
                         </div>
                         <p>
                           Default location:{" "}
@@ -156,14 +134,12 @@ export default async function StockTakePage({
                             ? formatLocationLabel(stockTakeSession.stock_location)
                             : "None"}
                         </p>
-                        {stockTakeSession.notes ? (
-                          <p>Notes: {stockTakeSession.notes}</p>
-                        ) : null}
+                        {stockTakeSession.notes ? <p>Notes: {stockTakeSession.notes}</p> : null}
                       </div>
                       <div className="flex flex-col gap-2">
                         <Link
                           href={`/stock-take/${stockTakeSession.id}`}
-                          className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
+                          className="inline-flex items-center justify-center rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-100"
                         >
                           Open session
                         </Link>
@@ -172,12 +148,12 @@ export default async function StockTakePage({
                         ) : null}
                       </div>
                     </div>
-                  </li>
+                  </Card>
                 ))}
-              </ul>
+              </Stack>
             )}
-          </div>
-        </section>
+          </Stack>
+        </PageContainer>
       );
     },
   });
