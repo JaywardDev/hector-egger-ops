@@ -1,11 +1,10 @@
 import { notFound } from "next/navigation";
 import {
-  deleteEmptyDraftStockTakeSessionAction,
   transitionStockTakeSessionAction,
 } from "@/app/(protected)/stock-take/actions";
+import { DeleteEmptyDraftForm } from "@/app/(protected)/stock-take/delete-empty-draft-form";
 import { StockTakeSessionSummaryCard } from "@/app/(protected)/stock-take/[sessionId]/components/stock-take-session-summary-card";
 import { StockTakeSessionDetailClient } from "@/app/(protected)/stock-take/[sessionId]/stock-take-session-detail-client";
-import { Button } from "@/src/components/ui/button";
 import { Alert } from "@/src/components/ui/alert";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
@@ -133,23 +132,7 @@ export default async function StockTakeSessionDetailPage({
               hasNextTransition={Boolean(nextTransition)}
               deleteAction={
                 canDeleteEmptyDraft ? (
-                  <form
-                    action={deleteEmptyDraftStockTakeSessionAction}
-                    onSubmit={(event) => {
-                      if (
-                        !window.confirm(
-                          "Delete this empty draft session? This action cannot be undone.",
-                        )
-                      ) {
-                        event.preventDefault();
-                      }
-                    }}
-                  >
-                    <input type="hidden" name="sessionId" value={stockTakeSession.id} />
-                    <Button type="submit" variant="danger">
-                      Delete empty draft
-                    </Button>
-                  </form>
+                  <DeleteEmptyDraftForm sessionId={stockTakeSession.id} />
                 ) : null
               }
             />
