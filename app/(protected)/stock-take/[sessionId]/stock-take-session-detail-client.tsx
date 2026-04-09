@@ -5,6 +5,8 @@ import {
   saveStockTakeSessionDraftAction,
   type SaveStockTakeSessionDraftActionInput,
 } from "@/app/(protected)/stock-take/actions";
+import { resolveInventoryItemNameCandidate } from "@/src/lib/inventory/item-labels";
+import { Alert } from "@/src/components/ui/alert";
 import { Card } from "@/src/components/ui/card";
 import { Stack } from "@/src/components/layout/stack";
 import { StockTakeAddExistingForm } from "@/app/(protected)/stock-take/[sessionId]/components/stock-take-add-existing-form";
@@ -107,6 +109,20 @@ export function StockTakeSessionDetailClient(props: Props) {
   const inventoryItemById = useMemo(
     () => new Map(inventoryItems.map((item) => [item.id, item] as const)),
     [inventoryItems],
+  );
+  const rowBeingEdited = useMemo(
+    () =>
+      editingRowClientId
+        ? draftRows.find((row) => row.clientId === editingRowClientId) ?? null
+        : null,
+    [draftRows, editingRowClientId],
+  );
+  const editingRowLabel = useMemo(
+    () =>
+      rowBeingEdited
+        ? describeEditingRowLabel(rowBeingEdited, inventoryItemById, props.materialGroups)
+        : null,
+    [inventoryItemById, props.materialGroups, rowBeingEdited],
   );
 
   const addExistingRow = () => {
@@ -433,6 +449,11 @@ export function StockTakeSessionDetailClient(props: Props) {
           onCopyRow={copyRow}
           onRemoveRow={removeRow}
         />
+        {editingRowClientId && editingRowLabel ? (
+          <Alert variant="info">
+            Editing row in progress: <span className="font-medium">{editingRowLabel}</span>
+          </Alert>
+        ) : null}
 
         {props.canTransitionStatus && props.nextTransition ? (
           <StockTakeSessionTransitionForm
@@ -452,4 +473,23 @@ export function StockTakeSessionDetailClient(props: Props) {
       </Stack>
     </Card>
   );
+}
+
+function describeEditingRowLabel(
+  row: DraftRow,
+  inventoryItemById: Map<string, InventoryItemOption>,
+  materialGroups: MaterialGroupOption[],
+) {
+  if (!row.newMaterial) {
+    return row.inventoryItemId ? inventoryItemById.get(row.inventoryItemId)?.name ?? "Material" : "Material";
+  }
+
+  const materialGroup = materialGroups.find((group) => group.id === row.newMaterial?.materialGroupId);
+  const previewLabel = resolveInventoryItemNameCandidate({
+    name: row.newMaterial.name,
+    timberSpec: row.newMaterial.timberSpec,
+    selectedMaterialGroupKey: materialGroup?.key,
+    timberLabelMode: "auto",
+  });
+  return previewLabel ?? `New material (${materialGroup?.label ?? "Unknown"})`;
 }
