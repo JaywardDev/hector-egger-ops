@@ -125,7 +125,10 @@ export default async function InventoryPage({
                 <summary className="cursor-pointer list-none font-medium text-zinc-900">
                   Add material group
                 </summary>
-                <form action={createMaterialGroupAction} className="mt-3 flex flex-wrap items-end gap-2">
+                <form
+                  action={createMaterialGroupAction}
+                  className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+                >
                   <FormField>
                     <Label htmlFor="new-group-label">Group name</Label>
                     <Input
@@ -133,10 +136,12 @@ export default async function InventoryPage({
                       name="label"
                       required
                       placeholder="Material group name"
-                      className="w-auto min-w-60"
+                      className="w-full sm:min-w-60"
                     />
                   </FormField>
-                  <Button type="submit">Create group</Button>
+                  <Button type="submit" className="w-full sm:w-auto">
+                    Create group
+                  </Button>
                 </form>
               </details>
             ) : null}
@@ -153,16 +158,18 @@ export default async function InventoryPage({
                   });
                   return (
                     <Card key={group.id}>
-                      <div className="space-y-1">
-                        <p className="font-medium text-zinc-900">{group.label}</p>
-                        <p>
-                          {groupItems.length} material
-                          {groupItems.length === 1 ? "" : "s"}
-                        </p>
-                        <p>{getStockTakeFieldConfigSummary({ group, groupSettings })}</p>
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-1">
+                          <p className="font-medium text-zinc-900">{group.label}</p>
+                          <p>
+                            {groupItems.length} material
+                            {groupItems.length === 1 ? "" : "s"}
+                          </p>
+                          <p>{getStockTakeFieldConfigSummary({ group, groupSettings })}</p>
+                        </div>
                       </div>
                       {canWrite ? (
-                        <div className="mt-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                        <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
                           <form action={updateMaterialGroupAction} className="space-y-1">
                             <input type="hidden" name="materialGroupId" value={group.id} />
                             <FormField>
@@ -174,11 +181,15 @@ export default async function InventoryPage({
                                 required
                               />
                             </FormField>
-                            <Button type="submit">Save group</Button>
+                            <Button type="submit" className="w-full sm:w-auto">
+                              Save group
+                            </Button>
                           </form>
-                          <form action={archiveMaterialGroupAction}>
+                          <form action={archiveMaterialGroupAction} className="w-full lg:w-auto">
                             <input type="hidden" name="materialGroupId" value={group.id} />
-                            <Button type="submit" variant="danger">Archive group</Button>
+                            <Button type="submit" variant="danger" className="w-full lg:w-auto">
+                              Archive group
+                            </Button>
                           </form>
                         </div>
                       ) : null}
@@ -247,7 +258,7 @@ export default async function InventoryPage({
                                 <form action={saveGroupStockTakeConfigAction}>
                                   <input type="hidden" name="materialGroupId" value={group.id} />
                                   <p className="font-medium text-zinc-900">Stock-take fields</p>
-                                  <div className="mt-2 space-y-2">
+                                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
                                     {Object.values(stockTakeFieldLibrary).map((field) => {
                                       const isEnabled = Boolean(
                                         groupConfig &&

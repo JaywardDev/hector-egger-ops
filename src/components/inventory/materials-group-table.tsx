@@ -171,15 +171,17 @@ export function MaterialsGroupTable({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-zinc-600">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-zinc-600 sm:max-w-[70%]">
           Reference list of material definitions used for stock takes.
         </p>
         <details className="relative">
           <summary className="list-none">
-            <Button size="sm">Add column</Button>
+            <Button size="sm" className="w-full sm:w-auto">
+              Add column
+            </Button>
           </summary>
-          <Card className="absolute right-0 z-10 mt-2 w-52 p-3 shadow-sm">
+          <Card className="absolute left-0 z-10 mt-2 w-64 max-w-[calc(100vw-3rem)] p-3 shadow-sm sm:left-auto sm:right-0 sm:w-52">
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
               Available columns
             </p>
@@ -218,29 +220,34 @@ export function MaterialsGroupTable({
       {materials.length === 0 ? (
         <Card className="py-2">No materials in this group yet.</Card>
       ) : (
-        <div className="overflow-x-auto rounded-md border border-zinc-200 bg-white">
-          <table className="min-w-full border-collapse text-sm">
-            <thead className="bg-zinc-100 text-left text-xs uppercase tracking-wide text-zinc-600">
-              <tr>
-                {selectedColumnKeys.map((columnKey) => (
-                  <th key={columnKey} className="px-3 py-2 font-medium">
-                    {allColumnDefinitions[columnKey].label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {materials.map((material) => (
-                <tr key={material.id} className="border-t border-zinc-200">
+        <div className="space-y-2">
+          <p className="text-xs text-zinc-500">
+            Scroll horizontally to view all selected columns.
+          </p>
+          <div className="overflow-x-auto rounded-md border border-zinc-200 bg-white">
+            <table className="min-w-full border-collapse text-sm">
+              <thead className="bg-zinc-100 text-left text-xs uppercase tracking-wide text-zinc-600">
+                <tr>
                   {selectedColumnKeys.map((columnKey) => (
-                    <td key={columnKey} className="px-3 py-2 text-zinc-700">
-                      {allColumnDefinitions[columnKey].render(material)}
-                    </td>
+                    <th key={columnKey} className="whitespace-nowrap px-3 py-2 font-medium">
+                      {allColumnDefinitions[columnKey].label}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {materials.map((material) => (
+                  <tr key={material.id} className="border-t border-zinc-200">
+                    {selectedColumnKeys.map((columnKey) => (
+                      <td key={columnKey} className="whitespace-nowrap px-3 py-2 text-zinc-700">
+                        {allColumnDefinitions[columnKey].render(material)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

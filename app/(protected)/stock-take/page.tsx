@@ -89,7 +89,7 @@ export default async function StockTakePage({
                       ))}
                     </Select>
                   </FormField>
-                  <Alert variant="info" className="text-xs">
+                  <Alert variant="info" className="text-xs md:self-end">
                     Session title is generated automatically when the session is created.
                   </Alert>
                   <FormField className="md:col-span-2">
@@ -102,7 +102,9 @@ export default async function StockTakePage({
                     />
                   </FormField>
                 </div>
-                <Button type="submit">Start stock take</Button>
+                <Button type="submit" className="w-full sm:w-auto">
+                  Start stock take
+                </Button>
               </form>
             </details>
           ) : (
@@ -136,10 +138,10 @@ export default async function StockTakePage({
                         </p>
                         {stockTakeSession.notes ? <p>Notes: {stockTakeSession.notes}</p> : null}
                       </div>
-                      <div className="flex flex-col gap-2">
+                      <div className="flex flex-col gap-2 sm:flex-row md:flex-col">
                         <Link
                           href={`/stock-take/${stockTakeSession.id}`}
-                          className="inline-flex items-center justify-center rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-100"
+                          className="inline-flex w-full items-center justify-center rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-800 transition-colors hover:bg-zinc-100 sm:w-auto"
                         >
                           Open session
                         </Link>
