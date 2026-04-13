@@ -65,6 +65,8 @@ export function StockTakeSessionDetailClient(props: Props) {
   const [stockLocationId, setStockLocationId] = useState(
     props.defaultStockLocationId ?? "",
   );
+  const [bay, setBay] = useState("");
+  const [level, setLevel] = useState("");
   const [notes, setNotes] = useState("");
   const [newMaterialGroupId, setNewMaterialGroupId] = useState(
     props.materialGroups[0]?.id ?? "",
@@ -74,6 +76,8 @@ export function StockTakeSessionDetailClient(props: Props) {
   const [newMaterialLocationId, setNewMaterialLocationId] = useState(
     props.defaultStockLocationId ?? "",
   );
+  const [newMaterialBay, setNewMaterialBay] = useState("");
+  const [newMaterialLevel, setNewMaterialLevel] = useState("");
   const [newMaterialNotes, setNewMaterialNotes] = useState("");
   const [newMaterialThicknessMm, setNewMaterialThicknessMm] = useState("");
   const [newMaterialWidthMm, setNewMaterialWidthMm] = useState("");
@@ -145,6 +149,8 @@ export function StockTakeSessionDetailClient(props: Props) {
         entryId: null,
         inventoryItemId: selectedInventoryItemId,
         countedQuantity: qty,
+        bay: bay.trim() || null,
+        level: level.trim() || null,
         stockLocationId: stockLocationId || null,
         notes: notes.trim().length > 0 ? notes.trim() : null,
         newMaterial: null,
@@ -154,6 +160,8 @@ export function StockTakeSessionDetailClient(props: Props) {
       ...current,
     ]);
     setCountedQuantity("0");
+    setBay("");
+    setLevel("");
     setNotes("");
     setFeedback(null);
   };
@@ -181,6 +189,8 @@ export function StockTakeSessionDetailClient(props: Props) {
         entryId: null,
         inventoryItemId: null,
         countedQuantity: qty,
+        bay: newMaterialBay.trim() || null,
+        level: newMaterialLevel.trim() || null,
         stockLocationId: newMaterialLocationId || null,
         notes: newMaterialNotes.trim().length > 0 ? newMaterialNotes.trim() : null,
         newMaterial: {
@@ -204,6 +214,8 @@ export function StockTakeSessionDetailClient(props: Props) {
     ]);
     setNewMaterialDescription("");
     setNewMaterialQty("0");
+    setNewMaterialBay("");
+    setNewMaterialLevel("");
     setNewMaterialNotes("");
     setNewMaterialThicknessMm("");
     setNewMaterialWidthMm("");
@@ -227,6 +239,8 @@ export function StockTakeSessionDetailClient(props: Props) {
         entryId: row.entryId,
         inventoryItemId: row.inventoryItemId,
         countedQuantity: row.countedQuantity,
+        bay: row.bay,
+        level: row.level,
         stockLocationId: row.stockLocationId,
         notes: row.notes,
         newMaterial: row.newMaterial,
@@ -294,6 +308,8 @@ export function StockTakeSessionDetailClient(props: Props) {
       entryId: null,
       inventoryItemId: sourceRow.inventoryItemId,
       countedQuantity: sourceRow.countedQuantity,
+      bay: sourceRow.bay,
+      level: sourceRow.level,
       stockLocationId: sourceRow.stockLocationId,
       notes: sourceRow.notes,
       newMaterial: sourceRow.newMaterial
@@ -323,6 +339,8 @@ export function StockTakeSessionDetailClient(props: Props) {
     setRowEditBuffer({
       inventoryItemId: copiedRow.inventoryItemId,
       countedQuantity: String(copiedRow.countedQuantity),
+      bay: copiedRow.bay ?? "",
+      level: copiedRow.level ?? "",
       stockLocationId: copiedRow.stockLocationId ?? "",
       notes: copiedRow.notes ?? "",
     });
@@ -334,6 +352,8 @@ export function StockTakeSessionDetailClient(props: Props) {
     setRowEditBuffer({
       inventoryItemId: row.inventoryItemId,
       countedQuantity: String(row.countedQuantity),
+      bay: row.bay ?? "",
+      level: row.level ?? "",
       stockLocationId: row.stockLocationId ?? "",
       notes: row.notes ?? "",
     });
@@ -374,6 +394,8 @@ export function StockTakeSessionDetailClient(props: Props) {
         ? rowBeingEdited.inventoryItemId
         : rowEditBuffer.inventoryItemId,
       countedQuantity: qty,
+      bay: rowEditBuffer.bay.trim() ? rowEditBuffer.bay.trim() : null,
+      level: rowEditBuffer.level.trim() ? rowEditBuffer.level.trim() : null,
       stockLocationId: rowEditBuffer.stockLocationId || null,
       notes: rowEditBuffer.notes.trim() ? rowEditBuffer.notes.trim() : null,
     });
@@ -433,10 +455,14 @@ export function StockTakeSessionDetailClient(props: Props) {
                 selectedInventoryItemId={selectedInventoryItemId}
                 countedQuantity={countedQuantity}
                 stockLocationId={stockLocationId}
+                bay={bay}
+                level={level}
                 notes={notes}
                 onSelectedInventoryItemIdChange={setSelectedInventoryItemId}
                 onCountedQuantityChange={setCountedQuantity}
                 onStockLocationIdChange={setStockLocationId}
+                onBayChange={setBay}
+                onLevelChange={setLevel}
                 onNotesChange={setNotes}
                 onSubmit={addExistingRow}
                 headerClassName="hidden md:block"
@@ -456,6 +482,8 @@ export function StockTakeSessionDetailClient(props: Props) {
                 newMaterialTreatment={newMaterialTreatment}
                 newMaterialQty={newMaterialQty}
                 newMaterialLocationId={newMaterialLocationId}
+                newMaterialBay={newMaterialBay}
+                newMaterialLevel={newMaterialLevel}
                 newMaterialNotes={newMaterialNotes}
                 onMaterialGroupIdChange={setNewMaterialGroupId}
                 onDescriptionChange={setNewMaterialDescription}
@@ -466,6 +494,8 @@ export function StockTakeSessionDetailClient(props: Props) {
                 onTreatmentChange={setNewMaterialTreatment}
                 onQuantityChange={setNewMaterialQty}
                 onLocationChange={setNewMaterialLocationId}
+                onBayChange={setNewMaterialBay}
+                onLevelChange={setNewMaterialLevel}
                 onNotesChange={setNewMaterialNotes}
                 onSubmit={addNewMaterialRow}
                 headerClassName="hidden md:block"

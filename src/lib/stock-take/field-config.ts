@@ -16,6 +16,8 @@ export type StockTakeFieldKey =
   | "treatment"
   | "counted_quantity"
   | "stock_location_id"
+  | "bay"
+  | "level"
   | "notes";
 
 export type StockTakeFieldKind = "reference" | "editable";
@@ -156,6 +158,26 @@ export const stockTakeFieldLibrary: Record<
     required: false,
     supportsRequiredToggle: true,
   },
+  bay: {
+    key: "bay",
+    label: "Bay",
+    kind: "editable",
+    valueType: "text",
+    source: "entry",
+    control: "text",
+    required: false,
+    supportsRequiredToggle: true,
+  },
+  level: {
+    key: "level",
+    label: "Level",
+    kind: "editable",
+    valueType: "text",
+    source: "entry",
+    control: "text",
+    required: false,
+    supportsRequiredToggle: true,
+  },
   notes: {
     key: "notes",
     label: "Notes",
@@ -180,7 +202,7 @@ const timberDefaultConfig: StockTakeFieldConfig = {
     "grade",
     "treatment",
   ],
-  editableFieldKeys: ["counted_quantity", "stock_location_id", "notes"],
+  editableFieldKeys: ["counted_quantity", "stock_location_id", "bay", "level", "notes"],
   requiredEditableFieldKeys: ["counted_quantity"],
 };
 

@@ -16,10 +16,14 @@ type StockTakeAddExistingFormProps = {
   selectedInventoryItemId: string | null;
   countedQuantity: string;
   stockLocationId: string;
+  bay: string;
+  level: string;
   notes: string;
   onSelectedInventoryItemIdChange: (value: string | null) => void;
   onCountedQuantityChange: (value: string) => void;
   onStockLocationIdChange: (value: string) => void;
+  onBayChange: (value: string) => void;
+  onLevelChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onSubmit: () => void;
   showHeader?: boolean;
@@ -32,10 +36,14 @@ export function StockTakeAddExistingForm({
   selectedInventoryItemId,
   countedQuantity,
   stockLocationId,
+  bay,
+  level,
   notes,
   onSelectedInventoryItemIdChange,
   onCountedQuantityChange,
   onStockLocationIdChange,
+  onBayChange,
+  onLevelChange,
   onNotesChange,
   onSubmit,
   showHeader = true,
@@ -89,6 +97,15 @@ export function StockTakeAddExistingForm({
           ))}
         </Select>
       </FormField>
+
+      <div className="grid grid-cols-2 gap-2">
+        <FormField label="Bay">
+          <Input value={bay} onChange={(event) => onBayChange(event.target.value)} placeholder="Bay" />
+        </FormField>
+        <FormField label="Level">
+          <Input value={level} onChange={(event) => onLevelChange(event.target.value)} placeholder="Level" />
+        </FormField>
+      </div>
 
       <FormField label="Notes">
         <Textarea

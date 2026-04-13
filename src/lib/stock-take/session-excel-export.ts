@@ -1,6 +1,7 @@
 import "server-only";
 
 import { resolveInventoryItemNameCandidate } from "@/src/lib/inventory/item-labels";
+import { formatStockTakeEntryMappingCode } from "@/src/lib/stock-take/entry-mapping";
 import type {
   StockTakeEntryExportRecord,
   StockTakeSessionRecord,
@@ -18,6 +19,7 @@ type NormalizedExportRow = {
   qty: number;
   location: string;
   notes: string;
+  mappingCode: string;
   mapping: LayoutCoordinate | null;
 };
 
@@ -72,39 +74,25 @@ const toColumnName = (index: number) => {
   return column;
 };
 
-const parseBayLevelHint = (value: string | null): LayoutCoordinate | null => {
-  const normalized = value?.trim() ?? "";
-  if (!normalized) {
+const toLayoutCoordinate = (bay: string | null, level: string | null): LayoutCoordinate | null => {
+  const normalizedBay = bay?.trim() ?? "";
+  const normalizedLevel = level?.trim() ?? "";
+  if (!normalizedBay || !normalizedLevel) {
     return null;
   }
 
-  const patterns = [
-    /\bB\s*0*(\d{1,3})\s*[-/ ]\s*L\s*0*(\d{1,3})\b/i,
-    /\bBay\s*0*(\d{1,3})\s*[,;:/\- ]+\s*Level\s*0*(\d{1,3})\b/i,
-  ] as const;
-
-  for (const pattern of patterns) {
-    const match = normalized.match(pattern);
-    if (!match) {
-      continue;
-    }
-
-    const bayNumber = Number(match[1]);
-    const levelNumber = Number(match[2]);
-
-    if (!Number.isInteger(bayNumber) || !Number.isInteger(levelNumber)) {
-      continue;
-    }
-
-    return {
-      bay: `B${bayNumber}`,
-      bayNumber,
-      level: `L${levelNumber}`,
-      levelNumber,
-    };
+  const bayNumber = Number(normalizedBay);
+  const levelNumber = Number(normalizedLevel);
+  if (!Number.isInteger(bayNumber) || !Number.isInteger(levelNumber)) {
+    return null;
   }
 
-  return null;
+  return {
+    bay: `B${normalizedBay}`,
+    bayNumber,
+    level: `L${normalizedLevel}`,
+    levelNumber,
+  };
 };
 
 const toMaterialLabel = (entry: StockTakeEntryExportRecord) => {
@@ -135,17 +123,18 @@ const toLocationLabel = (entry: StockTakeEntryExportRecord) => {
 
 const normalizeRows = (entries: StockTakeEntryExportRecord[]): NormalizedExportRow[] =>
   entries.map((entry) => {
-    const mapping =
-      parseBayLevelHint(entry.stock_location?.code ?? null) ??
-      parseBayLevelHint(entry.stock_location?.name ?? null) ??
-      parseBayLevelHint(entry.notes);
+    const mappingCode = formatStockTakeEntryMappingCode({
+      bay: entry.bay,
+      level: entry.level,
+    });
 
     return {
       materialLabel: toMaterialLabel(entry),
       qty: entry.counted_quantity,
       location: toLocationLabel(entry),
       notes: entry.notes ?? "",
-      mapping,
+      mappingCode,
+      mapping: toLayoutCoordinate(entry.bay, entry.level),
     };
   });
 
@@ -205,8 +194,8 @@ const buildLayoutSheet = (rows: NormalizedExportRow[]): SheetData => {
 const buildRawDataSheet = (rows: NormalizedExportRow[]): SheetData => ({
   name: "Raw Data",
   rows: [
-    ["Material Label", "Qty", "Location", "Notes"],
-    ...rows.map((row) => [row.materialLabel, row.qty, row.location, row.notes]),
+    ["Material Label", "Qty", "Location", "Mapping", "Notes"],
+    ...rows.map((row) => [row.materialLabel, row.qty, row.location, row.mappingCode, row.notes]),
   ],
 });
 

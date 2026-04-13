@@ -22,6 +22,8 @@ type StockTakeAddNewMaterialFormProps = {
   newMaterialTreatment: string;
   newMaterialQty: string;
   newMaterialLocationId: string;
+  newMaterialBay: string;
+  newMaterialLevel: string;
   newMaterialNotes: string;
   onMaterialGroupIdChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
@@ -32,6 +34,8 @@ type StockTakeAddNewMaterialFormProps = {
   onTreatmentChange: (value: string) => void;
   onQuantityChange: (value: string) => void;
   onLocationChange: (value: string) => void;
+  onBayChange: (value: string) => void;
+  onLevelChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onSubmit: () => void;
   showHeader?: boolean;
@@ -50,6 +54,8 @@ export function StockTakeAddNewMaterialForm({
   newMaterialTreatment,
   newMaterialQty,
   newMaterialLocationId,
+  newMaterialBay,
+  newMaterialLevel,
   newMaterialNotes,
   onMaterialGroupIdChange,
   onDescriptionChange,
@@ -60,6 +66,8 @@ export function StockTakeAddNewMaterialForm({
   onTreatmentChange,
   onQuantityChange,
   onLocationChange,
+  onBayChange,
+  onLevelChange,
   onNotesChange,
   onSubmit,
   showHeader = true,
@@ -155,6 +163,15 @@ export function StockTakeAddNewMaterialForm({
           ))}
         </Select>
       </FormField>
+
+      <div className="grid grid-cols-2 gap-2">
+        <FormField label="Bay">
+          <Input value={newMaterialBay} onChange={(event) => onBayChange(event.target.value)} placeholder="Bay" />
+        </FormField>
+        <FormField label="Level">
+          <Input value={newMaterialLevel} onChange={(event) => onLevelChange(event.target.value)} placeholder="Level" />
+        </FormField>
+      </div>
 
       <FormField label="Notes">
         <Textarea

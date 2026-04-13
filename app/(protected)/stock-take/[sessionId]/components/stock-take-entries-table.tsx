@@ -6,6 +6,7 @@ import { BottomSheet } from "@/src/components/ui/bottom-sheet";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Select } from "@/src/components/ui/select";
+import { formatStockTakeEntryMappingCode } from "@/src/lib/stock-take/entry-mapping";
 import type {
   DraftRow,
   InventoryItemOption,
@@ -76,12 +77,13 @@ export function StockTakeEntriesTable({
         Browse rows in the table. Tap Edit to open a focused editor.
       </p>
       <div className="overflow-x-auto rounded-md border border-zinc-200">
-        <table className="min-w-[860px] w-full text-left text-sm">
+        <table className="min-w-[980px] w-full text-left text-sm">
           <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
             <tr>
               <th className="px-3 py-2">Material Label</th>
               <th className="px-3 py-2">Qty</th>
               <th className="px-3 py-2">Location</th>
+              <th className="px-3 py-2">Mapping</th>
               <th className="px-3 py-2">Notes</th>
               <th className="px-3 py-2">Actions</th>
             </tr>
@@ -89,7 +91,7 @@ export function StockTakeEntriesTable({
           <tbody>
             {draftRows.length === 0 ? (
               <tr>
-                <td className="px-3 py-3 text-zinc-500" colSpan={5}>
+                <td className="px-3 py-3 text-zinc-500" colSpan={6}>
                   No entries recorded yet.
                 </td>
               </tr>
@@ -126,6 +128,10 @@ export function StockTakeEntriesTable({
                       ) ?? { name: "Unknown location", code: null },
                     )
                   : "—";
+                const mappingCode = formatStockTakeEntryMappingCode({
+                  bay: row.bay,
+                  level: row.level,
+                });
 
                 return (
                   <tr
@@ -212,6 +218,34 @@ export function StockTakeEntriesTable({
                         </Select>
                       ) : (
                         <span>{locationLabel}</span>
+                      )}
+                    </td>
+                    <td className="min-w-36 px-3 py-3">
+                      {shouldInlineEdit && activeRowBuffer ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input
+                            value={activeRowBuffer.bay}
+                            onChange={(event) =>
+                              onRowEditBufferChange((current) =>
+                                current ? { ...current, bay: event.target.value } : current,
+                              )
+                            }
+                            className="min-h-10"
+                            placeholder="Bay"
+                          />
+                          <Input
+                            value={activeRowBuffer.level}
+                            onChange={(event) =>
+                              onRowEditBufferChange((current) =>
+                                current ? { ...current, level: event.target.value } : current,
+                              )
+                            }
+                            className="min-h-10"
+                            placeholder="Level"
+                          />
+                        </div>
+                      ) : (
+                        <span>{mappingCode || "—"}</span>
                       )}
                     </td>
                     <td className="min-w-56 px-3 py-3">
@@ -452,6 +486,31 @@ function MobileRowEditForm({
           </option>
         ))}
       </Select>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Input
+          value={rowEditBuffer.bay}
+          onChange={(event) =>
+            onRowEditBufferChange((current) =>
+              current ? { ...current, bay: event.target.value } : current,
+            )
+          }
+          className="min-h-11"
+          placeholder="Bay"
+          aria-label="Bay"
+        />
+        <Input
+          value={rowEditBuffer.level}
+          onChange={(event) =>
+            onRowEditBufferChange((current) =>
+              current ? { ...current, level: event.target.value } : current,
+            )
+          }
+          className="min-h-11"
+          placeholder="Level"
+          aria-label="Level"
+        />
+      </div>
 
       <Input
         value={rowEditBuffer.notes}

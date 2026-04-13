@@ -65,6 +65,8 @@ export type StockTakeEntryRecord = {
     unit: string;
   } | null;
   counted_quantity: number;
+  bay: string | null;
+  level: string | null;
   notes: string | null;
   entered_by: string | null;
   entered_at: string;
@@ -99,6 +101,8 @@ export type StockTakeEntryExportRecord = {
     } | null;
   } | null;
   counted_quantity: number;
+  bay: string | null;
+  level: string | null;
   notes: string | null;
   entered_by: string | null;
   entered_at: string;
@@ -114,6 +118,8 @@ type StockTakeEntryInput = {
   inventoryItemId: string;
   stockLocationId?: string | null;
   countedQuantity: number;
+  bay: string | null;
+  level: string | null;
   notes: string | null;
 };
 
@@ -122,6 +128,8 @@ type StockTakeEntryBatchInputRow = {
   inventoryItemId: string;
   stockLocationId: string | null;
   countedQuantity: number;
+  bay: string | null;
+  level: string | null;
   notes: string | null;
 };
 
@@ -164,10 +172,10 @@ const stockTakeSessionSelect =
   "id,title,stock_location_id,stock_location:stock_locations(id,code,name),status,notes,created_by,started_at,submitted_at,reviewed_at,closed_at,created_at,updated_at";
 
 const stockTakeEntrySelectForDetail =
-  "id,stock_take_session_id,inventory_item_id,stock_location_id,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit),counted_quantity,notes,entered_by,entered_at,updated_at";
+  "id,stock_take_session_id,inventory_item_id,stock_location_id,bay,level,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit),counted_quantity,notes,entered_by,entered_at,updated_at";
 
 const stockTakeEntrySelectForExport =
-  "id,stock_take_session_id,inventory_item_id,stock_location_id,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit,timber_spec:inventory_item_timber_specs(thickness_mm,width_mm,length_mm,grade,treatment),material_group:material_groups(key,label)),counted_quantity,notes,entered_by,entered_at,updated_at";
+  "id,stock_take_session_id,inventory_item_id,stock_location_id,bay,level,stock_location:stock_locations(id,code,name),inventory_item:inventory_items(id,item_code,name,unit,timber_spec:inventory_item_timber_specs(thickness_mm,width_mm,length_mm,grade,treatment),material_group:material_groups(key,label)),counted_quantity,notes,entered_by,entered_at,updated_at";
 
 const stockTakeEntryOrder = "entered_at.desc,id.desc";
 
@@ -824,6 +832,8 @@ export const createStockTakeEntry = async ({
           inventory_item_id: input.inventoryItemId,
           stock_location_id: entryStockLocationId,
           counted_quantity: input.countedQuantity,
+          bay: input.bay,
+          level: input.level,
           notes: input.notes,
           entered_by: session.user.id,
         },
@@ -850,6 +860,8 @@ export const createStockTakeEntry = async ({
       inventory_item_name: savedEntry.inventory_item?.name ?? null,
       inventory_item_unit: savedEntry.inventory_item?.unit ?? null,
       counted_quantity: savedEntry.counted_quantity,
+      bay: savedEntry.bay,
+      level: savedEntry.level,
       notes: savedEntry.notes,
       session_stock_location_id: stockTakeSession.stock_location_id,
       session_stock_location_code: stockTakeSession.stock_location?.code ?? null,
@@ -939,6 +951,8 @@ export const saveStockTakeEntriesBatch = async ({
                 inventory_item_id: row.inventoryItemId,
                 stock_location_id: row.stockLocationId,
                 counted_quantity: row.countedQuantity,
+                bay: row.bay,
+                level: row.level,
                 notes: row.notes,
               }),
             },
@@ -962,6 +976,8 @@ export const saveStockTakeEntriesBatch = async ({
               inventory_item_id: row.inventoryItemId,
               stock_location_id: row.stockLocationId,
               counted_quantity: row.countedQuantity,
+              bay: row.bay,
+              level: row.level,
               notes: row.notes,
               entered_by: session.user.id,
             }),

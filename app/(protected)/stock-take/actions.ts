@@ -73,11 +73,15 @@ const readFieldValueForValidation = ({
   fieldKey,
   countedQuantity,
   stockLocationId,
+  bay,
+  level,
   notes,
 }: {
   fieldKey: StockTakeFieldKey;
   countedQuantity: number;
   stockLocationId: string | null;
+  bay: string | null;
+  level: string | null;
   notes: string | null;
 }) => {
   switch (fieldKey) {
@@ -87,6 +91,10 @@ const readFieldValueForValidation = ({
         : "";
     case "stock_location_id":
       return stockLocationId ?? "";
+    case "bay":
+      return bay ?? "";
+    case "level":
+      return level ?? "";
     case "notes":
       return notes ?? "";
     default:
@@ -126,6 +134,8 @@ type SaveStockTakeEntryClientRow = {
     material_group: { label: string | null } | null;
   } | null;
   counted_quantity: number;
+  bay: string | null;
+  level: string | null;
   stock_location: { name: string; code: string | null } | null;
   notes: string | null;
   updated_at: string | null;
@@ -168,6 +178,8 @@ export type SaveStockTakeSessionDraftRowInput = {
   entryId: string | null;
   inventoryItemId: string | null;
   countedQuantity: number;
+  bay: string | null;
+  level: string | null;
   stockLocationId: string | null;
   notes: string | null;
   newMaterial: DraftNewMaterialInput | null;
@@ -229,6 +241,8 @@ const toClientEntryRow = ({
       }
     : null,
   counted_quantity: entry.counted_quantity,
+  bay: entry.bay,
+  level: entry.level,
   stock_location: entry.stock_location
     ? {
         name: entry.stock_location.name,
@@ -374,6 +388,8 @@ export async function saveStockTakeEntryAction(
     formData.get("countedQuantity"),
   );
   const stockLocationId = normalizeOptional(formData.get("stockLocationId"));
+  const bay = normalizeOptional(formData.get("bay"));
+  const level = normalizeOptional(formData.get("level"));
   const notes = normalizeOptional(formData.get("notes"));
 
   const itemCode = normalizeOptional(formData.get("itemCode"));
@@ -457,6 +473,8 @@ export async function saveStockTakeEntryAction(
         fieldKey,
         countedQuantity,
         stockLocationId,
+        bay,
+        level,
         notes,
       });
       if (!String(value).trim()) {
@@ -521,6 +539,8 @@ export async function saveStockTakeEntryAction(
         inventoryItemId: finalInventoryItemId,
         stockLocationId,
         countedQuantity,
+        bay,
+        level,
         notes,
       },
     });
@@ -553,6 +573,8 @@ const normalizeDraftRows = (rows: SaveStockTakeSessionDraftRowInput[]) =>
     entryId: row.entryId,
     inventoryItemId: row.inventoryItemId,
     countedQuantity: row.countedQuantity,
+    bay: row.bay,
+    level: row.level,
     stockLocationId: row.stockLocationId,
     notes: row.notes,
     newMaterial: row.newMaterial,
@@ -581,6 +603,8 @@ export async function saveStockTakeSessionDraftAction(
       entryId: string | null;
       inventoryItemId: string;
       countedQuantity: number;
+      bay: string | null;
+      level: string | null;
       stockLocationId: string | null;
       notes: string | null;
     }> = [];
@@ -656,7 +680,13 @@ export async function saveStockTakeSessionDraftAction(
             item: createdItem,
             config: config ?? {
               referenceFieldKeys: [],
-              editableFieldKeys: ["counted_quantity", "stock_location_id", "notes"],
+              editableFieldKeys: [
+                "counted_quantity",
+                "stock_location_id",
+                "bay",
+                "level",
+                "notes",
+              ],
               requiredEditableFieldKeys: ["counted_quantity"],
             },
           }),
@@ -697,6 +727,8 @@ export async function saveStockTakeSessionDraftAction(
           fieldKey,
           countedQuantity: row.countedQuantity,
           stockLocationId: row.stockLocationId,
+          bay: row.bay,
+          level: row.level,
           notes: row.notes,
         });
         if (!String(value).trim()) {
@@ -711,6 +743,8 @@ export async function saveStockTakeSessionDraftAction(
         entryId: row.entryId,
         inventoryItemId: resolvedInventoryItemId,
         countedQuantity: row.countedQuantity,
+        bay: row.bay,
+        level: row.level,
         stockLocationId: row.stockLocationId,
         notes: row.notes,
       });

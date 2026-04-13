@@ -28,6 +28,8 @@ export type EntryRow = {
     material_group: { label: string | null } | null;
   } | null;
   counted_quantity: number;
+  bay: string | null;
+  level: string | null;
   stock_location: { id?: string; name: string; code: string | null } | null;
   notes: string | null;
   updated_at: string | null;
@@ -39,6 +41,8 @@ export type DraftRow = {
   entryId: string | null;
   inventoryItemId: string | null;
   countedQuantity: number;
+  bay: string | null;
+  level: string | null;
   stockLocationId: string | null;
   notes: string | null;
   newMaterial: {
@@ -62,6 +66,8 @@ export type DraftRow = {
 export type RowEditBuffer = {
   inventoryItemId: string | null;
   countedQuantity: string;
+  bay: string;
+  level: string;
   stockLocationId: string;
   notes: string;
 };
@@ -77,6 +83,8 @@ export const toDraftRows = (rows: EntryRow[]): DraftRow[] =>
     entryId: row.id,
     inventoryItemId: row.inventory_item?.id ?? null,
     countedQuantity: row.counted_quantity,
+    bay: row.bay,
+    level: row.level,
     stockLocationId: row.stock_location?.id ?? null,
     notes: row.notes,
     newMaterial: null,
@@ -90,6 +98,8 @@ export const toComparableRows = (rows: DraftRow[]) =>
       entryId: row.entryId,
       inventoryItemId: row.inventoryItemId,
       countedQuantity: row.countedQuantity,
+      bay: row.bay ?? null,
+      level: row.level ?? null,
       stockLocationId: row.stockLocationId,
       notes: row.notes ?? null,
       newMaterial: row.newMaterial,
