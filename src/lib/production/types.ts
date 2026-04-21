@@ -96,3 +96,8 @@ export type ProductionOperatorSummaryRecord = {
   total_downtime_minutes: number;
   total_interruption_minutes: number;
 };
+
+export type ProductionOperatorOption = {
+  profile_id: string;
+  display_name: string;
+};

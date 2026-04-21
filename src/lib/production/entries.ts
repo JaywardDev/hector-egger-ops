@@ -12,6 +12,7 @@ import {
 import type {
   ProductionEntryRecord,
   ProductionEntryWithMetricsRecord,
+  ProductionOperatorOption,
 } from "@/src/lib/production/types";
 
 type ProductionEntryInput = {
@@ -29,6 +30,12 @@ type ProductionEntryInput = {
   interruptionReasonId: string | null;
   notes: string | null;
   createdByProfileId: string;
+};
+
+type OperatorProfileRow = {
+  id: string;
+  full_name: string | null;
+  email: string;
 };
 
 const entrySelect =
@@ -239,5 +246,41 @@ export const getProductionEntryDetail = async ({
 
       const [record] = (await response.json()) as ProductionEntryWithMetricsRecord[];
       return record ?? null;
+    },
+  });
+
+export const listAssignableProductionOperators = async ({
+  session,
+  accessContext,
+  route,
+}: ProductionActor): Promise<ProductionOperatorOption[]> =>
+  withServerTiming({
+    name: "listAssignableProductionOperators",
+    route,
+    operation: async () => {
+      await assertProductionEntryWriteAccess({ session, accessContext, route });
+      const roles = accessContext?.roles ?? [];
+
+      if (!roles.includes("admin") && !roles.includes("supervisor")) {
+        return [];
+      }
+
+      const supabase = createServiceRoleSupabaseClient();
+      const response = await supabase.request(
+        "/rest/v1/profiles?select=id,full_name,email,user_roles!inner(role)&account_status=eq.approved&user_roles.role=eq.operator&order=full_name.asc,email.asc",
+        {
+          cache: "no-store",
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load assignable production operators");
+      }
+
+      const rows = (await response.json()) as OperatorProfileRow[];
+      return rows.map((row) => ({
+        profile_id: row.id,
+        display_name: row.full_name?.trim() || row.email,
+      }));
     },
   });

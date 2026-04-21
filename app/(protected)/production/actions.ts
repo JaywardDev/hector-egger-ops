@@ -16,6 +16,7 @@ import {
 import {
   createProductionEntry,
   deleteProductionEntry,
+  getProductionEntryDetail,
   listProductionEntries,
   updateProductionEntry,
 } from "@/src/lib/production/entries";
@@ -54,6 +55,19 @@ const normalizeUuid = (value: FormDataEntryValue | null) => {
   const normalized = normalizeText(value);
   return normalized && /^[0-9a-f-]{36}$/i.test(normalized) ? normalized : null;
 };
+
+const hasSupervisorOrAdminRole = (roles: string[]) =>
+  roles.includes("admin") || roles.includes("supervisor");
+
+const resolveOperatorProfileIdForWrite = ({
+  requestedOperatorProfileId,
+  currentProfileId,
+  roles,
+}: {
+  requestedOperatorProfileId: string;
+  currentProfileId: string;
+  roles: string[];
+}) => (hasSupervisorOrAdminRole(roles) ? requestedOperatorProfileId : currentProfileId);
 
 export async function listProductionProjectsAction() {
   const { session, roles } = await requireProtectedAccess();
@@ -259,6 +273,12 @@ export async function createProductionEntryAction(input: {
     throw new Error("Profile record is required for production entry writes");
   }
 
+  const operatorProfileId = resolveOperatorProfileIdForWrite({
+    requestedOperatorProfileId: input.operatorProfileId,
+    currentProfileId: profile.id,
+    roles,
+  });
+
   const record = await createProductionEntry({
     session,
     accessContext: {
@@ -267,6 +287,7 @@ export async function createProductionEntryAction(input: {
     },
     input: {
       ...input,
+      operatorProfileId,
       createdByProfileId: profile.id,
     },
   });
@@ -338,10 +359,28 @@ export async function updateProductionEntryAction(
     notes?: string | null;
   },
 ) {
-  const { session, roles } = await requireProtectedAccess();
+  const { session, roles, profile } = await requireProtectedAccess("/production/entries");
 
   if (!roles.some((role) => ["admin", "supervisor", "operator"].includes(role))) {
     throw new Error("Operator, supervisor, or admin access is required for entry writes");
+  }
+
+  const existingEntry = await getProductionEntryDetail({
+    session,
+    accessContext: {
+      accountStatus: "approved",
+      roles,
+    },
+    route: "/production/entries",
+    entryId,
+  });
+
+  if (!existingEntry) {
+    throw new Error("Production entry not found");
+  }
+
+  if (!hasSupervisorOrAdminRole(roles) && existingEntry.operator_profile_id !== profile?.id) {
+    throw new Error("You can only update your own production entries");
   }
 
   const record = await updateProductionEntry({
@@ -351,7 +390,14 @@ export async function updateProductionEntryAction(
       roles,
     },
     entryId,
-    input,
+    input: {
+      ...input,
+      operatorProfileId: resolveOperatorProfileIdForWrite({
+        requestedOperatorProfileId: input.operatorProfileId ?? existingEntry.operator_profile_id,
+        currentProfileId: profile?.id ?? existingEntry.operator_profile_id,
+        roles,
+      }),
+    },
   });
 
   revalidatePath("/production");
@@ -396,10 +442,28 @@ export async function updateProductionEntryFormAction(formData: FormData) {
 }
 
 export async function deleteProductionEntryAction(entryId: string) {
-  const { session, roles } = await requireProtectedAccess();
+  const { session, roles, profile } = await requireProtectedAccess("/production/entries");
 
   if (!roles.some((role) => ["admin", "supervisor", "operator"].includes(role))) {
     throw new Error("Operator, supervisor, or admin access is required for entry writes");
+  }
+
+  const existingEntry = await getProductionEntryDetail({
+    session,
+    accessContext: {
+      accountStatus: "approved",
+      roles,
+    },
+    route: "/production/entries",
+    entryId,
+  });
+
+  if (!existingEntry) {
+    throw new Error("Production entry not found");
+  }
+
+  if (!hasSupervisorOrAdminRole(roles) && existingEntry.operator_profile_id !== profile?.id) {
+    throw new Error("You can only delete your own production entries");
   }
 
   await deleteProductionEntry({
