@@ -531,7 +531,7 @@ const parseNumeric = (value: string) => {
 };
 
 export async function importProjectRegistryAction(rows: ImportedProjectRegistryRow[]) {
-  const { session, roles } = await requireOperationalWriteAccess("/production/import");
+  const { session, roles } = await requireOperationalWriteAccess();
 
   const result: {
     totalRowsParsed: number;
@@ -636,7 +636,7 @@ export async function importProjectRegistryAction(rows: ImportedProjectRegistryR
 }
 
 export async function importDailyRegistryAction(rows: ImportedDailyRegistryRow[]) {
-  const { session, roles } = await requireOperationalWriteAccess("/production/import");
+  const { session, roles } = await requireOperationalWriteAccess();
   const route = "/production/import";
 
   const [projects, operators, downtimeReasons, interruptionReasons] = await Promise.all([

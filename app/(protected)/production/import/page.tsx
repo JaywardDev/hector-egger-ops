@@ -4,7 +4,7 @@ import { PageHeader } from "@/src/components/layout/page-header";
 import { requireOperationalWriteAccess } from "@/src/lib/auth/guards";
 
 export default async function ProductionImportPage() {
-  await requireOperationalWriteAccess("/production/import");
+  await requireOperationalWriteAccess();
 
   return (
     <PageContainer>
