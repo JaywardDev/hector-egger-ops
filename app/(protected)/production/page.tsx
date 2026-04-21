@@ -67,6 +67,9 @@ export default async function ProductionPage() {
           <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/projects/new">
             Create new project
           </Link>
+          <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/import">
+            Import registries
+          </Link>
         </div>
       </Card>
 

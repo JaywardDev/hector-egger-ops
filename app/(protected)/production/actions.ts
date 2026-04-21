@@ -11,19 +11,37 @@ import {
   createProductionProject,
   getProductionProjectDetail,
   listProductionProjects,
+  upsertProductionProjectByFileAndSequence,
   updateProductionProject,
 } from "@/src/lib/production/projects";
 import {
   createProductionEntry,
   deleteProductionEntry,
   getProductionEntryDetail,
+  listAssignableProductionOperators,
   listProductionEntries,
   updateProductionEntry,
 } from "@/src/lib/production/entries";
 import {
+  createProductionDowntimeReason,
+  createProductionInterruptionReason,
   listProductionDowntimeReasons,
   listProductionInterruptionReasons,
 } from "@/src/lib/production/reasons";
+import {
+  buildOperatorLookup,
+  buildProjectLookup,
+  buildReasonLookup,
+  normalizeDate,
+  normalizeLookupKey,
+  normalizeProjectKey,
+  normalizeReasonLabel,
+  normalizeTimeOfDay,
+  normalizeWhitespace,
+  parseDecimalHoursToMinutes,
+  parseDurationHoursMinutesSecondsToMinutes,
+  toReasonCode,
+} from "@/src/lib/production/import";
 
 const toMessage = (
   path: string,
@@ -478,6 +496,396 @@ export async function deleteProductionEntryAction(entryId: string) {
   revalidatePath("/production");
   revalidatePath("/production/entries");
   revalidatePath("/dashboard");
+}
+
+type ImportedProjectRegistryRow = {
+  rowNumber: number;
+  projectFile: string;
+  projectName: string;
+  projectSequence: string;
+  totalTime: string;
+  totalVolume: string;
+};
+
+type ImportedDailyRegistryRow = {
+  rowNumber: number;
+  date: string;
+  operator: string;
+  startTime: string;
+  finishTime: string;
+  projectFile: string;
+  projectSequence: string;
+  projectName: string;
+  timeRemainingStart: string;
+  timeRemainingEnd: string;
+  actualVolumeCutM3: string;
+  downtimeHours: string;
+  downtimeReason: string;
+  interruptionHours: string;
+  interruptionReason: string;
+};
+
+const parseNumeric = (value: string) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+};
+
+export async function importProjectRegistryAction(rows: ImportedProjectRegistryRow[]) {
+  const { session, roles } = await requireOperationalWriteAccess("/production/import");
+
+  const result: {
+    totalRowsParsed: number;
+    imported: number;
+    updated: number;
+    failed: number;
+    warnings: number;
+    rowResults: Array<{ rowNumber: number; status: "imported" | "updated" | "failed"; message: string }>;
+  } = {
+    totalRowsParsed: rows.length,
+    imported: 0,
+    updated: 0,
+    failed: 0,
+    warnings: 0,
+    rowResults: [],
+  };
+
+  for (const row of rows) {
+    const projectFile = normalizeWhitespace(row.projectFile ?? "");
+    const projectName = normalizeWhitespace(row.projectName ?? "");
+    const projectSequence = Number.parseInt(String(row.projectSequence ?? "").trim(), 10);
+
+    if (!projectFile || !projectName || !Number.isInteger(projectSequence)) {
+      result.failed += 1;
+      result.rowResults.push({
+        rowNumber: row.rowNumber,
+        status: "failed",
+        message: "Project File, Project Name, and Project Sequence are required and must be valid.",
+      });
+      continue;
+    }
+
+    const totalOperationalMinutesRaw = parseDurationHoursMinutesSecondsToMinutes(row.totalTime);
+    if (Number.isNaN(totalOperationalMinutesRaw)) {
+      result.failed += 1;
+      result.rowResults.push({
+        rowNumber: row.rowNumber,
+        status: "failed",
+        message: "Total Time must be HH:MM:SS.",
+      });
+      continue;
+    }
+
+    const estimatedTotalVolumeRaw = normalizeWhitespace(row.totalVolume ?? "");
+    const estimatedTotalVolumeM3 = estimatedTotalVolumeRaw ? parseNumeric(estimatedTotalVolumeRaw) : null;
+    if (Number.isNaN(estimatedTotalVolumeM3)) {
+      result.failed += 1;
+      result.rowResults.push({
+        rowNumber: row.rowNumber,
+        status: "failed",
+        message: "Total Volume must be numeric when provided.",
+      });
+      continue;
+    }
+
+    try {
+      const upserted = await upsertProductionProjectByFileAndSequence({
+        session,
+        accessContext: {
+          accountStatus: "approved",
+          roles,
+        },
+        input: {
+          projectFile,
+          projectName,
+          projectSequence,
+          totalOperationalMinutes: totalOperationalMinutesRaw,
+          estimatedTotalVolumeM3,
+          notes: null,
+        },
+      });
+
+      if (upserted.mode === "created") {
+        result.imported += 1;
+        result.rowResults.push({
+          rowNumber: row.rowNumber,
+          status: "imported",
+          message: "Project created.",
+        });
+      } else {
+        result.updated += 1;
+        result.rowResults.push({
+          rowNumber: row.rowNumber,
+          status: "updated",
+          message: "Project updated by project_file + project_sequence.",
+        });
+      }
+    } catch (error) {
+      result.failed += 1;
+      result.rowResults.push({
+        rowNumber: row.rowNumber,
+        status: "failed",
+        message: error instanceof Error ? error.message : "Failed to import project row.",
+      });
+    }
+  }
+
+  revalidatePath("/production");
+  revalidatePath("/production/projects");
+  revalidatePath("/production/import");
+  return result;
+}
+
+export async function importDailyRegistryAction(rows: ImportedDailyRegistryRow[]) {
+  const { session, roles } = await requireOperationalWriteAccess("/production/import");
+  const route = "/production/import";
+
+  const [projects, operators, downtimeReasons, interruptionReasons] = await Promise.all([
+    listProductionProjects({
+      session,
+      accessContext: { accountStatus: "approved", roles },
+      route,
+    }),
+    listAssignableProductionOperators({
+      session,
+      accessContext: { accountStatus: "approved", roles },
+      route,
+    }),
+    listProductionDowntimeReasons({
+      session,
+      accessContext: { accountStatus: "approved", roles },
+      route,
+    }),
+    listProductionInterruptionReasons({
+      session,
+      accessContext: { accountStatus: "approved", roles },
+      route,
+    }),
+  ]);
+
+  const projectsByKey = buildProjectLookup(projects);
+  const operatorsByName = buildOperatorLookup(operators);
+  const downtimeLookup = buildReasonLookup(downtimeReasons);
+  const interruptionLookup = buildReasonLookup(interruptionReasons);
+  const knownDowntimeCodes = new Set(downtimeReasons.map((reason) => normalizeLookupKey(reason.code)));
+  const knownInterruptionCodes = new Set(interruptionReasons.map((reason) => normalizeLookupKey(reason.code)));
+
+  const result: {
+    totalRowsParsed: number;
+    imported: number;
+    failed: number;
+    warnings: number;
+    rowResults: Array<{
+      rowNumber: number;
+      status: "imported" | "failed";
+      warnings: string[];
+      message: string;
+    }>;
+  } = {
+    totalRowsParsed: rows.length,
+    imported: 0,
+    failed: 0,
+    warnings: 0,
+    rowResults: [],
+  };
+
+  const resolveReason = async ({
+    kind,
+    rawLabel,
+  }: {
+    kind: "downtime" | "interruption";
+    rawLabel: string;
+  }) => {
+    const normalizedLabel = normalizeReasonLabel(rawLabel);
+    if (!normalizedLabel) {
+      return null;
+    }
+
+    const lookup = kind === "downtime" ? downtimeLookup : interruptionLookup;
+    const matchedByLabel = lookup.byLabel.get(normalizeLookupKey(normalizedLabel));
+    if (matchedByLabel) {
+      return matchedByLabel.id;
+    }
+
+    const reasonCodeBase = toReasonCode(normalizedLabel);
+    const knownCodes = kind === "downtime" ? knownDowntimeCodes : knownInterruptionCodes;
+    let candidateCode = reasonCodeBase;
+    let suffix = 2;
+    while (knownCodes.has(normalizeLookupKey(candidateCode))) {
+      candidateCode = `${reasonCodeBase}-${suffix}`;
+      suffix += 1;
+    }
+
+    if (kind === "downtime") {
+      const created = await createProductionDowntimeReason({
+        session,
+        accessContext: { accountStatus: "approved", roles },
+        input: {
+          code: candidateCode,
+          label: normalizedLabel,
+          sortOrder: 999,
+          isActive: true,
+        },
+      });
+      lookup.byLabel.set(normalizeLookupKey(created.label), created);
+      lookup.byCode.set(normalizeLookupKey(created.code), created);
+      knownCodes.add(normalizeLookupKey(created.code));
+      return created.id;
+    }
+
+    const created = await createProductionInterruptionReason({
+      session,
+      accessContext: { accountStatus: "approved", roles },
+      input: {
+        code: candidateCode,
+        label: normalizedLabel,
+        sortOrder: 999,
+        isActive: true,
+      },
+    });
+    lookup.byLabel.set(normalizeLookupKey(created.label), created);
+    lookup.byCode.set(normalizeLookupKey(created.code), created);
+    knownCodes.add(normalizeLookupKey(created.code));
+    return created.id;
+  };
+
+  for (const row of rows) {
+    const rowWarnings: string[] = [];
+    const workDate = normalizeDate(row.date);
+    const shiftStartTime = normalizeTimeOfDay(row.startTime);
+    const shiftEndTime = normalizeTimeOfDay(row.finishTime);
+    const projectFile = normalizeWhitespace(row.projectFile ?? "");
+    const projectSequence = Number.parseInt(String(row.projectSequence ?? "").trim(), 10);
+    const operator = operatorsByName.get(normalizeLookupKey(row.operator ?? ""));
+    const fileMinutesLeftStart = parseDurationHoursMinutesSecondsToMinutes(row.timeRemainingStart);
+    const fileMinutesLeftEnd = parseDurationHoursMinutesSecondsToMinutes(row.timeRemainingEnd);
+    const actualVolumeCutRaw = normalizeWhitespace(row.actualVolumeCutM3 ?? "");
+    const actualVolumeCutM3 = actualVolumeCutRaw ? parseNumeric(actualVolumeCutRaw) : 0;
+    const downtimeMinutes = parseDecimalHoursToMinutes(row.downtimeHours);
+    const interruptionMinutes = parseDecimalHoursToMinutes(row.interruptionHours);
+
+    if (!workDate || !shiftStartTime || !shiftEndTime || !projectFile || !Number.isInteger(projectSequence)) {
+      result.failed += 1;
+      result.rowResults.push({
+        rowNumber: row.rowNumber,
+        status: "failed",
+        warnings: rowWarnings,
+        message: "Invalid required date/time/project fields.",
+      });
+      continue;
+    }
+
+    if (!operator) {
+      result.failed += 1;
+      result.rowResults.push({
+        rowNumber: row.rowNumber,
+        status: "failed",
+        warnings: rowWarnings,
+        message: `Operator '${row.operator}' could not be resolved.`,
+      });
+      continue;
+    }
+
+    if (
+      Number.isNaN(fileMinutesLeftStart) ||
+      Number.isNaN(fileMinutesLeftEnd) ||
+      Number.isNaN(actualVolumeCutM3) ||
+      Number.isNaN(downtimeMinutes) ||
+      Number.isNaN(interruptionMinutes)
+    ) {
+      result.failed += 1;
+      result.rowResults.push({
+        rowNumber: row.rowNumber,
+        status: "failed",
+        warnings: rowWarnings,
+        message: "Invalid numeric or duration field.",
+      });
+      continue;
+    }
+
+    const project = projectsByKey.get(normalizeProjectKey(projectFile, projectSequence));
+    if (!project) {
+      result.failed += 1;
+      result.rowResults.push({
+        rowNumber: row.rowNumber,
+        status: "failed",
+        warnings: rowWarnings,
+        message: `No canonical project found for ${projectFile} #${projectSequence}. Import Project Registry first.`,
+      });
+      continue;
+    }
+
+    const providedProjectName = normalizeWhitespace(row.projectName ?? "");
+    if (providedProjectName && normalizeLookupKey(providedProjectName) !== normalizeLookupKey(project.project_name)) {
+      rowWarnings.push("Project name mismatch: matched canonical project by project_file + project_sequence.");
+    }
+
+    if (fileMinutesLeftEnd > fileMinutesLeftStart) {
+      rowWarnings.push("file_minutes_left_end is greater than file_minutes_left_start.");
+    }
+
+    const operationalMinutes =
+      (Date.parse(`1970-01-01T${shiftEndTime}Z`) - Date.parse(`1970-01-01T${shiftStartTime}Z`)) / 60000;
+    if (Number.isFinite(operationalMinutes) && downtimeMinutes + interruptionMinutes > operationalMinutes) {
+      rowWarnings.push("downtime + interruption exceeds operational shift minutes.");
+    }
+
+    let downtimeReasonId: string | null = null;
+    let interruptionReasonId: string | null = null;
+
+    try {
+      downtimeReasonId =
+        downtimeMinutes > 0 ? await resolveReason({ kind: "downtime", rawLabel: row.downtimeReason }) : null;
+      interruptionReasonId =
+        interruptionMinutes > 0
+          ? await resolveReason({ kind: "interruption", rawLabel: row.interruptionReason })
+          : null;
+
+      if (downtimeMinutes > 0 && !downtimeReasonId) {
+        throw new Error("Downtime reason is required when downtime is greater than zero.");
+      }
+      if (interruptionMinutes > 0 && !interruptionReasonId) {
+        throw new Error("Interruption reason is required when interruption is greater than zero.");
+      }
+
+      await createProductionEntryAction({
+        workDate,
+        operatorProfileId: operator.profile_id,
+        shiftStartTime,
+        shiftEndTime,
+        projectId: project.id,
+        fileMinutesLeftStart,
+        fileMinutesLeftEnd,
+        actualVolumeCutM3,
+        downtimeMinutes,
+        downtimeReasonId,
+        interruptionMinutes,
+        interruptionReasonId,
+        notes: `Imported from Daily Registry row ${row.rowNumber}`,
+      });
+
+      result.imported += 1;
+      result.warnings += rowWarnings.length;
+      result.rowResults.push({
+        rowNumber: row.rowNumber,
+        status: "imported",
+        warnings: rowWarnings,
+        message: "Entry imported via production entry action.",
+      });
+    } catch (error) {
+      result.failed += 1;
+      result.rowResults.push({
+        rowNumber: row.rowNumber,
+        status: "failed",
+        warnings: rowWarnings,
+        message: error instanceof Error ? error.message : "Failed to import Daily Registry row.",
+      });
+    }
+  }
+
+  revalidatePath("/production");
+  revalidatePath("/production/entries");
+  revalidatePath("/production/import");
+  return result;
 }
 
 export async function listProductionDowntimeReasonsAction() {

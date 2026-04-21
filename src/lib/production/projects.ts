@@ -25,6 +25,8 @@ type ProductionProjectInput = {
   status?: ProductionProjectStatus;
 };
 
+const normalizeProjectKeyText = (value: string) => value.trim();
+
 const projectSelect =
   "id,project_file,project_name,project_sequence,total_operational_minutes,estimated_total_volume_m3,status,notes,created_at,updated_at";
 
@@ -186,3 +188,84 @@ export const getProductionProjectDetail = async ({
       return record ?? null;
     },
   });
+
+export const findProductionProjectByFileAndSequence = async ({
+  session,
+  accessContext,
+  route,
+  projectFile,
+  projectSequence,
+}: ProductionActor & {
+  projectFile: string;
+  projectSequence: number;
+}): Promise<ProductionProjectRecord | null> =>
+  withServerTiming({
+    name: "findProductionProjectByFileAndSequence",
+    route,
+    meta: { projectFile, projectSequence },
+    operation: async () => {
+      await assertProductionReadAccess({ session, accessContext, route });
+
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        `/rest/v1/production_projects?select=${projectSelect}&project_file=eq.${encodeURIComponent(
+          normalizeProjectKeyText(projectFile),
+        )}&project_sequence=eq.${projectSequence}&limit=1`,
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to find production project");
+      }
+
+      const [record] = (await response.json()) as ProductionProjectRecord[];
+      return record ?? null;
+    },
+  });
+
+export const upsertProductionProjectByFileAndSequence = async ({
+  session,
+  accessContext,
+  input,
+}: ProductionActor & {
+  input: ProductionProjectInput;
+}): Promise<{ record: ProductionProjectRecord; mode: "created" | "updated" }> => {
+  await assertProductionProjectWriteAccess({ session, accessContext });
+
+  const normalizedProjectFile = input.projectFile.trim();
+  const existing = await findProductionProjectByFileAndSequence({
+    session,
+    accessContext,
+    route: "/production/import",
+    projectFile: normalizedProjectFile,
+    projectSequence: input.projectSequence,
+  });
+
+  if (!existing) {
+    const record = await createProductionProject({
+      session,
+      accessContext,
+      input: {
+        ...input,
+        projectFile: normalizedProjectFile,
+      },
+    });
+    return { record, mode: "created" };
+  }
+
+  const record = await updateProductionProject({
+    session,
+    accessContext,
+    projectId: existing.id,
+    input: {
+      projectName: input.projectName,
+      totalOperationalMinutes: input.totalOperationalMinutes,
+      estimatedTotalVolumeM3: input.estimatedTotalVolumeM3,
+    },
+  });
+
+  return { record, mode: "updated" };
+};
