@@ -207,3 +207,37 @@ export const deleteProductionEntry = async ({
     throw new Error("Failed to delete production entry");
   }
 };
+
+
+export const getProductionEntryDetail = async ({
+  session,
+  accessContext,
+  route,
+  entryId,
+}: ProductionActor & {
+  entryId: string;
+}): Promise<ProductionEntryWithMetricsRecord | null> =>
+  withServerTiming({
+    name: "getProductionEntryDetail",
+    route,
+    meta: { entryId },
+    operation: async () => {
+      await assertProductionReadAccess({ session, accessContext, route });
+
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        `/rest/v1/production_entries_with_metrics?id=eq.${entryId}&select=*&limit=1`,
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load production entry");
+      }
+
+      const [record] = (await response.json()) as ProductionEntryWithMetricsRecord[];
+      return record ?? null;
+    },
+  });
