@@ -172,7 +172,7 @@ export async function updateProductionProjectAction(
 export async function updateProductionProjectFormAction(formData: FormData) {
   const projectId = normalizeUuid(formData.get("project_id"));
   if (!projectId) {
-    toMessage("/production/projects", "Project id is required.", "error");
+    return toMessage("/production/projects", "Project id is required.", "error");
   }
 
   try {
@@ -364,7 +364,7 @@ export async function updateProductionEntryAction(
 export async function updateProductionEntryFormAction(formData: FormData) {
   const entryId = normalizeUuid(formData.get("entry_id"));
   if (!entryId) {
-    toMessage("/production/entries", "Entry id is required.", "error");
+    return toMessage("/production/entries", "Entry id is required.", "error");
   }
 
   const downtimeMinutes = normalizeRequiredNumber(formData.get("downtime_minutes"));
