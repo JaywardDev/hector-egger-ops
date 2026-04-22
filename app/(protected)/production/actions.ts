@@ -786,6 +786,8 @@ export async function importDailyRegistryAction(rows: ImportedDailyRegistryRow[]
     }
 
     if (
+      fileMinutesLeftStart == null ||
+      fileMinutesLeftEnd == null ||
       Number.isNaN(fileMinutesLeftStart) ||
       Number.isNaN(fileMinutesLeftEnd) ||
       Number.isNaN(actualVolumeCutM3) ||
@@ -819,13 +821,22 @@ export async function importDailyRegistryAction(rows: ImportedDailyRegistryRow[]
       rowWarnings.push("Project name mismatch: matched canonical project by project_file + project_sequence.");
     }
 
-    if (fileMinutesLeftEnd > fileMinutesLeftStart) {
+    if (
+      fileMinutesLeftStart != null &&
+      fileMinutesLeftEnd != null &&
+      fileMinutesLeftEnd > fileMinutesLeftStart
+    ) {
       rowWarnings.push("file_minutes_left_end is greater than file_minutes_left_start.");
     }
 
     const operationalMinutes =
       (Date.parse(`1970-01-01T${shiftEndTime}Z`) - Date.parse(`1970-01-01T${shiftStartTime}Z`)) / 60000;
-    if (Number.isFinite(operationalMinutes) && downtimeMinutes + interruptionMinutes > operationalMinutes) {
+    if (
+      Number.isFinite(downtimeMinutes) &&
+      Number.isFinite(interruptionMinutes) &&
+      Number.isFinite(operationalMinutes) &&
+      downtimeMinutes + interruptionMinutes > operationalMinutes
+    ) {
       rowWarnings.push("downtime + interruption exceeds operational shift minutes.");
     }
 
@@ -834,16 +845,18 @@ export async function importDailyRegistryAction(rows: ImportedDailyRegistryRow[]
 
     try {
       downtimeReasonId =
-        downtimeMinutes > 0 ? await resolveReason({ kind: "downtime", rawLabel: row.downtimeReason }) : null;
+        Number.isFinite(downtimeMinutes) && downtimeMinutes > 0
+          ? await resolveReason({ kind: "downtime", rawLabel: row.downtimeReason })
+          : null;
       interruptionReasonId =
-        interruptionMinutes > 0
+        Number.isFinite(interruptionMinutes) && interruptionMinutes > 0
           ? await resolveReason({ kind: "interruption", rawLabel: row.interruptionReason })
           : null;
 
-      if (downtimeMinutes > 0 && !downtimeReasonId) {
+      if (Number.isFinite(downtimeMinutes) && downtimeMinutes > 0 && !downtimeReasonId) {
         throw new Error("Downtime reason is required when downtime is greater than zero.");
       }
-      if (interruptionMinutes > 0 && !interruptionReasonId) {
+      if (Number.isFinite(interruptionMinutes) && interruptionMinutes > 0 && !interruptionReasonId) {
         throw new Error("Interruption reason is required when interruption is greater than zero.");
       }
 
