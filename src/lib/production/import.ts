@@ -80,14 +80,33 @@ export const normalizeTimeOfDay = (value: string | null | undefined) => {
     return null;
   }
 
-  const match = compact.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-  if (!match) {
+  const amPmMatch = compact.match(/^(\d{1,2}):(\d{2})(?:\s*([AaPp][Mm]))$/);
+  const twentyFourHourMatch = compact.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+
+  let hours = Number.NaN;
+  let minutes = Number.NaN;
+  let seconds = 0;
+
+  if (amPmMatch) {
+    const twelveHourValue = Number(amPmMatch[1]);
+    minutes = Number(amPmMatch[2]);
+    const period = amPmMatch[3].toUpperCase();
+
+    if (twelveHourValue < 1 || twelveHourValue > 12) {
+      return null;
+    }
+
+    hours = twelveHourValue % 12;
+    if (period === "PM") {
+      hours += 12;
+    }
+  } else if (twentyFourHourMatch) {
+    hours = Number(twentyFourHourMatch[1]);
+    minutes = Number(twentyFourHourMatch[2]);
+    seconds = Number(twentyFourHourMatch[3] ?? "00");
+  } else {
     return null;
   }
-
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  const seconds = Number(match[3] ?? "00");
 
   if (
     !Number.isFinite(hours) ||
