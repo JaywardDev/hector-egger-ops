@@ -15,6 +15,8 @@ type LayoutCoordinate = {
 };
 
 type NormalizedExportRow = {
+  locationId: string | null;
+  locationSheetLabel: string;
   materialLabel: string;
   qty: number;
   location: string;
@@ -121,6 +123,39 @@ const toLocationLabel = (entry: StockTakeEntryExportRecord) => {
   return location.code ? `${location.name} (${location.code})` : location.name;
 };
 
+const toLocationSheetLabel = (entry: StockTakeEntryExportRecord) => {
+  const name = entry.stock_location?.name?.trim();
+  return name || "Unknown Location";
+};
+
+const sanitizeExcelSheetName = (name: string) => {
+  const sanitized = name
+    .replace(/[\[\]:*?/\\\n\r]/g, "")
+    .trim()
+    .slice(0, 31);
+
+  return sanitized || "Unknown Location";
+};
+
+const toUniqueSheetName = (name: string, usedNames: Set<string>) => {
+  const baseName = sanitizeExcelSheetName(name);
+  if (!usedNames.has(baseName)) {
+    usedNames.add(baseName);
+    return baseName;
+  }
+
+  let count = 2;
+  while (true) {
+    const suffix = ` (${count})`;
+    const candidate = `${baseName.slice(0, 31 - suffix.length)}${suffix}`;
+    if (!usedNames.has(candidate)) {
+      usedNames.add(candidate);
+      return candidate;
+    }
+    count += 1;
+  }
+};
+
 const normalizeRows = (entries: StockTakeEntryExportRecord[]): NormalizedExportRow[] =>
   entries.map((entry) => {
     const mappingCode = formatStockTakeEntryMappingCode({
@@ -129,6 +164,8 @@ const normalizeRows = (entries: StockTakeEntryExportRecord[]): NormalizedExportR
     });
 
     return {
+      locationId: entry.stock_location_id,
+      locationSheetLabel: toLocationSheetLabel(entry),
       materialLabel: toMaterialLabel(entry),
       qty: entry.counted_quantity,
       location: toLocationLabel(entry),
@@ -471,8 +508,31 @@ export const buildStockTakeSessionExcelExport = ({
   entries: StockTakeEntryExportRecord[];
 }): ExportFile => {
   const rows = normalizeRows(entries);
+  const rowsByLocation = new Map<string, { sheetName: string; rows: NormalizedExportRow[] }>();
+  const usedSheetNames = new Set<string>();
+
+  for (const row of rows) {
+    const locationKey = row.locationId ?? "unknown-location";
+    const existing = rowsByLocation.get(locationKey);
+    if (existing) {
+      existing.rows.push(row);
+      continue;
+    }
+
+    const sheetName = toUniqueSheetName(row.locationSheetLabel, usedSheetNames);
+
+    rowsByLocation.set(locationKey, {
+      sheetName,
+      rows: [row],
+    });
+  }
+
+  const layoutSheets = Array.from(rowsByLocation.values()).map((group) => ({
+    ...buildLayoutSheet(group.rows),
+    name: group.sheetName,
+  }));
   const sheets = [
-    buildLayoutSheet(rows),
+    ...layoutSheets,
     buildRawDataSheet(rows),
     buildSummarySheet(rows),
   ];
