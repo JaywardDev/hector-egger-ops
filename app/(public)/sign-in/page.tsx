@@ -17,7 +17,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const { accessState } = await getAuthContext();
 
   if (accessState === "approved") {
-    redirect("/dashboard");
+    redirect("/timesheet");
   }
 
   if (accessState === "pending_approval" || accessState === "disabled") {

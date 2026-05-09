@@ -4,6 +4,7 @@ import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role
 import type { AppRole, ProfileRecord } from "@/src/lib/auth/profile-access";
 import type { AuthSession } from "@/src/lib/auth/session";
 import { getCurrentAccountStatus, getCurrentUserRoles } from "@/src/lib/auth/profile-access";
+import { canManageUsers } from "@/src/lib/permissions/admin";
 
 type AdminMutationActor = {
   session: AuthSession;
@@ -20,7 +21,7 @@ const assertAdminMutationAccess = async ({ session }: AdminMutationActor) => {
     getCurrentUserRoles(session),
   ]);
 
-  if (accountStatus !== "approved" || !roles.includes("admin")) {
+  if (!canManageUsers({ accountStatus, roles })) {
     throw new Error("Admin privileges are required for this action");
   }
 };

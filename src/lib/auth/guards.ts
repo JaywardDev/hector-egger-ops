@@ -4,6 +4,8 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { getCurrentProfileAccess } from "@/src/lib/auth/profile-access";
 import { getSessionFromCookies } from "@/src/lib/auth/session";
+import { canAccessAdmin } from "@/src/lib/permissions/admin";
+import { isAdminOrSupervisor } from "@/src/lib/permissions/roles";
 import { withServerTiming } from "@/src/lib/server-timing";
 
 const resolveAccessState = (
@@ -46,7 +48,7 @@ export const getAuthContext = cache(async (route?: string) =>
   }),
 );
 
-type AuthContext = Awaited<ReturnType<typeof getAuthContext>>;
+export type AuthContext = Awaited<ReturnType<typeof getAuthContext>>;
 type ProtectedAuthContext = AuthContext & {
   session: NonNullable<AuthContext["session"]>;
 };
@@ -83,8 +85,8 @@ export const requireProtectedAccess = cache(
 export const requireAdminAccess = async (): Promise<ProtectedAuthContext> => {
   const context = await requireProtectedAccess();
 
-  if (!context.roles.includes("admin")) {
-    redirect("/dashboard");
+  if (!canAccessAdmin(context)) {
+    redirect("/timesheet");
   }
 
   return context;
@@ -97,8 +99,8 @@ export const requireOperationalWriteAccess =
   async (): Promise<ProtectedAuthContext> => {
     const context = await requireProtectedAccess();
 
-    if (!hasSupervisorOrAdminRole(context.roles)) {
-      redirect("/dashboard");
+    if (!isAdminOrSupervisor(context)) {
+      redirect("/timesheet");
     }
 
     return context;
@@ -112,7 +114,17 @@ export const requirePendingAccess = async () => {
   }
 
   if (context.accessState === "approved") {
-    redirect("/dashboard");
+    redirect("/timesheet");
+  }
+
+  return context;
+};
+
+export const requireTimesheetApprovalAccess = async (): Promise<ProtectedAuthContext> => {
+  const context = await requireProtectedAccess();
+
+  if (!isAdminOrSupervisor(context)) {
+    redirect("/timesheet");
   }
 
   return context;

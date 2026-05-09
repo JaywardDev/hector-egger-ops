@@ -1,0 +1,78 @@
+import { canAccessAdmin } from "@/src/lib/permissions/admin";
+import type { PermissionAuthContext } from "@/src/lib/permissions/roles";
+import { isAdminOrSupervisor, isApprovedUser } from "@/src/lib/permissions/roles";
+import { canAccessTimesheetApprovals, canViewOwnTimesheets } from "@/src/lib/permissions/timesheets";
+
+export type AppNavPermission = "timesheet" | "timesheetApprovals" | "admin" | "internalTools";
+
+export type AppNavSection = "main" | "internal";
+
+export type AppNavItem = {
+  label: string;
+  href: string;
+  permission: AppNavPermission;
+  section: AppNavSection;
+  internal?: boolean;
+};
+
+export type ResolvedAppNavItem = AppNavItem & {
+  disabled: boolean;
+  locked: boolean;
+};
+
+export type ResolvedAppNavSection = {
+  label: string;
+  items: ResolvedAppNavItem[];
+};
+
+export const APP_NAV_ITEMS: AppNavItem[] = [
+  { label: "Timesheet", href: "/timesheet", permission: "timesheet", section: "main" },
+  { label: "Approvals", href: "/approvals", permission: "timesheetApprovals", section: "main" },
+  { label: "Admin", href: "/admin", permission: "admin", section: "main" },
+  { label: "Dashboard", href: "/dashboard", permission: "internalTools", section: "internal", internal: true },
+  { label: "Production", href: "/production", permission: "internalTools", section: "internal", internal: true },
+  { label: "Stock Take", href: "/stock-take", permission: "internalTools", section: "internal", internal: true },
+  { label: "Inventory", href: "/inventory", permission: "internalTools", section: "internal", internal: true },
+  { label: "Locations", href: "/locations", permission: "internalTools", section: "internal", internal: true },
+  { label: "History", href: "/history", permission: "internalTools", section: "internal", internal: true },
+];
+
+export const canAccessNavigationPermission = (
+  permission: AppNavPermission,
+  authContext: PermissionAuthContext | null | undefined,
+) => {
+  switch (permission) {
+    case "timesheet":
+      return canViewOwnTimesheets(authContext);
+    case "timesheetApprovals":
+      return canAccessTimesheetApprovals(authContext);
+    case "admin":
+      return canAccessAdmin(authContext);
+    case "internalTools":
+      return isApprovedUser(authContext) && isAdminOrSupervisor(authContext);
+  }
+};
+
+const resolveItem = (item: AppNavItem, authContext: PermissionAuthContext): ResolvedAppNavItem => {
+  const allowed = canAccessNavigationPermission(item.permission, authContext);
+
+  return {
+    ...item,
+    disabled: !allowed,
+    locked: !allowed,
+  };
+};
+
+export const getNavigationSections = (authContext: PermissionAuthContext): ResolvedAppNavSection[] => {
+  const mainItems = APP_NAV_ITEMS.filter((item) => item.section === "main").map((item) =>
+    resolveItem(item, authContext),
+  );
+  const internalItems = APP_NAV_ITEMS.filter((item) => item.section === "internal")
+    .map((item) => resolveItem(item, authContext))
+    .filter((item) => !item.disabled);
+
+  return [
+    { label: "Main", items: mainItems },
+    ...(internalItems.length > 0 ? [{ label: "Internal Tools", items: internalItems }] : []),
+  ];
+};

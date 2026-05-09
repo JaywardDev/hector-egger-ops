@@ -2,11 +2,15 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import { cache } from "react";
+import {
+  ACCESS_TOKEN_COOKIE,
+  PERSISTENT_SESSION_MAX_AGE_SECONDS,
+  REFRESH_TOKEN_COOKIE,
+  sessionCookieOptions,
+} from "@/src/lib/auth/cookies";
 import { getSupabasePublicEnv } from "@/src/lib/supabase/env";
 import { withServerTiming } from "@/src/lib/server-timing";
 
-export const ACCESS_TOKEN_COOKIE = "heo_access_token";
-export const REFRESH_TOKEN_COOKIE = "heo_refresh_token";
 
 export type AuthUser = {
   id: string;
@@ -39,7 +43,6 @@ type SupabaseUserResponse = {
   email?: string | null;
 };
 
-const secureCookie = process.env.NODE_ENV === "production";
 
 export const setSessionCookies = async (
   cookieStore: CookieStore,
@@ -51,24 +54,18 @@ export const setSessionCookies = async (
 
   const accessTokenMaxAge =
     typeof payload.expires_in === "number" && payload.expires_in > 0
-      ? payload.expires_in
-      : 60 * 60;
+      ? Math.max(payload.expires_in, PERSISTENT_SESSION_MAX_AGE_SECONDS)
+      : PERSISTENT_SESSION_MAX_AGE_SECONDS;
 
   cookieStore.set(ACCESS_TOKEN_COOKIE, payload.access_token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: secureCookie,
-    path: "/",
+    ...sessionCookieOptions,
     maxAge: accessTokenMaxAge,
   });
 
   if (payload.refresh_token) {
     cookieStore.set(REFRESH_TOKEN_COOKIE, payload.refresh_token, {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: secureCookie,
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30,
+      ...sessionCookieOptions,
+      maxAge: PERSISTENT_SESSION_MAX_AGE_SECONDS,
     });
   }
 };
@@ -122,6 +119,63 @@ const fetchSupabaseUser = async (
     },
   });
 
+const refreshSupabaseSession = async (
+  refreshToken: string,
+  route?: string,
+): Promise<AuthPayload | null> =>
+  withServerTiming({
+    name: "refreshSupabaseSession",
+    route,
+    operation: async () => {
+      const { url, anonKey } = getSupabasePublicEnv();
+      const response = await fetch(`${url.replace(/\/$/, "")}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST",
+        headers: {
+          apikey: anonKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      return (await response.json()) as AuthPayload;
+    },
+  });
+
+const refreshSessionFromCookies = async (
+  cookieStore: CookieStore,
+  refreshToken: string,
+  route?: string,
+): Promise<AuthSession | null> => {
+  const payload = await refreshSupabaseSession(refreshToken, route);
+
+  if (!payload?.access_token) {
+    clearSessionCookies(cookieStore);
+    return null;
+  }
+
+  const effectiveRefreshToken = payload.refresh_token ?? refreshToken;
+  await setSessionCookies(cookieStore, {
+    ...payload,
+    refresh_token: effectiveRefreshToken,
+  });
+
+  const user = payload.user?.id
+    ? payload.user
+    : await fetchSupabaseUser(payload.access_token, route);
+
+  if (!user) {
+    clearSessionCookies(cookieStore);
+    return null;
+  }
+
+  return toAuthSession(payload.access_token, effectiveRefreshToken, user);
+};
+
 export const getSessionFromCookies = cache(
   async (route?: string): Promise<AuthSession | null> =>
     withServerTiming({
@@ -129,21 +183,29 @@ export const getSessionFromCookies = cache(
       route,
       operation: async () => {
         const cookieStore = await cookies();
-        const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value;
+        const accessToken = cookieStore.get(ACCESS_TOKEN_COOKIE)?.value ?? null;
+        const refreshToken = cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
 
-        if (!accessToken) {
+        if (!accessToken && !refreshToken) {
           return null;
         }
 
-        const refreshToken =
-          cookieStore.get(REFRESH_TOKEN_COOKIE)?.value ?? null;
-        const user = await fetchSupabaseUser(accessToken, route);
+        if (accessToken) {
+          const user = await fetchSupabaseUser(accessToken, route);
 
-        if (!user) {
+          if (user) {
+            return toAuthSession(accessToken, refreshToken, user);
+          }
+        }
+
+        if (!refreshToken) {
+          clearSessionCookies(cookieStore);
           return null;
         }
 
-        return toAuthSession(accessToken, refreshToken, user);
+        return refreshSessionFromCookies(cookieStore, refreshToken, route);
       },
     }),
 );
+
+export { ACCESS_TOKEN_COOKIE, PERSISTENT_SESSION_MAX_AGE_SECONDS, REFRESH_TOKEN_COOKIE } from "@/src/lib/auth/cookies";

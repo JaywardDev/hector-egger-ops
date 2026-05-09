@@ -137,7 +137,7 @@ export async function signInAction(formData: FormData) {
   const accessState = await resolveAccountAccessState(session);
 
   if (accessState === "approved") {
-    redirect("/dashboard");
+    redirect("/timesheet");
   }
 
   redirect("/pending");
