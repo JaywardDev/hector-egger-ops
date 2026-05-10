@@ -14,7 +14,7 @@ export default async function TimesheetPage() {
   if (!profile) {
     return (
       <PageContainer>
-        <PageHeader title="Timesheet" description="Weekly Summary" />
+        <PageHeader title="Weekly Timesheet" />
         <Alert variant="error">Authenticated profile is required.</Alert>
       </PageContainer>
     );
@@ -47,7 +47,7 @@ export default async function TimesheetPage() {
 
   return (
     <PageContainer>
-      <PageHeader title="Timesheet" description="Weekly Summary" />
+      <PageHeader title="Weekly Timesheet" />
       <WeeklyTimesheetClient
         days={days}
         userName={profile.full_name ?? profile.email}

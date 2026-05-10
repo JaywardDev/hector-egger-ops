@@ -198,7 +198,7 @@ export function DailyTimesheetForm({
         <div className="flex justify-between text-sm"><span>Payable total</span><strong>{payableHours ?? "Invalid"} h</strong></div>
         <div className="flex justify-between text-sm"><span>Allocation</span><strong>{allocationHours} h</strong></div>
         {!allocationMatches ? <Alert variant="error">Allocation must equal payable total before Submit.</Alert> : null}
-        <Button className="w-full" disabled={!canEdit || isPending || !allocationMatches || lookups.projects.length === 0 || lookups.tasks.length === 0} onClick={submit}>{isPending ? "Submitting…" : "Submit"}</Button>
+        <Button className="w-full border-blue-700 bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:border-blue-300 disabled:bg-blue-300 disabled:text-white disabled:opacity-80" disabled={!canEdit || isPending || !allocationMatches || lookups.projects.length === 0 || lookups.tasks.length === 0} onClick={submit}>{isPending ? "Submitting…" : "Submit"}</Button>
       </section>
     </div>
   );
