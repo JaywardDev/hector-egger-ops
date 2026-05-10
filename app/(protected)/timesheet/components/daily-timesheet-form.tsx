@@ -6,6 +6,7 @@ import { Alert } from "@/src/components/ui/alert";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Select } from "@/src/components/ui/select";
+import { cn } from "@/src/lib/utils";
 import { calculateAllocationHours, calculatePayableHours } from "@/src/lib/timesheets/validation";
 import type { SaveTimesheetEntryInput, TimesheetActivityInput, TimesheetEntryWithActivities, TimesheetLeaveType, TimesheetLookups, TimesheetWorkMode } from "@/src/lib/timesheets/types";
 
@@ -149,50 +150,58 @@ export function DailyTimesheetForm({
         </label>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-3">
-        <label className="space-y-1 text-sm font-medium text-zinc-700">Time in<Input type="time" value={timeIn} disabled={disabled} onChange={(event) => setTimeIn(event.target.value)} /></label>
-        <label className="space-y-1 text-sm font-medium text-zinc-700">Time out<Input type="time" value={timeOut} disabled={disabled} onChange={(event) => setTimeOut(event.target.value)} /></label>
-        <label className="space-y-1 text-sm font-medium text-zinc-700">Work Location
-          <Select value={workMode} disabled={disabled} onChange={(event) => updateWorkMode(event.target.value as TimesheetWorkMode)}>
-            <option value="factory">Factory</option><option value="site">Site</option><option value="mixed">Mixed</option>
-          </Select>
-        </label>
-      </section>
+      <div
+        className={cn(
+          "space-y-6 transition-[filter,opacity] duration-150",
+          isPublicHoliday &&
+            "opacity-60 grayscale-[65%] [&_button:disabled]:cursor-not-allowed [&_input:disabled]:cursor-not-allowed [&_select:disabled]:cursor-not-allowed",
+        )}
+      >
+        <section className="grid gap-4 sm:grid-cols-3">
+          <label className="space-y-1 text-sm font-medium text-zinc-700">Time in<Input type="time" value={timeIn} disabled={disabled} onChange={(event) => setTimeIn(event.target.value)} /></label>
+          <label className="space-y-1 text-sm font-medium text-zinc-700">Time out<Input type="time" value={timeOut} disabled={disabled} onChange={(event) => setTimeOut(event.target.value)} /></label>
+          <label className="space-y-1 text-sm font-medium text-zinc-700">Work Location
+            <Select value={workMode} disabled={disabled} onChange={(event) => updateWorkMode(event.target.value as TimesheetWorkMode)}>
+              <option value="factory">Factory</option><option value="site">Site</option><option value="mixed">Mixed</option>
+            </Select>
+          </label>
+        </section>
 
-      <section className="space-y-3">
-        <h3 className="text-base font-semibold text-zinc-900">Activity</h3>
-        <div className="space-y-3">
-          {activities.map((activity, index) => (
-            <div key={activity.clientId} className={workMode === "mixed" ? "grid gap-3 rounded-lg bg-zinc-50 p-3 sm:grid-cols-[1fr_1fr_120px_100px]" : "grid gap-3 rounded-lg bg-zinc-50 p-3 sm:grid-cols-[1fr_1fr_100px]"}>
-              <label className="space-y-1 text-xs font-medium text-zinc-600">Project<Select value={activity.projectId} disabled={disabled} onChange={(event) => updateActivity(activity.clientId, { projectId: event.target.value })}>{lookups.projects.map((project) => <option key={project.id} value={project.id}>{project.code} — {project.label}</option>)}</Select></label>
-              <label className="space-y-1 text-xs font-medium text-zinc-600">Task<Select value={activity.taskId} disabled={disabled} onChange={(event) => updateActivity(activity.clientId, { taskId: event.target.value })}>{lookups.tasks.map((task) => <option key={task.id} value={task.id}>{task.label}</option>)}</Select></label>
-              {workMode === "mixed" ? (
-                <label className="space-y-1 text-xs font-medium text-zinc-600">Location<Select value={activity.workMode} disabled={disabled} onChange={(event) => updateActivity(activity.clientId, { workMode: event.target.value as "factory" | "site" })}><option value="factory">Factory</option><option value="site">Site</option></Select></label>
-              ) : null}
-              <label className="space-y-1 text-xs font-medium text-zinc-600">Hours<Input inputMode="decimal" value={activity.hoursText} disabled={disabled} onChange={(event) => updateActivity(activity.clientId, { hoursText: event.target.value })} placeholder={index === 0 ? "8" : "0"} /></label>
-            </div>
-          ))}
-          <Button
-            aria-label="Add activity row"
-            className="gap-2 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            disabled={disabled}
-            onClick={() => setActivities((current) => [...current, defaultActivity(lookups, workMode)])}
-          >
-            <span aria-hidden="true" className="flex size-5 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold leading-none text-white">＋</span>
-            Add row
-          </Button>
-        </div>
-      </section>
+        <section className="space-y-3">
+          <h3 className="text-base font-semibold text-zinc-900">Activity</h3>
+          <div className="space-y-3">
+            {activities.map((activity, index) => (
+              <div key={activity.clientId} className={workMode === "mixed" ? "grid gap-3 rounded-lg bg-zinc-50 p-3 sm:grid-cols-[1fr_1fr_120px_100px]" : "grid gap-3 rounded-lg bg-zinc-50 p-3 sm:grid-cols-[1fr_1fr_100px]"}>
+                <label className="space-y-1 text-xs font-medium text-zinc-600">Project<Select value={activity.projectId} disabled={disabled} onChange={(event) => updateActivity(activity.clientId, { projectId: event.target.value })}>{lookups.projects.map((project) => <option key={project.id} value={project.id}>{project.code} — {project.label}</option>)}</Select></label>
+                <label className="space-y-1 text-xs font-medium text-zinc-600">Task<Select value={activity.taskId} disabled={disabled} onChange={(event) => updateActivity(activity.clientId, { taskId: event.target.value })}>{lookups.tasks.map((task) => <option key={task.id} value={task.id}>{task.label}</option>)}</Select></label>
+                {workMode === "mixed" ? (
+                  <label className="space-y-1 text-xs font-medium text-zinc-600">Location<Select value={activity.workMode} disabled={disabled} onChange={(event) => updateActivity(activity.clientId, { workMode: event.target.value as "factory" | "site" })}><option value="factory">Factory</option><option value="site">Site</option></Select></label>
+                ) : null}
+                <label className="space-y-1 text-xs font-medium text-zinc-600">Hours<Input inputMode="decimal" value={activity.hoursText} disabled={disabled} onChange={(event) => updateActivity(activity.clientId, { hoursText: event.target.value })} placeholder={index === 0 ? "8" : "0"} /></label>
+              </div>
+            ))}
+            <Button
+              aria-label="Add activity row"
+              className="gap-2 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              disabled={disabled}
+              onClick={() => setActivities((current) => [...current, defaultActivity(lookups, workMode)])}
+            >
+              <span aria-hidden="true" className="flex size-5 items-center justify-center rounded-full bg-emerald-600 text-sm font-semibold leading-none text-white">＋</span>
+              Add row
+            </Button>
+          </div>
+        </section>
 
-      <section className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-1 text-sm font-medium text-zinc-700">Leave type<Select value={leaveType} disabled={disabled} onChange={(event) => setLeaveType(event.target.value as TimesheetLeaveType | "")}><option value="">No leave</option>{leaveOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></label>
-        <label className="space-y-1 text-sm font-medium text-zinc-700">Leave hours<Input inputMode="decimal" value={leaveHoursText} disabled={disabled} onChange={(event) => setLeaveHoursText(event.target.value)} /></label>
-      </section>
+        <section className="grid gap-4 sm:grid-cols-2">
+          <label className="space-y-1 text-sm font-medium text-zinc-700">Leave type<Select value={leaveType} disabled={disabled} onChange={(event) => setLeaveType(event.target.value as TimesheetLeaveType | "")}><option value="">No leave</option>{leaveOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></label>
+          <label className="space-y-1 text-sm font-medium text-zinc-700">Leave hours<Input inputMode="decimal" value={leaveHoursText} disabled={disabled} onChange={(event) => setLeaveHoursText(event.target.value)} /></label>
+        </section>
 
-      <section className="space-y-2">
-        <label className="flex items-center gap-2 text-sm text-zinc-700"><input type="checkbox" checked={unpaidBreak} disabled={disabled} onChange={(event) => setUnpaidBreak(event.target.checked)} />Unpaid break (0.5 deducted)</label>
-        <label className="flex items-center gap-2 text-sm text-zinc-700"><input type="checkbox" checked={paidBreak} disabled={disabled} onChange={(event) => setPaidBreak(event.target.checked)} />Paid break (0.5 included in allocation)</label>
-      </section>
+        <section className="space-y-2">
+          <label className="flex items-center gap-2 text-sm text-zinc-700"><input type="checkbox" checked={unpaidBreak} disabled={disabled} onChange={(event) => setUnpaidBreak(event.target.checked)} />Unpaid break (0.5 deducted)</label>
+          <label className="flex items-center gap-2 text-sm text-zinc-700"><input type="checkbox" checked={paidBreak} disabled={disabled} onChange={(event) => setPaidBreak(event.target.checked)} />Paid break (0.5 included in allocation)</label>
+        </section>
+      </div>
 
       <section className="space-y-3 rounded-lg bg-zinc-50 p-3">
         <div className="flex justify-between text-sm"><span>Payable total</span><strong>{payableHours ?? "Invalid"} h</strong></div>
