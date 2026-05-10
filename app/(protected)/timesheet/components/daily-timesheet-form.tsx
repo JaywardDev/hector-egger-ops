@@ -204,9 +204,9 @@ export function DailyTimesheetForm({
       </div>
 
       <section className="space-y-3 rounded-lg bg-zinc-50 p-3">
-        <div className="flex justify-between text-sm"><span>Payable total</span><strong>{payableHours ?? "Invalid"} h</strong></div>
+        <div className="flex justify-between text-sm"><span>Total working hours</span><strong>{payableHours ?? "Invalid"} h</strong></div>
         <div className="flex justify-between text-sm"><span>Allocation</span><strong>{allocationHours} h</strong></div>
-        {!allocationMatches ? <Alert variant="error">Allocation must equal payable total before Submit.</Alert> : null}
+        {!allocationMatches ? <Alert variant="error">Allocation must equal total working hours before Submit.</Alert> : null}
 <Button
   className="w-full border-blue-700 bg-blue-600 !text-white shadow-sm hover:bg-blue-700 disabled:border-blue-300 disabled:bg-blue-300 disabled:!text-white disabled:opacity-80"
   disabled={
