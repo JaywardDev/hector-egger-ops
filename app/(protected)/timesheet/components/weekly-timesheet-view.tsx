@@ -76,7 +76,7 @@ function ActivitySummary({ day, lookups }: { day: TimesheetDaySummary; lookups: 
         );
       })}
       {hasLeave ? <li className="leading-6">{leaveLabels[entry.leave_type as TimesheetLeaveType]} · {formatHours(entry.leave_hours)}</li> : null}
-      {entry.paid_break ? <li className="leading-6">Paid break · 0.5 h included</li> : null}
+      {entry.paid_break ? <li className="leading-6">Paid break · 0.5 h</li> : null}
     </ul>
   );
 }
@@ -107,7 +107,7 @@ function TimesheetDayRow({
           {day.entry ? (
             <>
               <Badge variant={day.entry.status === "approved" ? "success" : "info"} className="capitalize">{day.entry.status}</Badge>
-              <span className="font-medium text-zinc-800">{formatHours(day.entry.payable_hours)} paid</span>
+              <span className="font-medium text-zinc-800">{formatHours(day.entry.payable_hours)}</span>
             </>
           ) : (
             <span className="text-zinc-500">No entry</span>
