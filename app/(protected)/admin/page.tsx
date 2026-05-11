@@ -62,6 +62,14 @@ export default async function AdminPage({ searchParams }: AdminPageProps) {
                       <option value="admin">admin</option>
                     </Select>
                   </FormField>
+                  <FormField>
+                    <Label htmlFor={`staff-group-${user.id}`}>Staff group</Label>
+                    <Select id={`staff-group-${user.id}`} name="staffGroup" defaultValue="" className="w-auto min-w-36">
+                      <option value="">Unassigned</option>
+                      <option value="factory">Factory</option>
+                      <option value="site">Site</option>
+                    </Select>
+                  </FormField>
                   <Button type="submit">Approve</Button>
                 </form>
 

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
-import type { AppRole, ProfileRecord } from "@/src/lib/auth/profile-access";
+import type { AppRole, ProfileRecord, StaffGroup } from "@/src/lib/auth/profile-access";
 import type { AuthSession } from "@/src/lib/auth/session";
 import { getCurrentAccountStatus, getCurrentUserRoles } from "@/src/lib/auth/profile-access";
 import { canManageUsers } from "@/src/lib/permissions/admin";
@@ -12,7 +12,7 @@ type AdminMutationActor = {
 
 export type PendingUserRecord = Pick<
   ProfileRecord,
-  "id" | "email" | "full_name" | "account_status" | "created_at"
+  "id" | "email" | "full_name" | "account_status" | "staff_group" | "created_at"
 >;
 
 const assertAdminMutationAccess = async ({ session }: AdminMutationActor) => {
@@ -31,7 +31,7 @@ export const listPendingUsers = async ({ session }: AdminMutationActor): Promise
 
   const supabase = createServiceRoleSupabaseClient();
   const response = await supabase.request(
-    "/rest/v1/profiles?select=id,email,full_name,account_status,created_at&account_status=eq.pending&order=created_at.asc",
+    "/rest/v1/profiles?select=id,email,full_name,account_status,staff_group,created_at&account_status=eq.pending&order=created_at.asc",
     {
       cache: "no-store",
     },
@@ -44,7 +44,7 @@ export const listPendingUsers = async ({ session }: AdminMutationActor): Promise
   return (await response.json()) as PendingUserRecord[];
 };
 
-export const approveUser = async ({ session, profileId }: AdminMutationActor & { profileId: string }) => {
+export const approveUser = async ({ session, profileId, staffGroup }: AdminMutationActor & { profileId: string; staffGroup: StaffGroup | null }) => {
   await assertAdminMutationAccess({ session });
 
   const supabase = createServiceRoleSupabaseClient();
@@ -58,6 +58,7 @@ export const approveUser = async ({ session, profileId }: AdminMutationActor & {
       account_status: "approved",
       approved_at: new Date().toISOString(),
       disabled_at: null,
+      staff_group: staffGroup,
     }),
   });
 

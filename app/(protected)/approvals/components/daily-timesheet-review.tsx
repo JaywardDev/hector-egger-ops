@@ -1,0 +1,84 @@
+"use client";
+
+import { Alert } from "@/src/components/ui/alert";
+import { Badge } from "@/src/components/ui/badge";
+import type { TimesheetEntryWithActivities, TimesheetLookups } from "@/src/lib/timesheets/types";
+
+const formatHours = (hours: number) => `${Number.isInteger(hours) ? hours : hours.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")} h`;
+
+export function DailyTimesheetReview({
+  entry,
+  lookups,
+  displayDate,
+  employeeName,
+}: {
+  entry: TimesheetEntryWithActivities | null;
+  lookups: TimesheetLookups;
+  displayDate: string;
+  employeeName: string;
+}) {
+  const projectById = new Map(lookups.projects.map((project) => [project.id, project]));
+  const taskById = new Map(lookups.tasks.map((task) => [task.id, task]));
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-6 bg-white px-4 py-5 sm:px-6">
+      <section>
+        <h2 className="text-2xl font-semibold tracking-tight text-zinc-950">{employeeName}</h2>
+        <p className="mt-1 text-sm text-zinc-500">{displayDate}</p>
+      </section>
+
+      {!entry ? (
+        <Alert variant="warning">No timesheet entry has been submitted for this day.</Alert>
+      ) : (
+        <>
+          {entry.status === "returned" && entry.return_comment ? (
+            <Alert variant="warning">Returned comment: {entry.return_comment}</Alert>
+          ) : null}
+
+          <section className="grid gap-3 rounded-lg bg-zinc-50 p-4 text-sm sm:grid-cols-4">
+            <div>
+              <p className="text-zinc-500">Status</p>
+              <Badge className="mt-1" variant={entry.status === "returned" ? "warning" : entry.status === "submitted" ? "info" : "success"}>
+                {entry.status.replace("_", " ")}
+              </Badge>
+            </div>
+            <div>
+              <p className="text-zinc-500">Time</p>
+              <p className="font-medium text-zinc-900">{entry.is_public_holiday ? "Public holiday" : `${entry.time_in?.slice(0, 5)}–${entry.time_out?.slice(0, 5)}`}</p>
+            </div>
+            <div>
+              <p className="text-zinc-500">Payable</p>
+              <p className="font-medium text-zinc-900">{formatHours(entry.payable_hours)}</p>
+            </div>
+            <div>
+              <p className="text-zinc-500">Allocated</p>
+              <p className="font-medium text-zinc-900">{formatHours(entry.allocation_hours)}</p>
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="text-base font-semibold text-zinc-900">Activities</h3>
+            {entry.activities.length === 0 ? (
+              <p className="text-sm text-zinc-500">No activity rows.</p>
+            ) : (
+              <div className="divide-y divide-zinc-100 rounded-lg border border-zinc-200">
+                {entry.activities.map((activity) => {
+                  const project = projectById.get(activity.project_id);
+                  const task = taskById.get(activity.task_id);
+                  return (
+                    <div key={activity.id} className="grid gap-2 p-3 text-sm sm:grid-cols-[1fr_1fr_120px_100px]">
+                      <span>{project ? `${project.code} — ${project.label}` : "Unknown project"}</span>
+                      <span>{task?.label ?? "Unknown task"}</span>
+                      <span className="capitalize">{activity.work_mode}</span>
+                      <span className="font-medium">{formatHours(activity.hours)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+    </div>
+  );
+}

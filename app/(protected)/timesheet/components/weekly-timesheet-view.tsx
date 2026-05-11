@@ -3,7 +3,7 @@
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { cn } from "@/src/lib/utils";
-import type { TimesheetDaySummary, TimesheetLeaveType, TimesheetLookups, TimesheetWorkMode } from "@/src/lib/timesheets/types";
+import type { TimesheetDaySummary, TimesheetLeaveType, TimesheetLookups, TimesheetStatus, TimesheetWorkMode } from "@/src/lib/timesheets/types";
 
 type WeeklyTimesheetMode = "summary" | "details";
 
@@ -13,6 +13,8 @@ type WeeklyTimesheetViewProps = {
   mode: WeeklyTimesheetMode;
   onModeChange: (mode: WeeklyTimesheetMode) => void;
   onSelectDay: (date: string) => void;
+  entryActionLabel?: string;
+  missingActionLabel?: string;
 };
 
 const leaveLabels: Record<TimesheetLeaveType, string> = {
@@ -21,6 +23,21 @@ const leaveLabels: Record<TimesheetLeaveType, string> = {
   bereavement: "Bereavement leave",
   unpaid: "Unpaid leave",
   other: "Other leave",
+};
+
+
+const statusLabels: Record<TimesheetStatus, string> = {
+  submitted: "Submitted",
+  returned: "Returned",
+  supervisor_approved: "Supervisor approved",
+  approved: "Approved",
+};
+
+const statusVariants: Record<TimesheetStatus, "info" | "success" | "warning"> = {
+  submitted: "info",
+  returned: "warning",
+  supervisor_approved: "success",
+  approved: "success",
 };
 
 const workModeLabels: Record<Exclude<TimesheetWorkMode, "mixed">, string> = {
@@ -86,14 +103,18 @@ function TimesheetDayRow({
   lookups,
   mode,
   onSelectDay,
+  entryActionLabel = "Edit",
+  missingActionLabel = "Add",
 }: {
   day: TimesheetDaySummary;
   lookups: TimesheetLookups;
   mode: WeeklyTimesheetMode;
   onSelectDay: (date: string) => void;
+  entryActionLabel?: string;
+  missingActionLabel?: string;
 }) {
   const fullDateLabel = getFullDateLabel(day.date);
-  const actionLabel = day.entry ? "Edit" : "Add";
+  const actionLabel = day.entry ? entryActionLabel : missingActionLabel;
   const disabled = Boolean(day.entry) && !day.canEdit;
 
   return (
@@ -106,7 +127,7 @@ function TimesheetDayRow({
         <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-700 sm:justify-end">
           {day.entry ? (
             <>
-              <Badge variant={day.entry.status === "approved" ? "success" : "info"} className="capitalize">{day.entry.status}</Badge>
+              <Badge variant={statusVariants[day.entry.status]}>{statusLabels[day.entry.status]}</Badge>
               <span className="font-medium text-zinc-800">{formatHours(day.entry.payable_hours)}</span>
             </>
           ) : (
@@ -128,7 +149,7 @@ function TimesheetDayRow({
   );
 }
 
-export function WeeklyTimesheetView({ days, lookups, mode, onModeChange, onSelectDay }: WeeklyTimesheetViewProps) {
+export function WeeklyTimesheetView({ days, lookups, mode, onModeChange, onSelectDay, entryActionLabel, missingActionLabel }: WeeklyTimesheetViewProps) {
   return (
     <section className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-zinc-950/5 sm:px-6 sm:py-5" aria-labelledby="weekly-timesheet-heading">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
@@ -153,7 +174,7 @@ export function WeeklyTimesheetView({ days, lookups, mode, onModeChange, onSelec
       </div>
       <div className="mt-4 divide-y divide-zinc-100">
         {days.map((day) => (
-          <TimesheetDayRow key={day.date} day={day} lookups={lookups} mode={mode} onSelectDay={onSelectDay} />
+          <TimesheetDayRow key={day.date} day={day} lookups={lookups} mode={mode} onSelectDay={onSelectDay} entryActionLabel={entryActionLabel} missingActionLabel={missingActionLabel} />
         ))}
       </div>
     </section>

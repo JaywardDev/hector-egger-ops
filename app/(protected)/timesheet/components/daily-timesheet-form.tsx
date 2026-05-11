@@ -224,9 +224,14 @@ export function DailyTimesheetForm({
             {formattedWorkDate}
           </p>
         </div>
-        {entry?.status === "approved" ? (
+        {entry?.status === "returned" ? (
           <Alert variant="warning">
-            This entry is approved and locked for normal users.
+            This entry was returned for correction. {entry.return_comment ? `Comment: ${entry.return_comment}` : "Please update and resubmit."}
+          </Alert>
+        ) : null}
+        {entry?.status === "supervisor_approved" || entry?.status === "approved" ? (
+          <Alert variant="warning">
+            This entry is supervisor approved and locked. Contact a supervisor if it needs to be returned for correction.
           </Alert>
         ) : null}
         {feedback ? (

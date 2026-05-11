@@ -37,4 +37,11 @@ export const assertTimesheetWriteAccess = async (actor: Omit<TimesheetActor, "pr
   }
 };
 
+export const assertTimesheetApprovalAccess = async (actor: Omit<TimesheetActor, "profileId">) => {
+  const { accountStatus, roles } = await resolveActor(actor);
+  if (accountStatus !== "approved" || !roles.some((role) => ["admin", "supervisor"].includes(role))) {
+    throw new Error("Supervisor or admin access is required for timesheet approvals");
+  }
+};
+
 export const canEditApprovedTimesheets = (roles: AppRole[]) => roles.includes("admin") || roles.includes("supervisor");

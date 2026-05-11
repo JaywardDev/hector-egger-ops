@@ -41,7 +41,7 @@ export default async function TimesheetPage() {
       weekdayLabel: formatTimesheetWeekday(date),
       displayDate: formatTimesheetDisplayDate(date),
       entry,
-      canEdit: !entry || entry.status !== "approved" || canEditApproved,
+      canEdit: !entry || (entry.status !== "supervisor_approved" && (entry.status !== "approved" || canEditApproved)),
     };
   });
 

@@ -6,12 +6,14 @@ import { assertTimesheetReadAccess, assertTimesheetWriteAccess, canEditApprovedT
 import { validateTimesheetEntryInput } from "@/src/lib/timesheets/validation";
 import type { SaveTimesheetEntryInput, TimesheetActivityRecord, TimesheetEntryRecord, TimesheetEntryWithActivities, TimesheetPreferenceRecord, TimesheetWorkMode } from "@/src/lib/timesheets/types";
 
-const entrySelect = "id,profile_id,work_date,status,time_in,time_out,work_mode,leave_type,leave_hours,is_public_holiday,unpaid_break,paid_break,payable_hours,allocation_hours,submitted_at,approved_at,approved_by_profile_id,created_at,updated_at";
-const activitySelect = "id,entry_id,project_id,task_id,work_mode,hours,sort_order";
+export const timesheetEntrySelect = "id,profile_id,work_date,status,time_in,time_out,work_mode,leave_type,leave_hours,is_public_holiday,unpaid_break,paid_break,payable_hours,allocation_hours,submitted_at,approved_at,approved_by_profile_id,returned_at,returned_by_profile_id,return_comment,created_at,updated_at";
+const entrySelect = timesheetEntrySelect;
+export const timesheetActivitySelect = "id,entry_id,project_id,task_id,work_mode,hours,sort_order";
+const activitySelect = timesheetActivitySelect;
 
 type ActorWithRoles = TimesheetActor & { accessContext: { accountStatus: "approved"; roles: import("@/src/lib/auth/profile-access").AppRole[] } };
 
-const normalizeEntry = (entry: TimesheetEntryRecord, activities: TimesheetActivityRecord[] = []): TimesheetEntryWithActivities => ({
+export const normalizeTimesheetEntry = (entry: TimesheetEntryRecord, activities: TimesheetActivityRecord[] = []): TimesheetEntryWithActivities => ({
   ...entry,
   leave_hours: Number(entry.leave_hours),
   payable_hours: Number(entry.payable_hours),
@@ -49,7 +51,7 @@ export const listOwnTimesheetEntriesForDates = async (actor: TimesheetActor, dat
   );
   if (!activityResponse.ok) throw new Error("Failed to load timesheet activities");
   const activities = (await activityResponse.json()) as TimesheetActivityRecord[];
-  return entries.map((entry) => normalizeEntry(entry, activities.filter((activity) => activity.entry_id === entry.id)));
+  return entries.map((entry) => normalizeTimesheetEntry(entry, activities.filter((activity) => activity.entry_id === entry.id)));
 };
 
 const getExistingEntry = async (profileId: string, workDate: string): Promise<TimesheetEntryRecord | null> => {
@@ -75,9 +77,10 @@ const getValidLookupIds = async () => {
 export const saveOwnTimesheetEntry = async (actor: ActorWithRoles, input: SaveTimesheetEntryInput): Promise<TimesheetEntryWithActivities> => {
   await assertTimesheetWriteAccess(actor);
   const existing = await getExistingEntry(actor.profileId, input.workDate);
-  if (existing?.status === "approved" && !canEditApprovedTimesheets(actor.accessContext.roles)) {
-    throw new Error("Approved timesheet entries are locked.");
+  if (existing?.status === "supervisor_approved" || (existing?.status === "approved" && !canEditApprovedTimesheets(actor.accessContext.roles))) {
+    throw new Error("Supervisor-approved timesheet entries are locked.");
   }
+  const wasReturned = existing?.status === "returned";
 
   const { projectIds, taskIds } = await getValidLookupIds();
   const validated = validateTimesheetEntryInput(input, projectIds, taskIds);
@@ -85,7 +88,7 @@ export const saveOwnTimesheetEntry = async (actor: ActorWithRoles, input: SaveTi
   const entryPayload = {
     profile_id: actor.profileId,
     work_date: input.workDate,
-    status: existing?.status ?? "submitted",
+    status: "submitted",
     time_in: input.isPublicHoliday ? null : input.timeIn,
     time_out: input.isPublicHoliday ? null : input.timeOut,
     work_mode: input.workMode,
@@ -97,6 +100,11 @@ export const saveOwnTimesheetEntry = async (actor: ActorWithRoles, input: SaveTi
     payable_hours: validated.payableHours,
     allocation_hours: validated.allocationHours,
     submitted_at: new Date().toISOString(),
+    approved_at: null,
+    approved_by_profile_id: null,
+    returned_at: null,
+    returned_by_profile_id: null,
+    return_comment: null,
   };
 
   const entryResponse = await supabase.request(
@@ -132,6 +140,22 @@ export const saveOwnTimesheetEntry = async (actor: ActorWithRoles, input: SaveTi
     activities = (await activityResponse.json()) as TimesheetActivityRecord[];
   }
 
+  if (wasReturned) {
+    const weekDates = (await import("@/src/lib/timesheets/date")).getNzWeekDates(input.workDate);
+    await supabase.request("/rest/v1/timesheet_approval_events", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({
+        profile_id: actor.profileId,
+        actor_profile_id: actor.profileId,
+        week_start: weekDates[0],
+        week_end: weekDates[6],
+        action: "resubmitted",
+        affected_entry_ids: [entry.id],
+      }),
+    });
+  }
+
   const prefResponse = await supabase.request("/rest/v1/timesheet_preferences?on_conflict=profile_id", {
     method: "POST",
     headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates" },
@@ -139,5 +163,5 @@ export const saveOwnTimesheetEntry = async (actor: ActorWithRoles, input: SaveTi
   });
   if (!prefResponse.ok) throw new Error("Failed to save timesheet preference");
 
-  return normalizeEntry(entry, activities);
+  return normalizeTimesheetEntry(entry, activities);
 };

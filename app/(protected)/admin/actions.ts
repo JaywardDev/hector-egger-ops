@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { approveUser, assignRole, disableUser } from "@/src/lib/admin/user-approvals";
-import type { AppRole } from "@/src/lib/auth/profile-access";
+import type { AppRole, StaffGroup } from "@/src/lib/auth/profile-access";
 import { requireAdminAccess } from "@/src/lib/auth/guards";
 
 const ALLOWED_ROLES: AppRole[] = ["operator", "supervisor", "admin"];
+const ALLOWED_STAFF_GROUPS: StaffGroup[] = ["factory", "site"];
 
 const toAdminMessage = (message: string, type: "success" | "error") =>
   redirect(`/admin?${type}=${encodeURIComponent(message)}`);
@@ -14,6 +15,8 @@ const toAdminMessage = (message: string, type: "success" | "error") =>
 export async function approvePendingUserAction(formData: FormData) {
   const profileId = String(formData.get("profileId") ?? "").trim();
   const role = String(formData.get("role") ?? "").trim() as AppRole;
+  const staffGroupValue = String(formData.get("staffGroup") ?? "").trim();
+  const staffGroup = staffGroupValue === "" ? null : staffGroupValue as StaffGroup;
 
   if (!profileId) {
     toAdminMessage("Missing profile id.", "error");
@@ -23,6 +26,10 @@ export async function approvePendingUserAction(formData: FormData) {
     toAdminMessage("Invalid role selected.", "error");
   }
 
+  if (staffGroup !== null && !ALLOWED_STAFF_GROUPS.includes(staffGroup)) {
+    toAdminMessage("Invalid staff group selected.", "error");
+  }
+
   const { session } = await requireAdminAccess();
 
   if (!session) {
@@ -30,7 +37,7 @@ export async function approvePendingUserAction(formData: FormData) {
   }
 
   try {
-    await approveUser({ session, profileId });
+    await approveUser({ session, profileId, staffGroup });
     await assignRole({ session, profileId, role });
   } catch {
     toAdminMessage("Could not approve user.", "error");

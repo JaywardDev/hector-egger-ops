@@ -1,6 +1,7 @@
 export type TimesheetWorkMode = "factory" | "site" | "mixed";
 export type TimesheetActivityMode = "factory" | "site";
-export type TimesheetStatus = "submitted" | "approved";
+export type TimesheetStatus = "submitted" | "returned" | "supervisor_approved" | "approved";
+export type StaffGroup = "factory" | "site";
 export type TimesheetLeaveType = "annual" | "sick" | "bereavement" | "unpaid" | "other";
 
 export type TimesheetLookupOption = {
@@ -44,6 +45,9 @@ export type TimesheetEntryRecord = {
   submitted_at: string;
   approved_at: string | null;
   approved_by_profile_id: string | null;
+  returned_at: string | null;
+  returned_by_profile_id: string | null;
+  return_comment: string | null;
   created_at: string;
   updated_at: string;
 };
