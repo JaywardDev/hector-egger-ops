@@ -1,7 +1,7 @@
 export type TimesheetWorkMode = "factory" | "site" | "mixed";
 export type TimesheetActivityMode = "factory" | "site";
 export type TimesheetStatus = "submitted" | "returned" | "supervisor_approved" | "approved";
-export type StaffGroup = "factory" | "site";
+export type StaffGroup = "factory" | "site" | "office";
 export type TimesheetLeaveType = "annual" | "sick" | "bereavement" | "unpaid" | "other";
 
 export type TimesheetLookupOption = {

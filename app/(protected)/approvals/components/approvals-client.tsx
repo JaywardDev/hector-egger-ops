@@ -28,7 +28,7 @@ type StaffWithWeek = ApprovalStaffProfile & {
 
 type GroupData = Record<StaffGroup, StaffWithWeek[]>;
 
-const groupLabels: Record<StaffGroup, string> = { factory: "Factory", site: "Site" };
+const groupLabels: Record<StaffGroup, string> = { factory: "Factory", site: "Site", office: "Office" };
 
 export function ApprovalsClient({
   groups,
@@ -87,7 +87,7 @@ export function ApprovalsClient({
   return (
     <>
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Staff groups">
-        {(["factory", "site"] as const).map((group) => (
+        {(["factory", "site", "office"] as const).map((group) => (
           <button
             key={group}
             type="button"

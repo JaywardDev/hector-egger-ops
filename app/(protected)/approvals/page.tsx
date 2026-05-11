@@ -76,16 +76,18 @@ export default async function ApprovalsPage() {
     route: "/approvals",
   };
   const weekDates = getApprovalWeekDates();
-  const [lookups, factoryStaff, siteStaff] = await Promise.all([
+  const [lookups, factoryStaff, siteStaff, officeStaff] = await Promise.all([
     getTimesheetLookups(actor),
     listApprovedStaffByGroup(actor, "factory"),
     listApprovedStaffByGroup(actor, "site"),
+    listApprovedStaffByGroup(actor, "office"),
   ]);
-  const [factory, site] = await Promise.all([
+  const [factory, site, office] = await Promise.all([
     withWeekSummaries(actor, factoryStaff, weekDates),
     withWeekSummaries(actor, siteStaff, weekDates),
+    withWeekSummaries(actor, officeStaff, weekDates),
   ]);
-  const groups: Record<StaffGroup, StaffWithWeek[]> = { factory, site };
+  const groups: Record<StaffGroup, StaffWithWeek[]> = { factory, site, office };
   const weekRangeLabel = `${formatTimesheetDisplayDate(weekDates[0])} – ${formatTimesheetDisplayDate(weekDates[6])}`;
 
   return (

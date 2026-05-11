@@ -9,7 +9,7 @@ export type AccountStatus = "pending" | "approved" | "disabled";
 
 export type AppRole = "admin" | "supervisor" | "operator";
 
-export type StaffGroup = "factory" | "site";
+export type StaffGroup = "factory" | "site" | "office";
 
 export type ProfileRecord = {
   id: string;
