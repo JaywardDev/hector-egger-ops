@@ -1,7 +1,12 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { saveEmployeeTimesheetCorrectionAction } from "@/app/(protected)/approvals/actions";
+import { DailyTimesheetForm } from "@/app/(protected)/timesheet/components/daily-timesheet-form";
 import { Alert } from "@/src/components/ui/alert";
 import { Badge } from "@/src/components/ui/badge";
+import { Button } from "@/src/components/ui/button";
 import type { TimesheetEntryWithActivities, TimesheetLookups } from "@/src/lib/timesheets/types";
 
 const formatHours = (hours: number) => `${Number.isInteger(hours) ? hours : hours.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")} h`;
@@ -11,21 +16,74 @@ export function DailyTimesheetReview({
   lookups,
   displayDate,
   employeeName,
+  targetProfileId,
+  onSaved,
 }: {
   entry: TimesheetEntryWithActivities | null;
   lookups: TimesheetLookups;
   displayDate: string;
   employeeName: string;
+  targetProfileId: string;
+  onSaved: () => void;
 }) {
+  const router = useRouter();
+  const [isEditing, setIsEditing] = useState(false);
+  const [comment, setComment] = useState("");
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const projectById = new Map(lookups.projects.map((project) => [project.id, project]));
   const taskById = new Map(lookups.tasks.map((task) => [task.id, task]));
+  const canCorrect = entry?.status === "submitted" || entry?.status === "returned";
+
+  if (entry && isEditing) {
+    return (
+      <DailyTimesheetForm
+        workDate={entry.work_date}
+        displayDate={displayDate}
+        userName={employeeName}
+        entry={entry}
+        preferredWorkMode={entry.work_mode}
+        lookups={lookups}
+        canEdit={canCorrect}
+        saveHandler={(input) => saveEmployeeTimesheetCorrectionAction(targetProfileId, input, comment)}
+        submitLabel="Save Changes"
+        pendingLabel="Saving changes…"
+        headingText={`Correct ${employeeName} timesheet`}
+        showReturnedNotice={false}
+        correctionComment={comment}
+        onCorrectionCommentChange={setComment}
+        onSaved={() => {
+          setSuccessMessage("Timesheet correction saved.");
+          setIsEditing(false);
+          setComment("");
+          router.refresh();
+          onSaved();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 bg-white px-4 py-5 sm:px-6">
       <section>
         <h2 className="text-2xl font-semibold tracking-tight text-zinc-950">{employeeName}</h2>
         <p className="mt-1 text-sm text-zinc-500">{displayDate}</p>
+        {entry && canCorrect ? (
+          <div className="mt-4">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setSuccessMessage(null);
+                setIsEditing(true);
+              }}
+            >
+              Edit
+            </Button>
+          </div>
+        ) : null}
       </section>
+
+      {successMessage ? <Alert variant="success">{successMessage}</Alert> : null}
 
       {!entry ? (
         <Alert variant="warning">No timesheet entry has been submitted for this day.</Alert>

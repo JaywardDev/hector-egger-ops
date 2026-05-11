@@ -181,6 +181,8 @@ export function ApprovalsClient({
                 lookups={lookups}
                 displayDate={`${selectedDay.weekdayLabel}, ${selectedDay.displayDate}`}
                 employeeName={selectedStaff.full_name ?? selectedStaff.email}
+                targetProfileId={selectedStaff.id}
+                onSaved={() => router.refresh()}
               />
             ) : null}
           </DailyTimesheetSheet>

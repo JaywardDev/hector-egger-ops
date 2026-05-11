@@ -62,7 +62,7 @@ const getExistingEntry = async (profileId: string, workDate: string): Promise<Ti
   return entry ?? null;
 };
 
-const getValidLookupIds = async () => {
+export const getValidLookupIds = async () => {
   const supabase = createServiceRoleSupabaseClient();
   const [projectsResponse, tasksResponse] = await Promise.all([
     supabase.request("/rest/v1/timesheet_projects?select=id&is_active=eq.true"),

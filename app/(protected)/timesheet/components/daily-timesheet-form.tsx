@@ -22,6 +22,8 @@ import type {
   TimesheetWorkMode,
 } from "@/src/lib/timesheets/types";
 
+type SaveHandlerResult = { ok: true; message: string } | { ok: false; message: string };
+
 type DraftActivity = TimesheetActivityInput & {
   clientId: string;
   hoursText: string;
@@ -77,6 +79,13 @@ export function DailyTimesheetForm({
   lookups,
   canEdit,
   onSaved,
+  saveHandler = saveTimesheetEntryAction,
+  submitLabel = "Submit",
+  pendingLabel = "Submitting…",
+  headingText,
+  showReturnedNotice = true,
+  correctionComment,
+  onCorrectionCommentChange,
 }: {
   workDate: string;
   displayDate: string;
@@ -86,6 +95,13 @@ export function DailyTimesheetForm({
   lookups: TimesheetLookups;
   canEdit: boolean;
   onSaved: () => void;
+  saveHandler?: (input: SaveTimesheetEntryInput) => Promise<SaveHandlerResult>;
+  submitLabel?: string;
+  pendingLabel?: string;
+  headingText?: string;
+  showReturnedNotice?: boolean;
+  correctionComment?: string;
+  onCorrectionCommentChange?: (comment: string) => void;
 }) {
   const [workMode, setWorkMode] = useState<TimesheetWorkMode>(
     entry?.work_mode ?? preferredWorkMode,
@@ -203,7 +219,7 @@ export function DailyTimesheetForm({
     };
 
     startTransition(async () => {
-      const result = await saveTimesheetEntryAction(payload);
+      const result = await saveHandler(payload);
       if (!result.ok) {
         setFeedback({ type: "error", message: result.message });
         return;
@@ -218,13 +234,13 @@ export function DailyTimesheetForm({
       <section className="space-y-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-zinc-950">
-            Kia ora, {userName}
+            {headingText ?? `Kia ora, ${userName}`}
           </h2>
           <p className="mt-1 text-sm font-normal text-zinc-500">
             {formattedWorkDate}
           </p>
         </div>
-        {entry?.status === "returned" ? (
+        {showReturnedNotice && entry?.status === "returned" ? (
           <Alert variant="warning">
             This entry was returned for correction. {entry.return_comment ? `Comment: ${entry.return_comment}` : "Please update and resubmit."}
           </Alert>
@@ -233,6 +249,17 @@ export function DailyTimesheetForm({
           <Alert variant="warning">
             This entry is supervisor approved and locked. Contact a supervisor if it needs to be returned for correction.
           </Alert>
+        ) : null}
+        {correctionComment !== undefined && onCorrectionCommentChange ? (
+          <label className="block space-y-1 text-sm font-medium text-zinc-700">
+            Correction note (optional)
+            <textarea
+              className="min-h-20 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm shadow-sm focus:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-200"
+              value={correctionComment}
+              onChange={(event) => onCorrectionCommentChange(event.target.value)}
+              placeholder="Add a short note for the audit history."
+            />
+          </label>
         ) : null}
         {feedback ? (
           <Alert variant={feedback.type}>{feedback.message}</Alert>
@@ -479,7 +506,7 @@ export function DailyTimesheetForm({
         </div>
         {!allocationMatches ? (
           <Alert variant="error">
-            Allocation must equal total working hours before Submit.
+            Allocation must equal total working hours before saving.
           </Alert>
         ) : null}
         {incompleteActivityError ? (
@@ -497,7 +524,7 @@ export function DailyTimesheetForm({
           }
           onClick={submit}
         >
-          {isPending ? "Submitting…" : "Submit"}
+          {isPending ? pendingLabel : submitLabel}
         </Button>
       </section>
     </div>

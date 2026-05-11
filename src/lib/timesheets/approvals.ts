@@ -5,6 +5,7 @@ import type { AppRole } from "@/src/lib/auth/profile-access";
 import { assertTimesheetApprovalAccess, type TimesheetActor } from "@/src/lib/timesheets/access";
 import { addDays, getNzWeekDates } from "@/src/lib/timesheets/date";
 import {
+  getValidLookupIds,
   normalizeTimesheetEntry,
   timesheetActivitySelect,
   timesheetEntrySelect,
@@ -13,8 +14,10 @@ import type {
   StaffGroup,
   TimesheetActivityRecord,
   TimesheetEntryRecord,
+  SaveTimesheetEntryInput,
   TimesheetEntryWithActivities,
 } from "@/src/lib/timesheets/types";
+import { validateTimesheetEntryInput } from "@/src/lib/timesheets/validation";
 
 export type ApprovalStaffProfile = {
   id: string;
@@ -241,4 +244,84 @@ export const returnEmployeeTimesheetWeek = async (
   if (!eventResponse.ok) throw new Error("Failed to record return event");
 
   return { affectedEntryIds };
+};
+
+
+type CorrectionRpcResponse = {
+  entry: TimesheetEntryRecord;
+  activities: TimesheetActivityRecord[];
+};
+
+const parseSupabaseError = async (response: Response, fallback: string) => {
+  try {
+    const body = (await response.json()) as { message?: string; details?: string };
+    return body.message || body.details || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+export const saveEmployeeTimesheetCorrectionAtomic = async (
+  actor: TimesheetActor,
+  targetProfileId: string,
+  input: SaveTimesheetEntryInput,
+  comment?: string,
+): Promise<TimesheetEntryWithActivities> => {
+  await assertTimesheetApprovalAccess(actor);
+  if (!targetProfileId) throw new Error("Target employee is required.");
+  if (targetProfileId === actor.profileId) {
+    throw new Error("Supervisors cannot correct their own timesheet through approvals.");
+  }
+
+  await assertTargetProfileApproved(targetProfileId);
+
+  const supabase = createServiceRoleSupabaseClient();
+  const existingResponse = await supabase.request(
+    `/rest/v1/timesheet_entries?select=id,status&profile_id=eq.${targetProfileId}&work_date=eq.${input.workDate}&limit=1`,
+    { cache: "no-store" },
+  );
+  if (!existingResponse.ok) throw new Error("Failed to verify target timesheet entry");
+  const [existing] = (await existingResponse.json()) as { id: string; status: string }[];
+  if (!existing) throw new Error("No submitted or returned timesheet entry exists for this day.");
+  if (existing.status !== "submitted" && existing.status !== "returned") {
+    throw new Error("Only submitted or returned entries can be corrected.");
+  }
+
+  const { projectIds, taskIds } = await getValidLookupIds();
+  const validated = validateTimesheetEntryInput(input, projectIds, taskIds);
+
+  const response = await supabase.request("/rest/v1/rpc/correct_employee_timesheet_entry_atomic", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+    body: JSON.stringify({
+      p_actor_profile_id: actor.profileId,
+      p_target_profile_id: targetProfileId,
+      p_work_date: input.workDate,
+      p_time_in: input.isPublicHoliday ? null : input.timeIn,
+      p_time_out: input.isPublicHoliday ? null : input.timeOut,
+      p_work_mode: input.workMode,
+      p_leave_type: validated.leaveType,
+      p_leave_hours: validated.leaveHours,
+      p_is_public_holiday: input.isPublicHoliday,
+      p_unpaid_break: input.isPublicHoliday ? false : input.unpaidBreak,
+      p_paid_break: input.isPublicHoliday ? false : input.paidBreak,
+      p_payable_hours: validated.payableHours,
+      p_allocation_hours: validated.allocationHours,
+      p_activities: validated.activities.map((activity) => ({
+        project_id: activity.projectId,
+        task_id: activity.taskId,
+        work_mode: input.workMode === "mixed" ? activity.workMode : input.workMode,
+        hours: activity.hours,
+      })),
+      p_comment: comment?.trim() || null,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseSupabaseError(response, "Failed to save timesheet correction."));
+  }
+
+  const result = (await response.json()) as CorrectionRpcResponse;
+  if (!result.entry) throw new Error("Corrected timesheet entry was not returned");
+  return normalizeTimesheetEntry(result.entry, result.activities ?? []);
 };

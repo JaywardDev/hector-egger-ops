@@ -92,7 +92,7 @@ export default async function ApprovalsPage() {
     <PageContainer>
       <PageHeader
         title="Timesheet Approvals"
-        description="Review submitted weekly timesheets by staff group. Supervisor review is read-only; employees correct returned entries from their own timesheet page."
+        description="Review submitted weekly timesheets by staff group. Open a daily entry to review or correct submitted and returned days before approval."
       />
       <ApprovalsClient groups={groups} lookups={lookups} weekStart={weekDates[0]} weekRangeLabel={weekRangeLabel} />
     </PageContainer>

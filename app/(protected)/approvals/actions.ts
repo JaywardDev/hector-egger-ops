@@ -5,7 +5,9 @@ import { requireTimesheetApprovalAccess } from "@/src/lib/auth/guards";
 import {
   approveEmployeeTimesheetWeek,
   returnEmployeeTimesheetWeek,
+  saveEmployeeTimesheetCorrectionAtomic,
 } from "@/src/lib/timesheets/approvals";
+import type { SaveTimesheetEntryInput } from "@/src/lib/timesheets/types";
 
 export type ApprovalActionResult =
   | { ok: true; message: string }
@@ -50,5 +52,22 @@ export async function returnEmployeeTimesheetWeekAction(
     return { ok: true, message: `Returned ${result.affectedEntryIds.length} entr${result.affectedEntryIds.length === 1 ? "y" : "ies"} for correction.` };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Could not return timesheet week." };
+  }
+}
+
+
+export async function saveEmployeeTimesheetCorrectionAction(
+  targetProfileId: string,
+  input: SaveTimesheetEntryInput,
+  comment?: string,
+): Promise<ApprovalActionResult> {
+  try {
+    const actor = await actorFromContext();
+    await saveEmployeeTimesheetCorrectionAtomic(actor, targetProfileId, input, comment);
+    revalidatePath("/approvals");
+    revalidatePath("/timesheet");
+    return { ok: true, message: "Timesheet correction saved." };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Could not save timesheet correction." };
   }
 }
