@@ -15,6 +15,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Operations Platform",
   description: "Phase 1 architecture scaffold for operations workflows.",
+  icons: {
+    icon: [
+      {
+        url: "/icons/app-icon.svg",
+        type: "image/svg+xml",
+      },
+    ],
+    shortcut: ["/icons/app-icon.svg"],
+  },
 };
 
 export default function RootLayout({
