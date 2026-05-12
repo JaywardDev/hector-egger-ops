@@ -26,6 +26,7 @@ import {
 } from "@/src/lib/admin/user-approvals";
 import { isProfileComplete, type AppRole, type StaffGroup } from "@/src/lib/auth/profile-access";
 import { requireAdminAccess } from "@/src/lib/auth/guards";
+import { formatNzDateTime } from "@/src/lib/dateTime";
 
 type AdminPageProps = {
   searchParams: Promise<{
@@ -46,23 +47,26 @@ const roleLabels: Record<AppRole, string> = {
   admin: "admin",
 };
 
-const formatDate = (date: string | null) => date ? new Date(date).toLocaleString() : "—";
+const formatDate = (date: string | null) => formatNzDateTime(date);
 
 const displayStaffGroup = (staffGroup: StaffGroup | null) =>
-  staffGroup ? staffGroupLabels[staffGroup] : "Unassigned";
+  staffGroup ? staffGroupLabels[staffGroup] : "Unassigned staff group";
 
 const displayRoles = (roles: AppRole[]) =>
   roles.length > 0 ? roles.map((role) => roleLabels[role]).join(", ") : "No role";
 
-const displayProfileCompletion = (user: AdminUserRecord) =>
-  isProfileComplete(user) ? "Complete" : "Incomplete";
+const hasCompletedApprovalProfile = (user: AdminUserRecord) =>
+  Boolean(user.profile_completed_at && isProfileComplete(user));
 
-function StaffGroupSelect({ user, idPrefix }: { user: AdminUserRecord; idPrefix: string }) {
+const displayProfileCompletion = (user: AdminUserRecord) =>
+  hasCompletedApprovalProfile(user) ? "Complete" : "Incomplete";
+
+function StaffGroupSelect({ user, idPrefix, required = false }: { user: AdminUserRecord; idPrefix: string; required?: boolean }) {
   return (
     <FormField>
       <Label htmlFor={`${idPrefix}-staff-group-${user.id}`}>Staff group</Label>
-      <Select id={`${idPrefix}-staff-group-${user.id}`} name="staffGroup" defaultValue={user.staff_group ?? ""} className="w-auto min-w-36">
-        <option value="">Unassigned</option>
+      <Select id={`${idPrefix}-staff-group-${user.id}`} name="staffGroup" defaultValue={user.staff_group ?? ""} className="w-auto min-w-36" required={required}>
+        <option value="">{required ? "Select staff group" : "Unassigned"}</option>
         {ADMIN_STAFF_GROUP_OPTIONS.map((staffGroup) => (
           <option key={staffGroup} value={staffGroup}>{staffGroupLabels[staffGroup]}</option>
         ))}
@@ -71,13 +75,14 @@ function StaffGroupSelect({ user, idPrefix }: { user: AdminUserRecord; idPrefix:
   );
 }
 
-function RoleSelect({ user, idPrefix, defaultRole = "operator" }: { user: AdminUserRecord; idPrefix: string; defaultRole?: AppRole }) {
+function RoleSelect({ user, idPrefix, defaultRole = "operator", required = false }: { user: AdminUserRecord; idPrefix: string; defaultRole?: AppRole | ""; required?: boolean }) {
   const selectedRole = user.roles.find((role) => ADMIN_ROLE_OPTIONS.includes(role)) ?? defaultRole;
 
   return (
     <FormField>
       <Label htmlFor={`${idPrefix}-role-${user.id}`}>Role</Label>
-      <Select id={`${idPrefix}-role-${user.id}`} name="role" defaultValue={selectedRole} className="w-auto min-w-36">
+      <Select id={`${idPrefix}-role-${user.id}`} name="role" defaultValue={selectedRole} className="w-auto min-w-36" required={required}>
+        {required ? <option value="">Select role</option> : null}
         {ADMIN_ROLE_OPTIONS.map((role) => (
           <option key={role} value={role}>{roleLabels[role]}</option>
         ))}
@@ -95,7 +100,7 @@ function UserDetails({ user }: { user: AdminUserRecord }) {
       </div>
       <div>
         <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Profile</dt>
-        <dd><Badge variant={isProfileComplete(user) ? "success" : "warning"}>{displayProfileCompletion(user)}</Badge></dd>
+        <dd><Badge variant={hasCompletedApprovalProfile(user) ? "success" : "warning"}>{displayProfileCompletion(user)}</Badge></dd>
       </div>
       <div>
         <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Roles</dt>
@@ -131,17 +136,26 @@ function UserHeader({ user }: { user: AdminUserRecord }) {
 }
 
 function PendingUserCard({ user }: { user: AdminUserRecord }) {
+  const approvalProfileComplete = hasCompletedApprovalProfile(user);
+
   return (
     <Card>
       <UserHeader user={user} />
       <UserDetails user={user} />
 
+      {!approvalProfileComplete ? (
+        <p className="mt-3 text-sm font-medium text-amber-700">Profile incomplete — user must finish onboarding first.</p>
+      ) : null}
+      {!user.staff_group ? (
+        <p className="mt-3 text-sm font-medium text-amber-700">Select a staff group before approving this user.</p>
+      ) : null}
+
       <div className="mt-4 flex flex-wrap items-end gap-2">
         <form action={approvePendingUserAction} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="profileId" value={user.id} />
-          <RoleSelect user={user} idPrefix="approve" />
-          <StaffGroupSelect user={user} idPrefix="approve" />
-          <Button type="submit">Approve</Button>
+          <RoleSelect user={user} idPrefix="approve" defaultRole="" required />
+          <StaffGroupSelect user={user} idPrefix="approve" required />
+          <Button type="submit" disabled={!approvalProfileComplete}>Approve</Button>
         </form>
 
         <form action={disableUserAction}>

@@ -6,6 +6,7 @@ import {
   requireOperationalWriteAccess,
   requireProtectedAccess,
 } from "@/src/lib/auth/guards";
+import { parseNzDate } from "@/src/lib/dateTime";
 import {
   archiveProductionProject,
   createProductionProject,
@@ -255,6 +256,12 @@ export async function listProductionEntriesAction(filters?: {
 }) {
   const { session, roles } = await requireProtectedAccess();
 
+  const dateFrom = filters?.dateFrom ? parseNzDate(filters.dateFrom) ?? undefined : undefined;
+  const dateTo = filters?.dateTo ? parseNzDate(filters.dateTo) ?? undefined : undefined;
+  if ((filters?.dateFrom && !dateFrom) || (filters?.dateTo && !dateTo)) {
+    throw new Error("Enter valid date filters in YYYY-MM-DD format.");
+  }
+
   return listProductionEntries({
     session,
     accessContext: {
@@ -263,6 +270,8 @@ export async function listProductionEntriesAction(filters?: {
     },
     route: "/production/entries",
     ...filters,
+    dateFrom,
+    dateTo,
   });
 }
 
@@ -291,6 +300,11 @@ export async function createProductionEntryAction(input: {
     throw new Error("Profile record is required for production entry writes");
   }
 
+  const workDate = parseNzDate(input.workDate) ?? undefined;
+  if (!workDate) {
+    throw new Error("Enter a valid work date in YYYY-MM-DD format.");
+  }
+
   const operatorProfileId = resolveOperatorProfileIdForWrite({
     requestedOperatorProfileId: input.operatorProfileId,
     currentProfileId: profile.id,
@@ -305,6 +319,7 @@ export async function createProductionEntryAction(input: {
     },
     input: {
       ...input,
+      workDate,
       operatorProfileId,
       createdByProfileId: profile.id,
     },
@@ -401,6 +416,11 @@ export async function updateProductionEntryAction(
     throw new Error("You can only update your own production entries");
   }
 
+  const workDate = input.workDate === undefined ? undefined : parseNzDate(input.workDate) ?? undefined;
+  if (input.workDate !== undefined && !workDate) {
+    throw new Error("Enter a valid work date in YYYY-MM-DD format.");
+  }
+
   const record = await updateProductionEntry({
     session,
     accessContext: {
@@ -410,6 +430,7 @@ export async function updateProductionEntryAction(
     entryId,
     input: {
       ...input,
+      workDate,
       operatorProfileId: resolveOperatorProfileIdForWrite({
         requestedOperatorProfileId: input.operatorProfileId ?? existingEntry.operator_profile_id,
         currentProfileId: profile?.id ?? existingEntry.operator_profile_id,

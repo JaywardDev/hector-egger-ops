@@ -1,5 +1,6 @@
 import "server-only";
 
+import { formatNzDate } from "@/src/lib/dateTime";
 import { resolveInventoryItemNameCandidate } from "@/src/lib/inventory/item-labels";
 import { formatStockTakeEntryMappingCode } from "@/src/lib/stock-take/entry-mapping";
 import type {
@@ -46,7 +47,7 @@ const XML_ESCAPE_LOOKUP: Record<string, string> = {
   "'": "&apos;",
 };
 
-const excelDateToken = (value: string) => value.slice(0, 10);
+const excelDateToken = (value: string) => formatNzDate(value);
 
 const toSlugToken = (value: string | null | undefined) => {
   const base = (value ?? "").trim().toLowerCase();

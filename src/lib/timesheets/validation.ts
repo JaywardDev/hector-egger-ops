@@ -1,3 +1,4 @@
+import { isValidNzDate } from "@/src/lib/dateTime";
 import type {
   SaveTimesheetEntryInput,
   TimesheetActivityInput,
@@ -96,7 +97,7 @@ export const validateTimesheetEntryInput = (
   validProjectIds: Set<string>,
   validTaskIds: Set<string>,
 ) => {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.workDate)) {
+  if (!isValidNzDate(input.workDate)) {
     throw new Error("A valid work date is required.");
   }
   if (!workModes.has(input.workMode)) {

@@ -29,11 +29,11 @@ const getProfileId = (formData: FormData) => {
   return profileId;
 };
 
-const getRole = (formData: FormData) => {
+const getRole = (formData: FormData, message = "Invalid role selected.") => {
   const role = String(formData.get("role") ?? "").trim() as AppRole;
 
   if (!ADMIN_ROLE_OPTIONS.includes(role)) {
-    toAdminMessage("Invalid role selected.", "error");
+    toAdminMessage(message, "error");
   }
 
   return role;
@@ -45,6 +45,16 @@ const getStaffGroup = (formData: FormData) => {
 
   if (staffGroup !== null && !ADMIN_STAFF_GROUP_OPTIONS.includes(staffGroup)) {
     toAdminMessage("Invalid staff group selected.", "error");
+  }
+
+  return staffGroup;
+};
+
+const getApprovalStaffGroup = (formData: FormData) => {
+  const staffGroup = getStaffGroup(formData);
+
+  if (staffGroup === null) {
+    toAdminMessage("Select a staff group before approving this user.", "error");
   }
 
   return staffGroup;
@@ -62,13 +72,12 @@ const getAdminSession = async () => {
 
 export async function approvePendingUserAction(formData: FormData) {
   const profileId = getProfileId(formData);
-  const role = getRole(formData);
-  const staffGroup = getStaffGroup(formData);
+  const role = getRole(formData, "Select a role before approving this user.");
+  const staffGroup = getApprovalStaffGroup(formData);
   const session = await getAdminSession();
 
   try {
-    await approveUser({ session, profileId, staffGroup });
-    await setUserRole({ session, profileId, role });
+    await approveUser({ session, profileId, role, staffGroup });
   } catch (error) {
     toAdminMessage(error instanceof Error ? error.message : "Could not approve user.", "error");
   }

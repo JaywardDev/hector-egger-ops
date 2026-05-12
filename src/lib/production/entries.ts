@@ -1,5 +1,6 @@
 import "server-only";
 
+import { parseNzDate } from "@/src/lib/dateTime";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import { withServerTiming } from "@/src/lib/server-timing";
@@ -74,11 +75,16 @@ export const listProductionEntries = async ({
       if (operatorProfileId) {
         searchParams.set("operator_profile_id", `eq.${operatorProfileId}`);
       }
-      if (dateFrom) {
-        searchParams.append("work_date", `gte.${dateFrom}`);
+      const parsedDateFrom = dateFrom ? parseNzDate(dateFrom) : undefined;
+      const parsedDateTo = dateTo ? parseNzDate(dateTo) : undefined;
+      if ((dateFrom && !parsedDateFrom) || (dateTo && !parsedDateTo)) {
+        throw new Error("Enter valid production entry date filters in YYYY-MM-DD format.");
       }
-      if (dateTo) {
-        searchParams.append("work_date", `lte.${dateTo}`);
+      if (parsedDateFrom) {
+        searchParams.append("work_date", `gte.${parsedDateFrom}`);
+      }
+      if (parsedDateTo) {
+        searchParams.append("work_date", `lte.${parsedDateTo}`);
       }
       if (limit && Number.isFinite(limit)) {
         searchParams.set("limit", String(limit));

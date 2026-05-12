@@ -1,5 +1,6 @@
 import "server-only";
 
+import { nowUtcIso } from "@/src/lib/dateTime";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import { assertTimesheetReadAccess, assertTimesheetWriteAccess, canEditApprovedTimesheets, createSessionHeaders, type TimesheetActor } from "@/src/lib/timesheets/access";
@@ -99,7 +100,7 @@ export const saveOwnTimesheetEntry = async (actor: ActorWithRoles, input: SaveTi
     paid_break: input.isPublicHoliday ? false : input.paidBreak,
     payable_hours: validated.payableHours,
     allocation_hours: validated.allocationHours,
-    submitted_at: new Date().toISOString(),
+    submitted_at: nowUtcIso(),
     approved_at: null,
     approved_by_profile_id: null,
     returned_at: null,

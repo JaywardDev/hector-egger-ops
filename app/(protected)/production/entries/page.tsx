@@ -5,6 +5,7 @@ import { Alert } from "@/src/components/ui/alert";
 import { Card } from "@/src/components/ui/card";
 import { Input } from "@/src/components/ui/input";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
+import { formatNzDate, parseNzDate } from "@/src/lib/dateTime";
 import { listProductionEntries } from "@/src/lib/production/entries";
 import { listProductionOperatorSummaries, listProductionProjectSummaries } from "@/src/lib/production/dashboard";
 
@@ -25,27 +26,27 @@ export default async function ProductionEntriesPage({ searchParams }: EntriesPag
   const route = "/production/entries";
   const { session, roles } = await requireProtectedAccess(route);
 
-  const [params, operators, projects, entries] = await Promise.all([
-    searchParams,
+  const params = await searchParams;
+  const dateFrom = params.dateFrom ? parseNzDate(params.dateFrom) ?? undefined : undefined;
+  const dateTo = params.dateTo ? parseNzDate(params.dateTo) ?? undefined : undefined;
+  const hasInvalidDateFilter = Boolean((params.dateFrom && !dateFrom) || (params.dateTo && !dateTo));
+
+  const [operators, projects, entries] = await Promise.all([
     listProductionOperatorSummaries({ session, accessContext: { accountStatus: "approved", roles }, route }),
     listProductionProjectSummaries({ session, accessContext: { accountStatus: "approved", roles }, route }),
-    listProductionEntries({
-      session,
-      accessContext: { accountStatus: "approved", roles },
-      route,
-      operatorProfileId: undefined,
-      projectId: undefined,
-      limit: 200,
-    }),
+    hasInvalidDateFilter
+      ? Promise.resolve([])
+      : listProductionEntries({
+          session,
+          accessContext: { accountStatus: "approved", roles },
+          route,
+          operatorProfileId: params.operator?.trim() || undefined,
+          projectId: params.project?.trim() || undefined,
+          dateFrom,
+          dateTo,
+          limit: 200,
+        }),
   ]);
-
-  const filtered = entries.filter((entry) => {
-    if (params.operator && entry.operator_profile_id !== params.operator) return false;
-    if (params.project && entry.project_id !== params.project) return false;
-    if (params.dateFrom && entry.work_date < params.dateFrom) return false;
-    if (params.dateTo && entry.work_date > params.dateTo) return false;
-    return true;
-  });
 
   return (
     <PageContainer>
@@ -58,11 +59,12 @@ export default async function ProductionEntriesPage({ searchParams }: EntriesPag
       </PageHeader>
       {params.success ? <Alert variant="success">{params.success}</Alert> : null}
       {params.error ? <Alert variant="error">{params.error}</Alert> : null}
+      {hasInvalidDateFilter ? <Alert variant="error">Enter valid date filters in YYYY-MM-DD format.</Alert> : null}
 
       <Card>
         <form className="grid gap-2 sm:grid-cols-5">
-          <Input type="date" name="dateFrom" defaultValue={params.dateFrom ?? ""} />
-          <Input type="date" name="dateTo" defaultValue={params.dateTo ?? ""} />
+          <Input type="date" name="dateFrom" defaultValue={dateFrom ?? ""} />
+          <Input type="date" name="dateTo" defaultValue={dateTo ?? ""} />
           <select className="rounded-md border border-zinc-200 px-2 py-1" name="operator" defaultValue={params.operator ?? ""}>
             <option value="">All operators</option>
             {operators.map((operator) => (
@@ -87,14 +89,14 @@ export default async function ProductionEntriesPage({ searchParams }: EntriesPag
             </tr>
           </thead>
           <tbody>
-            {filtered.map((entry) => (
+            {entries.map((entry) => (
               <tr key={entry.id} className="border-b border-zinc-100">
-                <td className="px-2 py-1">{entry.work_date}</td><td className="px-2 py-1">{entry.operator_name}</td><td className="px-2 py-1">{entry.project_file}</td><td className="px-2 py-1">{entry.project_sequence}</td><td className="px-2 py-1">{entry.project_name}</td><td className="px-2 py-1">{entry.shift_start_time}</td><td className="px-2 py-1">{entry.shift_end_time}</td><td className="px-2 py-1">{entry.operational_minutes}</td><td className="px-2 py-1">{entry.file_minutes_left_start}</td><td className="px-2 py-1">{entry.file_minutes_left_end}</td><td className="px-2 py-1">{entry.project_file_done_minutes}</td><td className="px-2 py-1">{entry.actual_volume_cut_m3}</td><td className="px-2 py-1">{formatPct(entry.machine_efficiency_pct)}</td><td className="px-2 py-1">{formatPct(entry.project_efficiency_pct)}</td><td className="px-2 py-1">{entry.downtime_minutes}</td><td className="px-2 py-1">{entry.interruption_minutes}</td><td className="px-2 py-1"><Link className="underline" href={`/production/entries/${entry.id}`}>Open</Link></td>
+                <td className="px-2 py-1">{formatNzDate(entry.work_date)}</td><td className="px-2 py-1">{entry.operator_name}</td><td className="px-2 py-1">{entry.project_file}</td><td className="px-2 py-1">{entry.project_sequence}</td><td className="px-2 py-1">{entry.project_name}</td><td className="px-2 py-1">{entry.shift_start_time}</td><td className="px-2 py-1">{entry.shift_end_time}</td><td className="px-2 py-1">{entry.operational_minutes}</td><td className="px-2 py-1">{entry.file_minutes_left_start}</td><td className="px-2 py-1">{entry.file_minutes_left_end}</td><td className="px-2 py-1">{entry.project_file_done_minutes}</td><td className="px-2 py-1">{entry.actual_volume_cut_m3}</td><td className="px-2 py-1">{formatPct(entry.machine_efficiency_pct)}</td><td className="px-2 py-1">{formatPct(entry.project_efficiency_pct)}</td><td className="px-2 py-1">{entry.downtime_minutes}</td><td className="px-2 py-1">{entry.interruption_minutes}</td><td className="px-2 py-1"><Link className="underline" href={`/production/entries/${entry.id}`}>Open</Link></td>
               </tr>
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 ? <p className="px-2 py-2">No entries found for the current filters.</p> : null}
+        {entries.length === 0 ? <p className="px-2 py-2">No entries found for the current filters.</p> : null}
       </Card>
     </PageContainer>
   );

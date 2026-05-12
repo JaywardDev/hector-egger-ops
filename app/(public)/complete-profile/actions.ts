@@ -1,5 +1,6 @@
 "use server";
 
+import { nowUtcIso } from "@/src/lib/dateTime";
 import { redirect } from "next/navigation";
 import { getCurrentProfile, isProfileComplete } from "@/src/lib/auth/profile-access";
 import { getSessionFromCookies } from "@/src/lib/auth/session";
@@ -41,7 +42,7 @@ export async function completeProfileAction(formData: FormData) {
   }
 
   const supabase = createServiceRoleSupabaseClient();
-  const profileCompletedAt = new Date().toISOString();
+  const profileCompletedAt = nowUtcIso();
   const body = {
     auth_user_id: session.user.id,
     email,

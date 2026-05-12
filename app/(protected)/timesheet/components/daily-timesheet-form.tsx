@@ -6,6 +6,7 @@ import { Alert } from "@/src/components/ui/alert";
 import { Button } from "@/src/components/ui/button";
 import { Input } from "@/src/components/ui/input";
 import { Select } from "@/src/components/ui/select";
+import { formatNzDate } from "@/src/lib/dateTime";
 import { cn } from "@/src/lib/utils";
 import {
   calculateAllocationHours,
@@ -73,6 +74,7 @@ const entryToActivities = (
 
 export function DailyTimesheetForm({
   workDate,
+  displayDate,
   userName,
   entry,
   preferredWorkMode,
@@ -171,13 +173,12 @@ export function DailyTimesheetForm({
     incompleteActivityRows.length > 0
       ? incompleteActivityMessage(workMode)
       : null;
-  const formattedWorkDate = new Intl.DateTimeFormat("en-NZ", {
-    timeZone: "UTC",
+  const formattedWorkDate = displayDate || formatNzDate(workDate, {
     weekday: "long",
     day: "2-digit",
     month: "short",
     year: "numeric",
-  }).format(new Date(`${workDate}T12:00:00.000Z`));
+  });
 
   const updateWorkMode = (nextMode: TimesheetWorkMode) => {
     setWorkMode(nextMode);

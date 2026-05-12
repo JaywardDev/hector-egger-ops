@@ -1,5 +1,6 @@
 import "server-only";
 
+import { nowUtcIso } from "@/src/lib/dateTime";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import type { AppRole } from "@/src/lib/auth/profile-access";
 import { assertTimesheetApprovalAccess, type TimesheetActor } from "@/src/lib/timesheets/access";
@@ -210,7 +211,7 @@ export const approveEmployeeTimesheetWeek = async (
   if (affectedEntryIds.length === 0) throw new Error("No submitted entries are available to approve for this week.");
 
   const supabase = createServiceRoleSupabaseClient();
-  const now = new Date().toISOString();
+  const now = nowUtcIso();
   const updateResponse = await supabase.request(
     `/rest/v1/timesheet_entries?id=in.(${inList(affectedEntryIds)})&profile_id=eq.${targetProfileId}&work_date=in.(${inList(weekDates)})`,
     {
@@ -270,7 +271,7 @@ export const returnEmployeeTimesheetWeek = async (
       headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
       body: JSON.stringify({
         status: "returned",
-        returned_at: new Date().toISOString(),
+        returned_at: nowUtcIso(),
         returned_by_profile_id: actor.profileId,
         return_comment: cleanComment,
         approved_at: null,

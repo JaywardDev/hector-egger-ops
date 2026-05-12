@@ -2,6 +2,7 @@
 
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
+import { formatNzDate } from "@/src/lib/dateTime";
 import { cn } from "@/src/lib/utils";
 import type { TimesheetDaySummary, TimesheetLeaveType, TimesheetLookups, TimesheetStatus, TimesheetWorkMode } from "@/src/lib/timesheets/types";
 
@@ -47,16 +48,13 @@ const workModeLabels: Record<Exclude<TimesheetWorkMode, "mixed">, string> = {
 
 const formatHours = (hours: number) => `${Number.isInteger(hours) ? hours : hours.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")} h`;
 
-const fullDateFormatter = new Intl.DateTimeFormat("en-NZ", {
-  timeZone: "UTC",
-  weekday: "long",
-  day: "2-digit",
-  month: "long",
-  year: "numeric",
-});
-
 function getFullDateLabel(date: string) {
-  return fullDateFormatter.format(new Date(`${date}T12:00:00.000Z`));
+  return formatNzDate(date, {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 function ActivitySummary({ day, lookups }: { day: TimesheetDaySummary; lookups: TimesheetLookups }) {

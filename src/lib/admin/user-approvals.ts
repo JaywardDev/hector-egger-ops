@@ -1,5 +1,10 @@
 import "server-only";
 
+<<<<<<< ours
+import { createServerSupabaseClient } from "@/src/lib/supabase/server";
+=======
+import { nowUtcIso } from "@/src/lib/dateTime";
+>>>>>>> theirs
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import type { AppRole, ProfileRecord, StaffGroup } from "@/src/lib/auth/profile-access";
 import type { AuthSession } from "@/src/lib/auth/session";
@@ -42,9 +47,21 @@ const assertValidRole = (role: AppRole) => {
   }
 };
 
+const assertRequiredApprovalRole = (role: AppRole) => {
+  if (!ADMIN_ROLE_OPTIONS.includes(role)) {
+    throw new Error("Select a role before approving this user.");
+  }
+};
+
 const assertValidStaffGroup = (staffGroup: StaffGroup | null) => {
   if (staffGroup !== null && !ADMIN_STAFF_GROUP_OPTIONS.includes(staffGroup)) {
     throw new Error("Invalid staff group");
+  }
+};
+
+const assertRequiredStaffGroup = (staffGroup: StaffGroup | null) => {
+  if (staffGroup === null || !ADMIN_STAFF_GROUP_OPTIONS.includes(staffGroup)) {
+    throw new Error("Select a staff group before approving this user.");
   }
 };
 
@@ -174,28 +191,46 @@ export const listApprovedUsers = async (actor: AdminMutationActor): Promise<Admi
 export const listDisabledUsers = async (actor: AdminMutationActor): Promise<AdminUserRecord[]> =>
   listUsersByStatus(actor, "disabled");
 
-export const approveUser = async ({ session, profileId, staffGroup }: AdminMutationActor & { profileId: string; staffGroup: StaffGroup | null }) => {
+const readSupabaseErrorMessage = async (response: Response, fallback: string) => {
+  try {
+    const payload = await response.json() as { message?: string };
+    return payload.message || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+export const approveUser = async (
+  { session, profileId, role, staffGroup }: AdminMutationActor & { profileId: string; role: AppRole; staffGroup: StaffGroup | null },
+) => {
   await assertAdminMutationAccess({ session });
   assertValidProfileId(profileId);
-  assertValidStaffGroup(staffGroup);
+  assertRequiredApprovalRole(role);
+  assertRequiredStaffGroup(staffGroup);
 
-  const supabase = createServiceRoleSupabaseClient();
-  const response = await supabase.request(`/rest/v1/profiles?id=eq.${profileId}`, {
-    method: "PATCH",
+  const supabase = createServerSupabaseClient();
+  const response = await supabase.request("/rest/v1/rpc/approve_pending_user_atomic", {
+    method: "POST",
     headers: {
+      Authorization: `Bearer ${session.accessToken}`,
       "Content-Type": "application/json",
-      Prefer: "return=minimal",
     },
     body: JSON.stringify({
+<<<<<<< ours
+      p_target_profile_id: profileId,
+      p_role: role,
+      p_staff_group: staffGroup,
+=======
       account_status: "approved",
-      approved_at: new Date().toISOString(),
+      approved_at: nowUtcIso(),
       disabled_at: null,
       staff_group: staffGroup,
+>>>>>>> theirs
     }),
   });
 
   if (!response.ok) {
-    throw new Error("Failed to approve user profile");
+    throw new Error(await readSupabaseErrorMessage(response, "Failed to approve user profile"));
   }
 };
 
@@ -233,7 +268,7 @@ export const disableUser = async ({ session, profileId }: AdminMutationActor & {
     },
     body: JSON.stringify({
       account_status: "disabled",
-      disabled_at: new Date().toISOString(),
+      disabled_at: nowUtcIso(),
     }),
   });
 
@@ -256,7 +291,7 @@ export const reactivateUser = async ({ session, profileId }: AdminMutationActor 
     },
     body: JSON.stringify({
       account_status: "approved",
-      approved_at: user.approved_at ?? new Date().toISOString(),
+      approved_at: user.approved_at ?? nowUtcIso(),
       disabled_at: null,
     }),
   });

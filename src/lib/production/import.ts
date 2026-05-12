@@ -1,3 +1,4 @@
+import { parseNzDate } from "@/src/lib/dateTime";
 import type {
   ProductionDowntimeReasonRecord,
   ProductionInterruptionReasonRecord,
@@ -135,34 +136,7 @@ export const normalizeDate = (value: string | null | undefined) => {
     return null;
   }
 
-  if (/^\d{4}-\d{2}-\d{2}$/.test(compact)) {
-    return compact;
-  }
-
-  const ddMmYyyy = compact.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (ddMmYyyy) {
-    const day = Number(ddMmYyyy[1]);
-    const month = Number(ddMmYyyy[2]);
-    const year = Number(ddMmYyyy[3]);
-    const normalized = `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return isValidIsoDate(normalized) ? normalized : null;
-  }
-
-  const parsedDate = new Date(compact);
-  if (Number.isNaN(parsedDate.getTime())) {
-    return null;
-  }
-
-  return parsedDate.toISOString().slice(0, 10);
-};
-
-const isValidIsoDate = (value: string) => {
-  const date = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) {
-    return false;
-  }
-
-  return date.toISOString().startsWith(value);
+  return parseNzDate(compact);
 };
 
 export const normalizeProjectKey = (projectFile: string, projectSequence: number) =>

@@ -11,6 +11,7 @@ import { Alert } from "@/src/components/ui/alert";
 import { Button } from "@/src/components/ui/button";
 import { Card } from "@/src/components/ui/card";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
+import { formatNzDate, formatNzDateTime } from "@/src/lib/dateTime";
 import { getProductionEntryDetail, listAssignableProductionOperators } from "@/src/lib/production/entries";
 import { listProductionProjects } from "@/src/lib/production/projects";
 import { listProductionDowntimeReasons, listProductionInterruptionReasons } from "@/src/lib/production/reasons";
@@ -65,7 +66,7 @@ export default async function ProductionEntryDetailPage({ params, searchParams }
 
   return (
     <PageContainer>
-      <PageHeader title={`Entry ${entry.work_date}`} description={`${entry.operator_name} · ${entry.project_file} #${entry.project_sequence}`} />
+      <PageHeader title={`Entry ${formatNzDate(entry.work_date)}`} description={`${entry.operator_name} · ${entry.project_file} #${entry.project_sequence}`} />
       {messages.success ? <Alert variant="success">{messages.success}</Alert> : null}
       {messages.error ? <Alert variant="error">{messages.error}</Alert> : null}
       <EntryMetricsPreview />
@@ -99,8 +100,8 @@ export default async function ProductionEntryDetailPage({ params, searchParams }
 
       <Card>
         <p className="font-medium text-zinc-900">Metadata</p>
-        <p className="mt-1">Created at: {entry.created_at}</p>
-        <p>Updated at: {entry.updated_at}</p>
+        <p className="mt-1">Created at: {formatNzDateTime(entry.created_at)}</p>
+        <p>Updated at: {formatNzDateTime(entry.updated_at)}</p>
         <p>Created by profile: {entry.created_by_profile_id}</p>
       </Card>
 

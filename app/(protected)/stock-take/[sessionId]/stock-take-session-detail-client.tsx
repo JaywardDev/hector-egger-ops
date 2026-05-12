@@ -1,5 +1,6 @@
 "use client";
 
+import { nowUtcIso } from "@/src/lib/dateTime";
 import { useEffect, useMemo, useState } from "react";
 import {
   saveStockTakeSessionDraftAction,
@@ -154,7 +155,7 @@ export function StockTakeSessionDetailClient(props: Props) {
         stockLocationId: stockLocationId || null,
         notes: notes.trim().length > 0 ? notes.trim() : null,
         newMaterial: null,
-        enteredAt: new Date().toISOString(),
+        enteredAt: nowUtcIso(),
         updatedAt: null,
       },
       ...current,
@@ -207,7 +208,7 @@ export function StockTakeSessionDetailClient(props: Props) {
             treatment: newMaterialTreatment.trim() || null,
           },
         },
-        enteredAt: new Date().toISOString(),
+        enteredAt: nowUtcIso(),
         updatedAt: null,
       },
       ...current,
@@ -330,7 +331,7 @@ export function StockTakeSessionDetailClient(props: Props) {
               : null,
           }
         : null,
-      enteredAt: new Date().toISOString(),
+      enteredAt: nowUtcIso(),
       updatedAt: null,
     };
 

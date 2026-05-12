@@ -1,5 +1,6 @@
 import "server-only";
 
+import { nowUtcIso } from "@/src/lib/dateTime";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 
 type EnsurePendingProfileInput = {
@@ -66,7 +67,7 @@ export const ensurePendingProfile = async ({
   const normalizedMiddleName = trimNullable(middleName) ?? derivedNameParts.middleName;
   const normalizedLastName = trimNullable(lastName) ?? derivedNameParts.lastName;
   const profileCompletedAt = normalizedFirstName && normalizedLastName && email.trim()
-    ? new Date().toISOString()
+    ? nowUtcIso()
     : null;
 
   const existingProfileResponse = await supabase.request(

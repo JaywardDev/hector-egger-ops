@@ -6,6 +6,7 @@ import { Card } from "@/src/components/ui/card";
 import { Input } from "@/src/components/ui/input";
 import { Select } from "@/src/components/ui/select";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
+import { parseNzDate } from "@/src/lib/dateTime";
 import {
   getProductionDashboardReport,
   listProductionOperatorSummaries,
@@ -27,12 +28,11 @@ const formatPct = (value: number | null) => (value === null ? "—" : `${(value 
 
 const formatHours = (minutes: number) => `${(minutes / 60).toFixed(1)} h`;
 
-const isIsoDate = (value: string | undefined) =>
-  Boolean(value && /^\d{4}-\d{2}-\d{2}$/.test(value));
+const normalizeDateFilter = (value: string | undefined) => (value ? parseNzDate(value) ?? undefined : undefined);
 
 const normalizeFilters = (params: Awaited<DashboardPageProps["searchParams"]>): ProductionDashboardFilters => ({
-  dateFrom: isIsoDate(params.dateFrom) ? params.dateFrom : undefined,
-  dateTo: isIsoDate(params.dateTo) ? params.dateTo : undefined,
+  dateFrom: normalizeDateFilter(params.dateFrom),
+  dateTo: normalizeDateFilter(params.dateTo),
   operatorProfileId: params.operator?.trim() || undefined,
   projectId: params.project?.trim() || undefined,
   projectStatus: params.projectStatus || undefined,

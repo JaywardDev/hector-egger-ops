@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireTimesheetApprovalAccess } from "@/src/lib/auth/guards";
+import { parseNzDate } from "@/src/lib/dateTime";
 import {
   approveEmployeeTimesheetWeek,
   returnEmployeeTimesheetWeek,
@@ -29,8 +30,10 @@ export async function approveEmployeeTimesheetWeekAction(
   weekStart: string,
 ): Promise<ApprovalActionResult> {
   try {
+    const parsedWeekStart = parseNzDate(weekStart);
+    if (!parsedWeekStart) throw new Error("A valid week start date is required.");
     const actor = await actorFromContext();
-    const result = await approveEmployeeTimesheetWeek(actor, targetProfileId, weekStart);
+    const result = await approveEmployeeTimesheetWeek(actor, targetProfileId, parsedWeekStart);
     revalidatePath("/approvals");
     revalidatePath("/timesheet");
     return { ok: true, message: `Approved ${result.affectedEntryIds.length} submitted entr${result.affectedEntryIds.length === 1 ? "y" : "ies"}.` };
@@ -45,8 +48,10 @@ export async function returnEmployeeTimesheetWeekAction(
   comment: string,
 ): Promise<ApprovalActionResult> {
   try {
+    const parsedWeekStart = parseNzDate(weekStart);
+    if (!parsedWeekStart) throw new Error("A valid week start date is required.");
     const actor = await actorFromContext();
-    const result = await returnEmployeeTimesheetWeek(actor, targetProfileId, weekStart, comment);
+    const result = await returnEmployeeTimesheetWeek(actor, targetProfileId, parsedWeekStart, comment);
     revalidatePath("/approvals");
     revalidatePath("/timesheet");
     return { ok: true, message: `Returned ${result.affectedEntryIds.length} entr${result.affectedEntryIds.length === 1 ? "y" : "ies"} for correction.` };

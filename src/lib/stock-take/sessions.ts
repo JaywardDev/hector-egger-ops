@@ -1,5 +1,6 @@
 import "server-only";
 
+import { getTodayNzDate, nowUtcIso } from "@/src/lib/dateTime";
 import type { AuthSession } from "@/src/lib/auth/session";
 import {
   getCurrentAccountStatus,
@@ -222,17 +223,14 @@ const createSessionHeaders = (session: AuthSession) => ({
 });
 
 const formatStockTakeSessionTitle = ({
-  date,
+  businessDate,
   locationName,
 }: {
-  date: Date;
+  businessDate: string;
   locationName?: string | null;
-}) => {
-  const formattedDate = date.toISOString().slice(0, 10);
-  return locationName
-    ? `Stock take - ${formattedDate} - ${locationName}`
-    : `Stock take - ${formattedDate}`;
-};
+}) => locationName
+  ? `Stock take - ${businessDate} - ${locationName}`
+  : `Stock take - ${businessDate}`;
 
 const assertApprovedAccount = async ({
   session,
@@ -520,7 +518,7 @@ export const createStockTakeSession = async ({
     ? await fetchStockLocationById(input.stockLocationId)
     : null;
   const title = formatStockTakeSessionTitle({
-    date: new Date(),
+    businessDate: getTodayNzDate(),
     locationName: stockLocation?.name ?? null,
   });
 
@@ -674,7 +672,7 @@ export const transitionStockTakeSession = async ({
         );
       }
 
-      const transitionedAt = new Date().toISOString();
+      const transitionedAt = nowUtcIso();
       const updatedSession =
         action === "close"
           ? await closeReviewedStockTakeSession({

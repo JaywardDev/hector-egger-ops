@@ -9,6 +9,7 @@ import { FormField } from "@/src/components/ui/form-field";
 import { Input } from "@/src/components/ui/input";
 import { Textarea } from "@/src/components/ui/textarea";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
+import { formatNzDate } from "@/src/lib/dateTime";
 import { listProductionEntries } from "@/src/lib/production/entries";
 import { getProductionProjectDetail, listProductionProjects } from "@/src/lib/production/projects";
 
@@ -128,7 +129,7 @@ export default async function ProductionProjectDetailPage({ params, searchParams
             {entries.map((entry) => (
               <li key={entry.id}>
                 <Link className="underline" href={`/production/entries/${entry.id}`}>
-                  {entry.work_date} · {entry.operator_name} · done {entry.project_file_done_minutes} min
+                  {formatNzDate(entry.work_date)} · {entry.operator_name} · done {entry.project_file_done_minutes} min
                 </Link>
               </li>
             ))}

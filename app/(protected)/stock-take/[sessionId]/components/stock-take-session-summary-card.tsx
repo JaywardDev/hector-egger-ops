@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { Stack } from "@/src/components/layout/stack";
 import { Badge } from "@/src/components/ui/badge";
+import { formatNzDateTime } from "@/src/lib/dateTime";
 import { Card } from "@/src/components/ui/card";
 import { Alert } from "@/src/components/ui/alert";
 
@@ -19,7 +20,7 @@ const statusBadgeVariantByStatus: Record<SessionStatus, "neutral" | "info" | "wa
 const formatLocationLabel = (location: { name: string; code: string | null }) =>
   location.code ? `${location.name} (${location.code})` : location.name;
 
-const formatTimestamp = (value: string | null) => value ?? "—";
+const formatTimestamp = (value: string | null) => formatNzDateTime(value);
 
 type StockTakeSessionSummaryCardProps = {
   sessionId: string;

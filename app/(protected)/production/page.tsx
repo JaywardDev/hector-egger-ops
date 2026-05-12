@@ -3,6 +3,7 @@ import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { Card } from "@/src/components/ui/card";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
+import { formatNzDate } from "@/src/lib/dateTime";
 import { listProductionEntries } from "@/src/lib/production/entries";
 import { listProductionProjectSummaries } from "@/src/lib/production/dashboard";
 
@@ -82,7 +83,7 @@ export default async function ProductionPage() {
             {recentEntries.map((entry) => (
               <li key={entry.id}>
                 <Link href={`/production/entries/${entry.id}`} className="underline">
-                  {entry.work_date} · {entry.operator_name} · {entry.project_file} #{entry.project_sequence}
+                  {formatNzDate(entry.work_date)} · {entry.operator_name} · {entry.project_file} #{entry.project_sequence}
                 </Link>
               </li>
             ))}
