@@ -20,6 +20,10 @@ export default async function RequestAccessPage({ searchParams }: RequestAccessP
     redirect("/timesheet");
   }
 
+  if (accessState === "incomplete_profile") {
+    redirect("/complete-profile");
+  }
+
   if (accessState === "pending_approval" || accessState === "disabled") {
     redirect("/pending");
   }

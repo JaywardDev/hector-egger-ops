@@ -24,7 +24,7 @@ import {
   listDisabledUsers,
   listPendingUsers,
 } from "@/src/lib/admin/user-approvals";
-import type { AppRole, StaffGroup } from "@/src/lib/auth/profile-access";
+import { isProfileComplete, type AppRole, type StaffGroup } from "@/src/lib/auth/profile-access";
 import { requireAdminAccess } from "@/src/lib/auth/guards";
 
 type AdminPageProps = {
@@ -53,6 +53,9 @@ const displayStaffGroup = (staffGroup: StaffGroup | null) =>
 
 const displayRoles = (roles: AppRole[]) =>
   roles.length > 0 ? roles.map((role) => roleLabels[role]).join(", ") : "No role";
+
+const displayProfileCompletion = (user: AdminUserRecord) =>
+  isProfileComplete(user) ? "Complete" : "Incomplete";
 
 function StaffGroupSelect({ user, idPrefix }: { user: AdminUserRecord; idPrefix: string }) {
   return (
@@ -89,6 +92,10 @@ function UserDetails({ user }: { user: AdminUserRecord }) {
       <div>
         <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Status</dt>
         <dd><Badge>{user.account_status}</Badge></dd>
+      </div>
+      <div>
+        <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Profile</dt>
+        <dd><Badge variant={isProfileComplete(user) ? "success" : "warning"}>{displayProfileCompletion(user)}</Badge></dd>
       </div>
       <div>
         <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Roles</dt>

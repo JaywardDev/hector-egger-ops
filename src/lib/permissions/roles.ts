@@ -2,7 +2,7 @@ import type { AccountStatus, AppRole } from "@/src/lib/auth/profile-access";
 
 export type PermissionAuthContext = {
   accountStatus?: AccountStatus;
-  accessState?: "unauthenticated" | "pending_approval" | "approved" | "disabled";
+  accessState?: "unauthenticated" | "incomplete_profile" | "pending_approval" | "approved" | "disabled";
   roles?: AppRole[];
   profile?: {
     account_status?: AccountStatus;

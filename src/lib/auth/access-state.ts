@@ -1,9 +1,9 @@
 import "server-only";
 
-import { getCurrentAccountStatus } from "@/src/lib/auth/profile-access";
+import { getCurrentProfile, getCurrentAccountStatus, isProfileComplete } from "@/src/lib/auth/profile-access";
 import type { AuthSession } from "@/src/lib/auth/session";
 
-export type AccountAccessState = "unauthenticated" | "pending_approval" | "approved" | "disabled";
+export type AccountAccessState = "unauthenticated" | "incomplete_profile" | "pending_approval" | "approved" | "disabled";
 
 export const resolveAccountAccessState = async (
   session: AuthSession | null,
@@ -12,14 +12,19 @@ export const resolveAccountAccessState = async (
     return "unauthenticated";
   }
 
-  const accountStatus = await getCurrentAccountStatus(session);
-
-  if (accountStatus === "approved") {
-    return "approved";
-  }
+  const profile = await getCurrentProfile(session);
+  const accountStatus = await getCurrentAccountStatus(session, profile);
 
   if (accountStatus === "disabled") {
     return "disabled";
+  }
+
+  if (!isProfileComplete(profile)) {
+    return "incomplete_profile";
+  }
+
+  if (accountStatus === "approved") {
+    return "approved";
   }
 
   return "pending_approval";

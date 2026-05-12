@@ -65,6 +65,9 @@ export const ensurePendingProfile = async ({
   const normalizedFirstName = trimNullable(firstName) ?? derivedNameParts.firstName;
   const normalizedMiddleName = trimNullable(middleName) ?? derivedNameParts.middleName;
   const normalizedLastName = trimNullable(lastName) ?? derivedNameParts.lastName;
+  const profileCompletedAt = normalizedFirstName && normalizedLastName && email.trim()
+    ? new Date().toISOString()
+    : null;
 
   const existingProfileResponse = await supabase.request(
     `/rest/v1/profiles?select=id&auth_user_id=eq.${authUserId}&limit=1`,
@@ -75,9 +78,30 @@ export const ensurePendingProfile = async ({
 
   if (existingProfileResponse.ok) {
     const existingProfiles = (await existingProfileResponse.json()) as Array<{ id: string }>;
+    const existingProfile = existingProfiles[0];
 
-    if (existingProfiles.length > 0) {
-      return true;
+    if (existingProfile) {
+      if (!profileCompletedAt) {
+        return true;
+      }
+
+      const profileUpdateResponse = await supabase.request(`/rest/v1/profiles?id=eq.${existingProfile.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({
+          email,
+          first_name: normalizedFirstName,
+          middle_name: normalizedMiddleName,
+          last_name: normalizedLastName,
+          full_name: normalizedFullName,
+          profile_completed_at: profileCompletedAt,
+        }),
+      });
+
+      return profileUpdateResponse.ok;
     }
   }
 
@@ -94,6 +118,7 @@ export const ensurePendingProfile = async ({
       middle_name: normalizedMiddleName,
       last_name: normalizedLastName,
       full_name: normalizedFullName,
+      profile_completed_at: profileCompletedAt,
       account_status: "pending",
       onboarding_source: "self_registration",
     }),

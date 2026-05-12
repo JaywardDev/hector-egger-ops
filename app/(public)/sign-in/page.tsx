@@ -20,6 +20,10 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
     redirect("/timesheet");
   }
 
+  if (accessState === "incomplete_profile") {
+    redirect("/complete-profile");
+  }
+
   if (accessState === "pending_approval" || accessState === "disabled") {
     redirect("/pending");
   }

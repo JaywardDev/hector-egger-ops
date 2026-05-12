@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 import { redirect } from "next/navigation";
-import { getCurrentProfileAccess } from "@/src/lib/auth/profile-access";
+import { getCurrentProfileAccess, isProfileComplete } from "@/src/lib/auth/profile-access";
 import { getSessionFromCookies } from "@/src/lib/auth/session";
 import { canAccessAdmin } from "@/src/lib/permissions/admin";
 import { isAdminOrSupervisor } from "@/src/lib/permissions/roles";
@@ -11,17 +11,22 @@ import { withServerTiming } from "@/src/lib/server-timing";
 const resolveAccessState = (
   session: Awaited<ReturnType<typeof getSessionFromCookies>>,
   accountStatus: "pending" | "approved" | "disabled",
+  profile: Awaited<ReturnType<typeof getCurrentProfileAccess>>["profile"],
 ) => {
   if (!session) {
     return "unauthenticated" as const;
   }
 
-  if (accountStatus === "approved") {
-    return "approved" as const;
-  }
-
   if (accountStatus === "disabled") {
     return "disabled" as const;
+  }
+
+  if (!isProfileComplete(profile)) {
+    return "incomplete_profile" as const;
+  }
+
+  if (accountStatus === "approved") {
+    return "approved" as const;
   }
 
   return "pending_approval" as const;
@@ -40,7 +45,7 @@ export const getAuthContext = cache(async (route?: string) =>
 
       return {
         session,
-        accessState: resolveAccessState(session, accountStatus),
+        accessState: resolveAccessState(session, accountStatus, profile),
         profile,
         roles,
       };
@@ -64,6 +69,10 @@ export const requireProtectedAccess = cache(
 
         if (context.accessState === "unauthenticated" || !session) {
           redirect("/sign-in");
+        }
+
+        if (context.accessState === "incomplete_profile") {
+          redirect("/complete-profile");
         }
 
         if (context.accessState === "pending_approval") {
@@ -115,6 +124,10 @@ export const requirePendingAccess = async () => {
 
   if (context.accessState === "approved") {
     redirect("/timesheet");
+  }
+
+  if (context.accessState === "incomplete_profile") {
+    redirect("/complete-profile");
   }
 
   return context;

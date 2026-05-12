@@ -29,7 +29,7 @@ export default async function PendingPage({ searchParams }: PendingPageProps) {
         <Alert variant={isDisabled ? "error" : "warning"}>
           {isDisabled
             ? "Your account is currently disabled. Contact admin support."
-            : "Your account is pending admin approval. You'll get access once approved."}
+            : "Your profile is complete and your account is waiting for admin approval. You'll get access once approved."}
         </Alert>
         <div>
           <Link

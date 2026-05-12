@@ -140,5 +140,13 @@ export async function signInAction(formData: FormData) {
     redirect("/timesheet");
   }
 
+  if (accessState === "disabled") {
+    redirect("/pending?status=disabled");
+  }
+
+  if (accessState === "incomplete_profile") {
+    redirect("/complete-profile");
+  }
+
   redirect("/pending");
 }
