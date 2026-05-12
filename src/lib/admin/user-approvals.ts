@@ -18,14 +18,14 @@ export type AdminStaffGroupOption = (typeof ADMIN_STAFF_GROUP_OPTIONS)[number];
 
 export type AdminUserRecord = Pick<
   ProfileRecord,
-  "id" | "email" | "full_name" | "account_status" | "staff_group" | "created_at" | "approved_at" | "disabled_at"
+  "id" | "email" | "first_name" | "middle_name" | "last_name" | "full_name" | "account_status" | "staff_group" | "created_at" | "approved_at" | "disabled_at"
 > & {
   roles: AppRole[];
 };
 
 export type PendingUserRecord = AdminUserRecord;
 
-const PROFILE_SELECT = "id,email,full_name,account_status,staff_group,created_at,approved_at,disabled_at";
+const PROFILE_SELECT = "id,email,first_name,middle_name,last_name,full_name,account_status,staff_group,created_at,approved_at,disabled_at";
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const inList = (values: string[]) => values.map((value) => `"${value.replaceAll('"', '\\"')}"`).join(",");

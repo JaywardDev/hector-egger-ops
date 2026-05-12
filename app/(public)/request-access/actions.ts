@@ -89,12 +89,15 @@ const signInAfterSignup = async (email: string, password: string) => {
 };
 
 export async function requestAccessAction(formData: FormData) {
-  const fullName = String(formData.get("fullName") ?? "").trim();
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const middleName = String(formData.get("middleName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  const fullName = [firstName, middleName, lastName].filter(Boolean).join(" ");
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "").trim();
 
-  if (!fullName || !email || !password) {
-    toRequestAccessError("Full name, email, and password are required.");
+  if (!firstName || !lastName || !email || !password) {
+    toRequestAccessError("First name, last name, email, and password are required.");
   }
 
   const supabase = createServerSupabaseClient();
@@ -107,6 +110,9 @@ export async function requestAccessAction(formData: FormData) {
       email,
       password,
       data: {
+        first_name: firstName,
+        middle_name: middleName || null,
+        last_name: lastName,
         full_name: fullName,
       },
     }),
@@ -136,6 +142,9 @@ export async function requestAccessAction(formData: FormData) {
   const profileEnsured = await ensurePendingProfile({
     authUserId: validatedAuthUserId,
     email,
+    firstName,
+    middleName: middleName || null,
+    lastName,
     fullName,
   });
 

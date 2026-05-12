@@ -6,6 +6,32 @@ type EnsurePendingProfileInput = {
   authUserId: string;
   email: string;
   fullName?: string | null;
+  firstName?: string | null;
+  middleName?: string | null;
+  lastName?: string | null;
+};
+
+const trimNullable = (value: string | null | undefined) => {
+  const trimmedValue = value?.trim() ?? "";
+  return trimmedValue || null;
+};
+
+const deriveNameParts = (fullName: string | null) => {
+  const nameParts = fullName?.split(/\s+/).filter(Boolean) ?? [];
+
+  if (nameParts.length === 0) {
+    return {
+      firstName: null,
+      middleName: null,
+      lastName: null,
+    };
+  }
+
+  return {
+    firstName: nameParts[0] ?? null,
+    middleName: nameParts.length > 2 ? nameParts.slice(1, -1).join(" ") : null,
+    lastName: nameParts[nameParts.length - 1] ?? null,
+  };
 };
 
 const readSupabaseErrorMessage = async (response: Response) => {
@@ -24,8 +50,21 @@ export const ensurePendingProfile = async ({
   authUserId,
   email,
   fullName,
+  firstName,
+  middleName,
+  lastName,
 }: EnsurePendingProfileInput): Promise<boolean> => {
   const supabase = createServiceRoleSupabaseClient();
+  const normalizedStructuredNameParts = [firstName, middleName, lastName]
+    .map((namePart) => trimNullable(namePart))
+    .filter((namePart): namePart is string => Boolean(namePart));
+  const normalizedFullName = trimNullable(fullName) ?? (
+    normalizedStructuredNameParts.length > 0 ? normalizedStructuredNameParts.join(" ") : null
+  );
+  const derivedNameParts = deriveNameParts(normalizedFullName);
+  const normalizedFirstName = trimNullable(firstName) ?? derivedNameParts.firstName;
+  const normalizedMiddleName = trimNullable(middleName) ?? derivedNameParts.middleName;
+  const normalizedLastName = trimNullable(lastName) ?? derivedNameParts.lastName;
 
   const existingProfileResponse = await supabase.request(
     `/rest/v1/profiles?select=id&auth_user_id=eq.${authUserId}&limit=1`,
@@ -51,7 +90,10 @@ export const ensurePendingProfile = async ({
     body: JSON.stringify({
       auth_user_id: authUserId,
       email,
-      full_name: fullName ?? null,
+      first_name: normalizedFirstName,
+      middle_name: normalizedMiddleName,
+      last_name: normalizedLastName,
+      full_name: normalizedFullName,
       account_status: "pending",
       onboarding_source: "self_registration",
     }),

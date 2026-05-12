@@ -30,13 +30,32 @@ export default async function RequestAccessPage({ searchParams }: RequestAccessP
     <Stack>
       <p className="text-sm text-zinc-700">Request access to Hector Egger Ops.</p>
       <form action={requestAccessAction} className="space-y-3">
-        <FormField label="Full name" htmlFor="request-access-full-name">
+        <FormField label="First Name" htmlFor="request-access-first-name">
           <Input
-            id="request-access-full-name"
+            id="request-access-first-name"
             required
             type="text"
-            name="fullName"
-            placeholder="Jane Doe"
+            name="firstName"
+            placeholder="Jane"
+          />
+        </FormField>
+
+        <FormField label="Middle Name" htmlFor="request-access-middle-name">
+          <Input
+            id="request-access-middle-name"
+            type="text"
+            name="middleName"
+            placeholder="Optional"
+          />
+        </FormField>
+
+        <FormField label="Last Name" htmlFor="request-access-last-name">
+          <Input
+            id="request-access-last-name"
+            required
+            type="text"
+            name="lastName"
+            placeholder="Doe"
           />
         </FormField>
 
