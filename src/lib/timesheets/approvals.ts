@@ -1,6 +1,6 @@
 import "server-only";
 
-import { nowUtcIso } from "@/src/lib/dateTime";
+import { getNzWeekStart, nowUtcIso, parseNzDate } from "@/src/lib/dateTime";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import type { AppRole } from "@/src/lib/auth/profile-access";
 import { assertTimesheetApprovalAccess, type TimesheetActor } from "@/src/lib/timesheets/access";
@@ -53,8 +53,17 @@ const reviewableRoles: AppRole[] = ["operator", "supervisor", "admin"];
 
 const inList = (values: string[]) => values.join(",");
 
+const validateApprovalWeekStart = (weekStart: string) => {
+  const parsedWeekStart = parseNzDate(weekStart);
+  if (!parsedWeekStart) throw new Error("A valid week start date is required.");
+  if (parsedWeekStart !== getNzWeekStart(parsedWeekStart)) {
+    throw new Error("Select the Monday week start date for approvals.");
+  }
+  return parsedWeekStart;
+};
+
 export const getApprovalWeekDates = (weekStart?: string) => {
-  const [monday] = getNzWeekDates(weekStart);
+  const monday = weekStart === undefined ? getNzWeekDates()[0] : validateApprovalWeekStart(weekStart);
   return Array.from({ length: 7 }, (_, index) => addDays(monday, index));
 };
 
@@ -327,9 +336,12 @@ export const saveEmployeeTimesheetCorrectionAtomic = async (
 
   await assertCanManageTargetProfile(actor, targetProfileId);
 
+  const { projectIds, taskIds } = await getValidLookupIds();
+  const validated = validateTimesheetEntryInput(input, projectIds, taskIds);
+
   const supabase = createServiceRoleSupabaseClient();
   const existingResponse = await supabase.request(
-    `/rest/v1/timesheet_entries?select=id,status&profile_id=eq.${targetProfileId}&work_date=eq.${input.workDate}&limit=1`,
+    `/rest/v1/timesheet_entries?select=id,status&profile_id=eq.${targetProfileId}&work_date=eq.${validated.workDate}&limit=1`,
     { cache: "no-store" },
   );
   if (!existingResponse.ok) throw new Error("Failed to verify target timesheet entry");
@@ -339,16 +351,13 @@ export const saveEmployeeTimesheetCorrectionAtomic = async (
     throw new Error("Only submitted or returned entries can be corrected.");
   }
 
-  const { projectIds, taskIds } = await getValidLookupIds();
-  const validated = validateTimesheetEntryInput(input, projectIds, taskIds);
-
   const response = await supabase.request("/rest/v1/rpc/correct_employee_timesheet_entry_atomic", {
     method: "POST",
     headers: { "Content-Type": "application/json", Prefer: "return=representation" },
     body: JSON.stringify({
       p_actor_profile_id: actor.profileId,
       p_target_profile_id: targetProfileId,
-      p_work_date: input.workDate,
+      p_work_date: validated.workDate,
       p_time_in: input.isPublicHoliday ? null : input.timeIn,
       p_time_out: input.isPublicHoliday ? null : input.timeOut,
       p_work_mode: input.workMode,

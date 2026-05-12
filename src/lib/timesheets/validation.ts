@@ -1,4 +1,4 @@
-import { isValidNzDate } from "@/src/lib/dateTime";
+import { parseNzDate } from "@/src/lib/dateTime";
 import type {
   SaveTimesheetEntryInput,
   TimesheetActivityInput,
@@ -97,7 +97,8 @@ export const validateTimesheetEntryInput = (
   validProjectIds: Set<string>,
   validTaskIds: Set<string>,
 ) => {
-  if (!isValidNzDate(input.workDate)) {
+  const workDate = parseNzDate(input.workDate);
+  if (!workDate) {
     throw new Error("A valid work date is required.");
   }
   if (!workModes.has(input.workMode)) {
@@ -106,6 +107,7 @@ export const validateTimesheetEntryInput = (
 
   if (input.isPublicHoliday) {
     return {
+      workDate,
       payableHours: 8,
       allocationHours: 8,
       activities: [] as TimesheetActivityInput[],
@@ -164,6 +166,7 @@ export const validateTimesheetEntryInput = (
   }
 
   return {
+    workDate,
     payableHours,
     allocationHours,
     activities,

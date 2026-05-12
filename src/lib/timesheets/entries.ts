@@ -77,18 +77,18 @@ export const getValidLookupIds = async () => {
 
 export const saveOwnTimesheetEntry = async (actor: ActorWithRoles, input: SaveTimesheetEntryInput): Promise<TimesheetEntryWithActivities> => {
   await assertTimesheetWriteAccess(actor);
-  const existing = await getExistingEntry(actor.profileId, input.workDate);
+  const { projectIds, taskIds } = await getValidLookupIds();
+  const validated = validateTimesheetEntryInput(input, projectIds, taskIds);
+  const existing = await getExistingEntry(actor.profileId, validated.workDate);
   if (existing?.status === "supervisor_approved" || (existing?.status === "approved" && !canEditApprovedTimesheets(actor.accessContext.roles))) {
     throw new Error("Supervisor-approved timesheet entries are locked.");
   }
   const wasReturned = existing?.status === "returned";
 
-  const { projectIds, taskIds } = await getValidLookupIds();
-  const validated = validateTimesheetEntryInput(input, projectIds, taskIds);
   const supabase = createServiceRoleSupabaseClient();
   const entryPayload = {
     profile_id: actor.profileId,
-    work_date: input.workDate,
+    work_date: validated.workDate,
     status: "submitted",
     time_in: input.isPublicHoliday ? null : input.timeIn,
     time_out: input.isPublicHoliday ? null : input.timeOut,
@@ -142,7 +142,7 @@ export const saveOwnTimesheetEntry = async (actor: ActorWithRoles, input: SaveTi
   }
 
   if (wasReturned) {
-    const weekDates = (await import("@/src/lib/timesheets/date")).getNzWeekDates(input.workDate);
+    const weekDates = (await import("@/src/lib/timesheets/date")).getNzWeekDates(validated.workDate);
     await supabase.request("/rest/v1/timesheet_approval_events", {
       method: "POST",
       headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
