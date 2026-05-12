@@ -40,6 +40,13 @@ type UserRoleRow = {
   role: AppRole;
 };
 
+type ApprovalActorScope = {
+  isAdmin: boolean;
+  isSupervisor: boolean;
+  staffGroup: StaffGroup | null;
+};
+
+const validStaffGroups: StaffGroup[] = ["factory", "site", "office"];
 const roleRank: Record<AppRole, number> = { operator: 0, supervisor: 1, admin: 2 };
 const reviewableRoles: AppRole[] = ["operator", "supervisor", "admin"];
 
@@ -50,11 +57,71 @@ export const getApprovalWeekDates = (weekStart?: string) => {
   return Array.from({ length: 7 }, (_, index) => addDays(monday, index));
 };
 
+const getActorApprovalScope = async (actor: TimesheetActor): Promise<ApprovalActorScope> => {
+  const supabase = createServiceRoleSupabaseClient();
+  const [profileResponse, rolesResponse] = await Promise.all([
+    supabase.request(
+      `/rest/v1/profiles?select=id,account_status,staff_group&id=eq.${actor.profileId}&account_status=eq.approved&limit=1`,
+      { cache: "no-store" },
+    ),
+    supabase.request(`/rest/v1/user_roles?select=role&profile_id=eq.${actor.profileId}`, { cache: "no-store" }),
+  ]);
+
+  if (!profileResponse.ok || !rolesResponse.ok) {
+    throw new Error("Failed to verify approval access.");
+  }
+
+  const [profile] = (await profileResponse.json()) as Pick<ProfileRow, "id" | "account_status" | "staff_group">[];
+  const roles = (await rolesResponse.json()) as Pick<UserRoleRow, "role">[];
+
+  return {
+    isAdmin: Boolean(profile) && roles.some((row) => row.role === "admin"),
+    isSupervisor: Boolean(profile) && roles.some((row) => row.role === "supervisor"),
+    staffGroup: profile?.staff_group ?? null,
+  };
+};
+
+const assertCanAccessApprovalGroup = async (actor: TimesheetActor, group: StaffGroup) => {
+  await assertTimesheetApprovalAccess(actor);
+  const scope = await getActorApprovalScope(actor);
+
+  if (scope.isAdmin) return;
+  if (scope.isSupervisor && scope.staffGroup === group) return;
+
+  throw new Error("You are not assigned to this approval group.");
+};
+
+const getTargetApprovedProfile = async (targetProfileId: string): Promise<ProfileRow> => {
+  const supabase = createServiceRoleSupabaseClient();
+  const response = await supabase.request(
+    `/rest/v1/profiles?select=id,full_name,email,account_status,staff_group&account_status=eq.approved&id=eq.${targetProfileId}&limit=1`,
+    { cache: "no-store" },
+  );
+  if (!response.ok) throw new Error("Failed to verify target employee profile");
+  const rows = (await response.json()) as ProfileRow[];
+  const target = rows[0];
+  if (!target) throw new Error("Target employee is not approved or does not exist.");
+  if (!target.staff_group || !validStaffGroups.includes(target.staff_group)) {
+    throw new Error("Target employee is not assigned to an approval staff group.");
+  }
+  return target;
+};
+
+const assertCanManageTargetProfile = async (actor: TimesheetActor, targetProfileId: string) => {
+  await assertTimesheetApprovalAccess(actor);
+  const [scope, target] = await Promise.all([getActorApprovalScope(actor), getTargetApprovedProfile(targetProfileId)]);
+
+  if (scope.isAdmin) return target;
+  if (scope.isSupervisor && scope.staffGroup && scope.staffGroup === target.staff_group) return target;
+
+  throw new Error("You are not assigned to this employee's approval group.");
+};
+
 export const listApprovedStaffByGroup = async (
   actor: TimesheetActor,
   group: StaffGroup,
 ): Promise<ApprovalStaffProfile[]> => {
-  await assertTimesheetApprovalAccess(actor);
+  await assertCanAccessApprovalGroup(actor, group);
 
   const supabase = createServiceRoleSupabaseClient();
   const profilesResponse = await supabase.request(
@@ -96,9 +163,9 @@ export const listTimesheetEntriesForProfileForDates = async (
   targetProfileId: string,
   dates: string[],
 ): Promise<TimesheetEntryWithActivities[]> => {
-  await assertTimesheetApprovalAccess(actor);
   if (!targetProfileId) throw new Error("Target profile is required");
   if (dates.length === 0) return [];
+  await assertCanManageTargetProfile(actor, targetProfileId);
 
   const supabase = createServiceRoleSupabaseClient();
   const entriesResponse = await supabase.request(
@@ -120,17 +187,6 @@ export const listTimesheetEntriesForProfileForDates = async (
 };
 
 
-const assertTargetProfileApproved = async (targetProfileId: string) => {
-  const supabase = createServiceRoleSupabaseClient();
-  const response = await supabase.request(
-    `/rest/v1/profiles?select=id,account_status&account_status=eq.approved&id=eq.${targetProfileId}&limit=1`,
-    { cache: "no-store" },
-  );
-  if (!response.ok) throw new Error("Failed to verify target employee profile");
-  const rows = (await response.json()) as { id: string; account_status: "approved" }[];
-  if (rows.length === 0) throw new Error("Target employee is not approved or does not exist.");
-};
-
 const getSubmittedEntriesForWeek = async (targetProfileId: string, weekDates: string[]) => {
   const supabase = createServiceRoleSupabaseClient();
   const response = await supabase.request(
@@ -146,10 +202,8 @@ export const approveEmployeeTimesheetWeek = async (
   targetProfileId: string,
   weekStart: string,
 ) => {
-  await assertTimesheetApprovalAccess(actor);
   if (!targetProfileId || targetProfileId === actor.profileId) throw new Error("Select an employee timesheet to approve.");
-
-  await assertTargetProfileApproved(targetProfileId);
+  await assertCanManageTargetProfile(actor, targetProfileId);
   const weekDates = getApprovalWeekDates(weekStart);
   const entries = await getSubmittedEntriesForWeek(targetProfileId, weekDates);
   const affectedEntryIds = entries.filter((entry) => entry.status === "submitted").map((entry) => entry.id);
@@ -197,12 +251,10 @@ export const returnEmployeeTimesheetWeek = async (
   weekStart: string,
   comment: string,
 ) => {
-  await assertTimesheetApprovalAccess(actor);
   if (!targetProfileId || targetProfileId === actor.profileId) throw new Error("Select an employee timesheet to return.");
   const cleanComment = comment.trim();
   if (!cleanComment) throw new Error("A return comment is required.");
-
-  await assertTargetProfileApproved(targetProfileId);
+  await assertCanManageTargetProfile(actor, targetProfileId);
   const weekDates = getApprovalWeekDates(weekStart);
   const entries = await getSubmittedEntriesForWeek(targetProfileId, weekDates);
   const affectedEntryIds = entries
@@ -267,13 +319,12 @@ export const saveEmployeeTimesheetCorrectionAtomic = async (
   input: SaveTimesheetEntryInput,
   comment?: string,
 ): Promise<TimesheetEntryWithActivities> => {
-  await assertTimesheetApprovalAccess(actor);
   if (!targetProfileId) throw new Error("Target employee is required.");
   if (targetProfileId === actor.profileId) {
     throw new Error("Supervisors cannot correct their own timesheet through approvals.");
   }
 
-  await assertTargetProfileApproved(targetProfileId);
+  await assertCanManageTargetProfile(actor, targetProfileId);
 
   const supabase = createServiceRoleSupabaseClient();
   const existingResponse = await supabase.request(

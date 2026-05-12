@@ -75,19 +75,21 @@ export default async function ApprovalsPage() {
     accessContext: { accountStatus: "approved" as const, roles },
     route: "/approvals",
   };
+  const approvalGroups: StaffGroup[] = roles.includes("admin")
+    ? ["factory", "site", "office"]
+    : profile.staff_group
+      ? [profile.staff_group]
+      : [];
+
   const weekDates = getApprovalWeekDates();
-  const [lookups, factoryStaff, siteStaff, officeStaff] = await Promise.all([
-    getTimesheetLookups(actor),
-    listApprovedStaffByGroup(actor, "factory"),
-    listApprovedStaffByGroup(actor, "site"),
-    listApprovedStaffByGroup(actor, "office"),
-  ]);
-  const [factory, site, office] = await Promise.all([
-    withWeekSummaries(actor, factoryStaff, weekDates),
-    withWeekSummaries(actor, siteStaff, weekDates),
-    withWeekSummaries(actor, officeStaff, weekDates),
-  ]);
-  const groups: Record<StaffGroup, StaffWithWeek[]> = { factory, site, office };
+  const lookups = await getTimesheetLookups(actor);
+  const staffByGroup = await Promise.all(
+    approvalGroups.map(async (group) => [group, await listApprovedStaffByGroup(actor, group)] as const),
+  );
+  const weekSummariesByGroup = await Promise.all(
+    staffByGroup.map(async ([group, staff]) => [group, await withWeekSummaries(actor, staff, weekDates)] as const),
+  );
+  const groups = Object.fromEntries(weekSummariesByGroup) as Partial<Record<StaffGroup, StaffWithWeek[]>>;
   const weekRangeLabel = `${formatTimesheetDisplayDate(weekDates[0])} – ${formatTimesheetDisplayDate(weekDates[6])}`;
 
   return (
@@ -96,7 +98,13 @@ export default async function ApprovalsPage() {
         title="Timesheet Approvals"
         description="Review submitted weekly timesheets by staff group. Open a daily entry to review or correct submitted and returned days before approval."
       />
-      <ApprovalsClient groups={groups} lookups={lookups} weekStart={weekDates[0]} weekRangeLabel={weekRangeLabel} />
+      <ApprovalsClient
+        groups={groups}
+        visibleGroups={approvalGroups}
+        lookups={lookups}
+        weekStart={weekDates[0]}
+        weekRangeLabel={weekRangeLabel}
+      />
     </PageContainer>
   );
 }

@@ -26,23 +26,25 @@ type StaffWithWeek = ApprovalStaffProfile & {
   missingCount: number;
 };
 
-type GroupData = Record<StaffGroup, StaffWithWeek[]>;
+type GroupData = Partial<Record<StaffGroup, StaffWithWeek[]>>;
 
 const groupLabels: Record<StaffGroup, string> = { factory: "Factory", site: "Site", office: "Office" };
 
 export function ApprovalsClient({
   groups,
+  visibleGroups,
   lookups,
   weekStart,
   weekRangeLabel,
 }: {
   groups: GroupData;
+  visibleGroups: StaffGroup[];
   lookups: TimesheetLookups;
   weekStart: string;
   weekRangeLabel: string;
 }) {
   const router = useRouter();
-  const [selectedGroup, setSelectedGroup] = useState<StaffGroup>("factory");
+  const [selectedGroup, setSelectedGroup] = useState<StaffGroup | null>(visibleGroups[0] ?? null);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [mode, setMode] = useState<WeeklyTimesheetMode>("summary");
@@ -50,7 +52,7 @@ export function ApprovalsClient({
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const staff = groups[selectedGroup];
+  const staff = useMemo(() => (selectedGroup ? (groups[selectedGroup] ?? []) : []), [groups, selectedGroup]);
   const selectedStaff = useMemo(() => staff.find((person) => person.id === selectedProfileId) ?? null, [staff, selectedProfileId]);
   const selectedDay = useMemo(() => selectedStaff?.days.find((day) => day.date === selectedDate) ?? null, [selectedDate, selectedStaff]);
 
@@ -84,10 +86,21 @@ export function ApprovalsClient({
     });
   };
 
+  if (visibleGroups.length === 0 || !selectedGroup) {
+    return (
+      <Card className="mt-4">
+        <h2 className="text-lg font-semibold text-zinc-950">No approval group assigned</h2>
+        <p className="mt-2 text-sm text-zinc-600">
+          Your supervisor account is not assigned to Factory, Site, or Office. Ask an admin to assign your staff group before reviewing approvals.
+        </p>
+      </Card>
+    );
+  }
+
   return (
     <>
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Staff groups">
-        {(["factory", "site", "office"] as const).map((group) => (
+        {visibleGroups.map((group) => (
           <button
             key={group}
             type="button"
