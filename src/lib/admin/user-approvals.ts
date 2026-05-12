@@ -1,6 +1,7 @@
 import "server-only";
 
 import { nowUtcIso } from "@/src/lib/dateTime";
+import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import type { AppRole, ProfileRecord, StaffGroup } from "@/src/lib/auth/profile-access";
 import type { AuthSession } from "@/src/lib/auth/session";
@@ -212,10 +213,9 @@ export const approveUser = async (
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      account_status: "approved",
-      approved_at: nowUtcIso(),
-      disabled_at: null,
-      staff_group: staffGroup,
+      p_target_profile_id: profileId,
+      p_role: role,
+      p_staff_group: staffGroup,
     }),
   });
 
