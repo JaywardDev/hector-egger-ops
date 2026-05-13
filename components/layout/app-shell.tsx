@@ -12,9 +12,16 @@ type AppShellProps = {
   session: AuthSession | null;
   accessState: AccountAccessState;
   roles: AppRole[];
+  signOutAction?: string | null;
 };
 
-export function AppShell({ children, session, accessState, roles }: AppShellProps) {
+export function AppShell({
+  children,
+  session,
+  accessState,
+  roles,
+  signOutAction = "/auth/sign-out",
+}: AppShellProps) {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const navigationSections = getNavigationSections({ accessState, roles });
 
@@ -61,14 +68,7 @@ export function AppShell({ children, session, accessState, roles }: AppShellProp
               <p>{session?.user.email ?? "No active user"}</p>
               <p className="text-xs text-zinc-500">{accessState}</p>
             </div>
-            <form action="/auth/sign-out" method="post">
-              <button
-                type="submit"
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700"
-              >
-                Sign out
-              </button>
-            </form>
+            <ShellSignOutControl signOutAction={signOutAction} />
           </div>
         </header>
 
@@ -108,18 +108,38 @@ export function AppShell({ children, session, accessState, roles }: AppShellProp
                 <p className="break-all">{session?.user.email ?? "No active user"}</p>
                 <p className="text-xs text-zinc-500">{accessState}</p>
               </div>
-              <form action="/auth/sign-out" method="post">
-                <button
-                  type="submit"
-                  className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700"
-                >
-                  Sign out
-                </button>
-              </form>
+              <ShellSignOutControl signOutAction={signOutAction} isMobile />
             </div>
           </div>
         </div>
       ) : null}
     </div>
+  );
+}
+
+type ShellSignOutControlProps = {
+  isMobile?: boolean;
+  signOutAction: string | null;
+};
+
+function ShellSignOutControl({ isMobile = false, signOutAction }: ShellSignOutControlProps) {
+  const className = isMobile
+    ? "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700"
+    : "rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700";
+
+  if (!signOutAction) {
+    return (
+      <button type="button" disabled className={className}>
+        Preview mode
+      </button>
+    );
+  }
+
+  return (
+    <form action={signOutAction} method="post">
+      <button type="submit" className={className}>
+        Sign out
+      </button>
+    </form>
   );
 }
