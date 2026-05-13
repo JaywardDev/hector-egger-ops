@@ -10,6 +10,8 @@ import { Alert } from "@/src/components/ui/alert";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { PendingActionButton } from "@/src/components/ui/pending-button";
+import { StatusBadge } from "@/src/components/ui/status-badge";
+import { TIMESHEET_STATUS_BADGE_CONFIG } from "@/src/lib/timesheets/formatting";
 import { Card } from "@/src/components/ui/card";
 import { Textarea } from "@/src/components/ui/textarea";
 import { cn } from "@/src/lib/utils";
@@ -189,7 +191,15 @@ export function ApprovalsClient({
             </Card>
           </main>
 
-          <DailyTimesheetSheet open={selectedDay !== null} title="Daily timesheet review" onClose={() => setSelectedDate(null)}>
+          <DailyTimesheetSheet
+            open={selectedDay !== null}
+            title="Daily timesheet review"
+            eyebrow="Supervisor review"
+            subtitle={selectedDay ? `${selectedDay.weekdayLabel}, ${selectedDay.displayDate}` : undefined}
+            metadata={selectedStaff.full_name ?? selectedStaff.email}
+            statusSlot={selectedDay?.entry ? <StatusBadge config={TIMESHEET_STATUS_BADGE_CONFIG[selectedDay.entry.status]} /> : null}
+            onClose={() => setSelectedDate(null)}
+          >
             {selectedDay ? (
               <DailyTimesheetReview
                 entry={selectedDay.entry as TimesheetEntryWithActivities | null}

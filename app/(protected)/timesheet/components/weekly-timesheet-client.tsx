@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { DailyTimesheetForm } from "@/app/(protected)/timesheet/components/daily-timesheet-form";
 import { DailyTimesheetSheet } from "@/app/(protected)/timesheet/components/daily-timesheet-sheet";
 import { WeeklyTimesheetView } from "@/app/(protected)/timesheet/components/weekly-timesheet-view";
+import { StatusBadge } from "@/src/components/ui/status-badge";
+import { TIMESHEET_STATUS_BADGE_CONFIG } from "@/src/lib/timesheets/formatting";
 import type { TimesheetDaySummary, TimesheetLookups, TimesheetWorkMode } from "@/src/lib/timesheets/types";
 
 type WeeklyTimesheetMode = "summary" | "details";
@@ -35,7 +37,15 @@ export function WeeklyTimesheetClient({
     <>
       <WeeklyTimesheetView days={days} lookups={lookups} mode={mode} onModeChange={setMode} onSelectDay={setSelectedDate} />
 
-      <DailyTimesheetSheet open={selectedDay !== null} title={selectedDay?.entry ? "Edit daily timesheet" : "Add daily timesheet"} onClose={close}>
+      <DailyTimesheetSheet
+        open={selectedDay !== null}
+        title={selectedDay?.entry ? "Edit daily timesheet" : "Add daily timesheet"}
+        eyebrow="Timesheet editor"
+        subtitle={selectedDay ? `${selectedDay.weekdayLabel}, ${selectedDay.displayDate}` : undefined}
+        metadata={userName}
+        statusSlot={selectedDay?.entry ? <StatusBadge config={TIMESHEET_STATUS_BADGE_CONFIG[selectedDay.entry.status]} /> : null}
+        onClose={close}
+      >
         {selectedDay ? (
           <DailyTimesheetForm
             workDate={selectedDay.date}
