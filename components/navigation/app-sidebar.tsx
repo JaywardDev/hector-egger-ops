@@ -21,7 +21,7 @@ export function AppSidebar({ className, navigationSections, onNavigate }: AppSid
 
         <SidebarBrandHeader />
 
-        <nav aria-label="Primary" className="relative z-10 flex-1 space-y-6 overflow-y-auto p-4">
+        <nav aria-label="Primary" className="relative z-10 flex-1 space-y-6 overflow-y-auto p-4 -mt-12">
           {navigationSections.map((section) => (
             <SidebarNavSection key={section.label} section={section} pathname={pathname} onNavigate={onNavigate} />
           ))}
