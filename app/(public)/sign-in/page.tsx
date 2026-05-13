@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Eye, Lock, User } from "lucide-react";
 import { redirect } from "next/navigation";
 import { Button } from "@/src/components/ui/button";
 import { FormErrorText, FormField } from "@/src/components/ui/form-field";
@@ -40,25 +41,44 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
       </div>
       <form action={signInAction} className="space-y-4">
         <FormField label="Email" htmlFor="sign-in-email">
-          <Input
-            id="sign-in-email"
-            required
-            type="email"
-            name="email"
-            placeholder="you@company.com"
-            className="px-3 py-3"
-          />
+          <div className="relative">
+            <User
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-zinc-400"
+              strokeWidth={1.8}
+            />
+            <Input
+              id="sign-in-email"
+              required
+              type="email"
+              name="email"
+              placeholder="you@company.com"
+              className="h-12 pl-11 pr-3 py-3"
+            />
+          </div>
         </FormField>
 
         <FormField label="Password" htmlFor="sign-in-password">
-          <Input
-            id="sign-in-password"
-            required
-            type="password"
-            name="password"
-            placeholder="••••••••"
-            className="px-3 py-3"
-          />
+          <div className="relative">
+            <Lock
+              aria-hidden="true"
+              className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-zinc-400"
+              strokeWidth={1.8}
+            />
+            <Input
+              id="sign-in-password"
+              required
+              type="password"
+              name="password"
+              placeholder="••••••••"
+              className="h-12 pl-11 pr-11 py-3"
+            />
+            <Eye
+              aria-hidden="true"
+              className="pointer-events-none absolute right-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-zinc-400"
+              strokeWidth={1.8}
+            />
+          </div>
         </FormField>
 
         {params.error ? <FormErrorText>{params.error}</FormErrorText> : null}

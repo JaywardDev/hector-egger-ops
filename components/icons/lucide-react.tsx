@@ -54,6 +54,16 @@ export const User = createIcon([
   { tag: "circle", attrs: { cx: "12", cy: "7", r: "4" } },
 ]);
 
+export const Lock = createIcon([
+  { tag: "rect", attrs: { x: "3", y: "11", width: "18", height: "11", rx: "2" } },
+  { tag: "path", attrs: { d: "M7 11V7a5 5 0 0 1 10 0v4" } },
+]);
+
+export const Eye = createIcon([
+  { tag: "path", attrs: { d: "M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" } },
+  { tag: "circle", attrs: { cx: "12", cy: "12", r: "3" } },
+]);
+
 export const LayoutDashboard = createIcon([
   { tag: "rect", attrs: { x: "3", y: "3", width: "7", height: "9", rx: "1" } },
   { tag: "rect", attrs: { x: "14", y: "3", width: "7", height: "5", rx: "1" } },
