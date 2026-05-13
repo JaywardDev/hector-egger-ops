@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { AppSidebar } from "@/components/navigation/app-sidebar";
+import { PendingSubmitButton } from "@/src/components/ui/pending-button";
+import { FullScreenPendingOverlay } from "@/src/components/ui/pending-overlay";
 import { getNavigationSections } from "@/lib/navigation";
 import type { AccountAccessState } from "@/src/lib/auth/access-state";
 import type { AuthSession } from "@/src/lib/auth/session";
@@ -137,9 +139,13 @@ function ShellSignOutControl({ isMobile = false, signOutAction }: ShellSignOutCo
 
   return (
     <form action={signOutAction} method="post">
-      <button type="submit" className={className}>
+      <PendingSubmitButton type="submit" className={className} pendingLabel="Signing out…">
         Sign out
-      </button>
+      </PendingSubmitButton>
+      <FullScreenPendingOverlay
+        message="Signing out…"
+        description="Closing your secure session and returning you to sign in."
+      />
     </form>
   );
 }

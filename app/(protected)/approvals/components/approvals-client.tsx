@@ -9,6 +9,7 @@ import { WeeklyTimesheetView } from "@/app/(protected)/timesheet/components/week
 import { Alert } from "@/src/components/ui/alert";
 import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
+import { PendingActionButton } from "@/src/components/ui/pending-button";
 import { Card } from "@/src/components/ui/card";
 import { Textarea } from "@/src/components/ui/textarea";
 import { cn } from "@/src/lib/utils";
@@ -157,7 +158,7 @@ export function ApprovalsClient({
                 <p className="text-sm text-zinc-500">Timesheet review · {weekRangeLabel}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" onClick={runApproval} disabled={isPending || selectedStaff.submittedCount === 0}>Approve Week</Button>
+                <PendingActionButton type="button" onClick={runApproval} isPending={isPending} disabled={selectedStaff.submittedCount === 0} pendingLabel="Approving…">Approve Week</PendingActionButton>
                 <Button type="button" variant="secondary" onClick={closeWeekly}>Close</Button>
               </div>
             </div>
@@ -181,9 +182,9 @@ export function ApprovalsClient({
                 placeholder="Explain what the employee needs to fix before resubmitting."
                 rows={3}
               />
-              <Button type="button" variant="danger" onClick={runReturn} disabled={isPending || returnComment.trim().length === 0}>
+              <PendingActionButton type="button" variant="danger" onClick={runReturn} isPending={isPending} disabled={returnComment.trim().length === 0} pendingLabel="Returning…">
                 Return for Correction
-              </Button>
+              </PendingActionButton>
             </Card>
           </main>
 

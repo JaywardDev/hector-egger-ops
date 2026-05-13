@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Eye, Lock, User } from "lucide-react";
 import { redirect } from "next/navigation";
-import { Button } from "@/src/components/ui/button";
+import { PendingSubmitButton } from "@/src/components/ui/pending-button";
+import { FullScreenPendingOverlay } from "@/src/components/ui/pending-overlay";
 import { FormErrorText, FormField } from "@/src/components/ui/form-field";
 import { Input } from "@/src/components/ui/input";
 import { Stack } from "@/src/components/layout/stack";
@@ -83,9 +84,10 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
         {params.error ? <FormErrorText>{params.error}</FormErrorText> : null}
 
-        <Button type="submit" variant="brand" size="lg" className="w-full">
+        <PendingSubmitButton type="submit" variant="brand" size="lg" className="w-full" pendingLabel="Signing in…">
           Sign in
-        </Button>
+        </PendingSubmitButton>
+        <FullScreenPendingOverlay message="Signing in…" description="Checking your credentials and opening your workspace." />
       </form>
 
       <p className="text-center text-sm text-zinc-600">

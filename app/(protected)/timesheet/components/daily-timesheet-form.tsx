@@ -4,6 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { saveTimesheetEntryAction } from "@/app/(protected)/timesheet/actions";
 import { Alert } from "@/src/components/ui/alert";
 import { Button } from "@/src/components/ui/button";
+import { PendingActionButton } from "@/src/components/ui/pending-button";
 import { Input } from "@/src/components/ui/input";
 import { Select } from "@/src/components/ui/select";
 import { formatNzDate } from "@/src/lib/dateTime";
@@ -513,20 +514,21 @@ export function DailyTimesheetForm({
         {incompleteActivityError ? (
           <Alert variant="error">{incompleteActivityError}</Alert>
         ) : null}
-        <Button
+        <PendingActionButton
           className="w-full border-blue-700 bg-blue-600 !text-white shadow-sm hover:bg-blue-700 disabled:border-blue-300 disabled:bg-blue-300 disabled:!text-white disabled:opacity-80"
           disabled={
             !canEdit ||
-            isPending ||
             !allocationMatches ||
             incompleteActivityRows.length > 0 ||
             lookups.projects.length === 0 ||
             lookups.tasks.length === 0
           }
+          isPending={isPending}
+          pendingLabel={pendingLabel}
           onClick={submit}
         >
-          {isPending ? pendingLabel : submitLabel}
-        </Button>
+          {submitLabel}
+        </PendingActionButton>
       </section>
     </div>
   );

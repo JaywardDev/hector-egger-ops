@@ -11,7 +11,7 @@ import { PageHeader } from "@/src/components/layout/page-header";
 import { Stack } from "@/src/components/layout/stack";
 import { Alert } from "@/src/components/ui/alert";
 import { Badge } from "@/src/components/ui/badge";
-import { Button } from "@/src/components/ui/button";
+import { PendingSubmitButton } from "@/src/components/ui/pending-button";
 import { Card } from "@/src/components/ui/card";
 import { FormField } from "@/src/components/ui/form-field";
 import { Label } from "@/src/components/ui/label";
@@ -155,12 +155,12 @@ function PendingUserCard({ user }: { user: AdminUserRecord }) {
           <input type="hidden" name="profileId" value={user.id} />
           <RoleSelect user={user} idPrefix="approve" defaultRole="" required />
           <StaffGroupSelect user={user} idPrefix="approve" required />
-          <Button type="submit" disabled={!approvalProfileComplete}>Approve</Button>
+          <PendingSubmitButton type="submit" disabled={!approvalProfileComplete} pendingLabel="Approving…">Approve</PendingSubmitButton>
         </form>
 
         <form action={disableUserAction}>
           <input type="hidden" name="profileId" value={user.id} />
-          <Button type="submit" variant="danger">Disable</Button>
+          <PendingSubmitButton type="submit" variant="danger" pendingLabel="Disabling…">Disable</PendingSubmitButton>
         </form>
       </div>
     </Card>
@@ -177,18 +177,18 @@ function ApprovedUserCard({ user }: { user: AdminUserRecord }) {
         <form action={updateApprovedUserRoleAction} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="profileId" value={user.id} />
           <RoleSelect user={user} idPrefix="manage" />
-          <Button type="submit" variant="secondary">Update role</Button>
+          <PendingSubmitButton type="submit" variant="secondary" pendingLabel="Updating role…">Update role</PendingSubmitButton>
         </form>
 
         <form action={updateUserStaffGroupAction} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="profileId" value={user.id} />
           <StaffGroupSelect user={user} idPrefix="manage" />
-          <Button type="submit" variant="secondary">Update group</Button>
+          <PendingSubmitButton type="submit" variant="secondary" pendingLabel="Updating group…">Update group</PendingSubmitButton>
         </form>
 
         <form action={disableUserAction}>
           <input type="hidden" name="profileId" value={user.id} />
-          <Button type="submit" variant="danger">Disable</Button>
+          <PendingSubmitButton type="submit" variant="danger" pendingLabel="Disabling…">Disable</PendingSubmitButton>
         </form>
       </div>
     </Card>
@@ -205,12 +205,12 @@ function DisabledUserCard({ user }: { user: AdminUserRecord }) {
         <form action={updateUserStaffGroupAction} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="profileId" value={user.id} />
           <StaffGroupSelect user={user} idPrefix="disabled" />
-          <Button type="submit" variant="secondary">Update group</Button>
+          <PendingSubmitButton type="submit" variant="secondary" pendingLabel="Updating group…">Update group</PendingSubmitButton>
         </form>
 
         <form action={reactivateUserAction}>
           <input type="hidden" name="profileId" value={user.id} />
-          <Button type="submit" variant="secondary">Reactivate</Button>
+          <PendingSubmitButton type="submit" variant="secondary" pendingLabel="Reactivating…">Reactivate</PendingSubmitButton>
         </form>
       </div>
     </Card>

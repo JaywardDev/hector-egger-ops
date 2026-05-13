@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Button } from "@/src/components/ui/button";
+import { PendingSubmitButton } from "@/src/components/ui/pending-button";
+import { FullScreenPendingOverlay } from "@/src/components/ui/pending-overlay";
 import { FormErrorText, FormField } from "@/src/components/ui/form-field";
 import { Input } from "@/src/components/ui/input";
 import { Stack } from "@/src/components/layout/stack";
@@ -95,9 +96,10 @@ export default async function RequestAccessPage({ searchParams }: RequestAccessP
 
         {params.error ? <FormErrorText>{params.error}</FormErrorText> : null}
 
-        <Button type="submit" variant="brand" size="lg" className="w-full">
+        <PendingSubmitButton type="submit" variant="brand" size="lg" className="w-full" pendingLabel="Requesting access…">
           Request access
-        </Button>
+        </PendingSubmitButton>
+        <FullScreenPendingOverlay message="Requesting access…" description="Creating your account request for admin review." />
       </form>
 
       <p className="text-center text-sm text-zinc-600">

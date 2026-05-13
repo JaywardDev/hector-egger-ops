@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { Button } from "@/src/components/ui/button";
+import { PendingSubmitButton } from "@/src/components/ui/pending-button";
+import { FullScreenPendingOverlay } from "@/src/components/ui/pending-overlay";
 import { FormErrorText, FormField } from "@/src/components/ui/form-field";
 import { Input } from "@/src/components/ui/input";
 import { Stack } from "@/src/components/layout/stack";
@@ -83,9 +84,10 @@ export default async function CompleteProfilePage({ searchParams }: CompleteProf
 
         {params.error ? <FormErrorText>{params.error}</FormErrorText> : null}
 
-        <Button type="submit" variant="brand" size="lg" className="w-full">
+        <PendingSubmitButton type="submit" variant="brand" size="lg" className="w-full" pendingLabel="Saving profile…">
           Complete profile
-        </Button>
+        </PendingSubmitButton>
+        <FullScreenPendingOverlay message="Saving profile…" description="Saving your profile before continuing." />
       </form>
     </Stack>
   );

@@ -102,3 +102,7 @@ export const History = createIcon([
   { tag: "path", attrs: { d: "M3 3v6h6" } },
   { tag: "path", attrs: { d: "M12 7v5l3 2" } },
 ]);
+
+export const Loader2 = createIcon([
+  { tag: "path", attrs: { d: "M21 12a9 9 0 1 1-6.2-8.6" } },
+]);
