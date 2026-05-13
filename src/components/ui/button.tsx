@@ -1,7 +1,7 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { cn } from "@/src/lib/utils";
 
-type ButtonVariant = "default" | "secondary" | "danger" | "ghost" | "brand";
+type ButtonVariant = "default" | "primary" | "brand" | "secondary" | "danger" | "destructive" | "ghost" | "quiet";
 type ButtonSize = "sm" | "md" | "lg";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -9,12 +9,21 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   size?: ButtonSize;
 };
 
+const primaryClassName =
+  "border-[var(--he-black)] bg-[var(--he-black)] text-white shadow-sm hover:bg-[var(--he-charcoal)] hover:border-[var(--he-charcoal)]";
+const secondaryClassName = "border border-zinc-300 bg-white text-zinc-900 shadow-sm hover:bg-zinc-50";
+const destructiveClassName = "border-red-300 bg-white text-red-700 hover:bg-red-50 hover:border-red-400";
+const quietClassName = "border-transparent bg-transparent text-zinc-700 hover:bg-zinc-100 hover:text-zinc-950";
+
 const variantClassNames: Record<ButtonVariant, string> = {
-  default: "border-zinc-300 text-zinc-800 hover:bg-zinc-100",
-  secondary: "border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100",
-  danger: "border-red-300 text-red-700 hover:bg-red-50",
-  ghost: "border-transparent text-zinc-700 hover:bg-zinc-100",
-  brand: "border-zinc-950 bg-zinc-950 text-white shadow-sm hover:bg-zinc-800",
+  default: "border-zinc-300 bg-white text-zinc-800 hover:bg-zinc-100",
+  primary: primaryClassName,
+  brand: primaryClassName,
+  secondary: secondaryClassName,
+  danger: destructiveClassName,
+  destructive: destructiveClassName,
+  ghost: quietClassName,
+  quiet: quietClassName,
 };
 
 const sizeClassNames: Record<ButtonSize, string> = {
@@ -32,7 +41,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       type={type}
       className={cn(
-        "inline-flex items-center justify-center rounded-md border font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+        "inline-flex items-center justify-center rounded-md border font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)] disabled:cursor-not-allowed disabled:opacity-50",
         variantClassNames[variant],
         sizeClassNames[size],
         className,

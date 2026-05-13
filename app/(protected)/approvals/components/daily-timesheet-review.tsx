@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation";
 import { saveEmployeeTimesheetCorrectionAction } from "@/app/(protected)/approvals/actions";
 import { DailyTimesheetForm } from "@/app/(protected)/timesheet/components/daily-timesheet-form";
 import { Alert } from "@/src/components/ui/alert";
-import { Badge } from "@/src/components/ui/badge";
+import { StatusBadge } from "@/src/components/ui/status-badge";
 import { Button } from "@/src/components/ui/button";
+import { TIMESHEET_STATUS_BADGE_CONFIG, formatTimesheetHours } from "@/src/lib/timesheets/formatting";
 import type { TimesheetEntryWithActivities, TimesheetLookups } from "@/src/lib/timesheets/types";
-
-const formatHours = (hours: number) => `${Number.isInteger(hours) ? hours : hours.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")} h`;
 
 export function DailyTimesheetReview({
   entry,
@@ -96,9 +95,7 @@ export function DailyTimesheetReview({
           <section className="grid gap-3 rounded-lg bg-zinc-50 p-4 text-sm sm:grid-cols-4">
             <div>
               <p className="text-zinc-500">Status</p>
-              <Badge className="mt-1" variant={entry.status === "returned" ? "warning" : entry.status === "submitted" ? "info" : "success"}>
-                {entry.status.replace("_", " ")}
-              </Badge>
+              <StatusBadge className="mt-1" config={TIMESHEET_STATUS_BADGE_CONFIG[entry.status]} />
             </div>
             <div>
               <p className="text-zinc-500">Time</p>
@@ -106,11 +103,11 @@ export function DailyTimesheetReview({
             </div>
             <div>
               <p className="text-zinc-500">Payable</p>
-              <p className="font-medium text-zinc-900">{formatHours(entry.payable_hours)}</p>
+              <p className="font-medium text-zinc-900">{formatTimesheetHours(entry.payable_hours)}</p>
             </div>
             <div>
               <p className="text-zinc-500">Allocated</p>
-              <p className="font-medium text-zinc-900">{formatHours(entry.allocation_hours)}</p>
+              <p className="font-medium text-zinc-900">{formatTimesheetHours(entry.allocation_hours)}</p>
             </div>
           </section>
 
@@ -128,7 +125,7 @@ export function DailyTimesheetReview({
                       <span>{project ? `${project.code} — ${project.label}` : "Unknown project"}</span>
                       <span>{task?.label ?? "Unknown task"}</span>
                       <span className="capitalize">{activity.work_mode}</span>
-                      <span className="font-medium">{formatHours(activity.hours)}</span>
+                      <span className="font-medium">{formatTimesheetHours(activity.hours)}</span>
                     </div>
                   );
                 })}

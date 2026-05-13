@@ -1,10 +1,11 @@
 "use client";
 
-import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
+import { SegmentedControl } from "@/src/components/ui/segmented-control";
+import { StatusBadge } from "@/src/components/ui/status-badge";
 import { formatNzDate } from "@/src/lib/dateTime";
-import { cn } from "@/src/lib/utils";
-import type { TimesheetDaySummary, TimesheetLeaveType, TimesheetLookups, TimesheetStatus, TimesheetWorkMode } from "@/src/lib/timesheets/types";
+import { TIMESHEET_STATUS_BADGE_CONFIG, formatTimesheetHours } from "@/src/lib/timesheets/formatting";
+import type { TimesheetDaySummary, TimesheetLeaveType, TimesheetLookups, TimesheetWorkMode } from "@/src/lib/timesheets/types";
 
 type WeeklyTimesheetMode = "summary" | "details";
 
@@ -27,26 +28,10 @@ const leaveLabels: Record<TimesheetLeaveType, string> = {
 };
 
 
-const statusLabels: Record<TimesheetStatus, string> = {
-  submitted: "Submitted",
-  returned: "Returned",
-  supervisor_approved: "Supervisor approved",
-  approved: "Approved",
-};
-
-const statusVariants: Record<TimesheetStatus, "info" | "success" | "warning"> = {
-  submitted: "info",
-  returned: "warning",
-  supervisor_approved: "success",
-  approved: "success",
-};
-
 const workModeLabels: Record<Exclude<TimesheetWorkMode, "mixed">, string> = {
   factory: "Factory",
   site: "Site",
 };
-
-const formatHours = (hours: number) => `${Number.isInteger(hours) ? hours : hours.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")} h`;
 
 function getFullDateLabel(date: string) {
   return formatNzDate(date, {
@@ -65,7 +50,7 @@ function ActivitySummary({ day, lookups }: { day: TimesheetDaySummary; lookups: 
   }
 
   if (entry.is_public_holiday) {
-    return <p className="text-sm text-zinc-700">Public holiday · {formatHours(entry.payable_hours)}</p>;
+    return <p className="text-sm text-zinc-700">Public holiday · {formatTimesheetHours(entry.payable_hours)}</p>;
   }
 
   const projectById = new Map(lookups.projects.map((project) => [project.id, project]));
@@ -86,11 +71,11 @@ function ActivitySummary({ day, lookups }: { day: TimesheetDaySummary; lookups: 
         const taskLabel = task?.label ?? "Unassigned task";
         return (
           <li key={activity.id} className="leading-6">
-            {projectLabel} · {taskLabel} · {workModeLabels[activity.work_mode]} · {formatHours(activity.hours)}
+            {projectLabel} · {taskLabel} · {workModeLabels[activity.work_mode]} · {formatTimesheetHours(activity.hours)}
           </li>
         );
       })}
-      {hasLeave ? <li className="leading-6">{leaveLabels[entry.leave_type as TimesheetLeaveType]} · {formatHours(entry.leave_hours)}</li> : null}
+      {hasLeave ? <li className="leading-6">{leaveLabels[entry.leave_type as TimesheetLeaveType]} · {formatTimesheetHours(entry.leave_hours)}</li> : null}
       {entry.paid_break ? <li className="leading-6">Paid break · 0.5 h</li> : null}
     </ul>
   );
@@ -125,8 +110,8 @@ function TimesheetDayRow({
         <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-700 sm:justify-end">
           {day.entry ? (
             <>
-              <Badge variant={statusVariants[day.entry.status]}>{statusLabels[day.entry.status]}</Badge>
-              <span className="font-medium text-zinc-800">{formatHours(day.entry.payable_hours)}</span>
+              <StatusBadge config={TIMESHEET_STATUS_BADGE_CONFIG[day.entry.status]} />
+              <span className="font-medium text-zinc-800">{formatTimesheetHours(day.entry.payable_hours)}</span>
             </>
           ) : (
             <span className="text-zinc-500">No entry</span>
@@ -152,23 +137,16 @@ export function WeeklyTimesheetView({ days, lookups, mode, onModeChange, onSelec
     <section className="rounded-2xl bg-white px-4 py-4 shadow-sm ring-1 ring-zinc-950/5 sm:px-6 sm:py-5" aria-labelledby="weekly-timesheet-heading">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-end">
         <h2 id="weekly-timesheet-heading" className="sr-only">Weekly Timesheet days</h2>
-        <div className="inline-flex self-start rounded-full bg-zinc-100 p-1 sm:self-auto" aria-label="Weekly timesheet view" role="tablist">
-          {(["summary", "details"] as const).map((option) => (
-            <button
-              key={option}
-              aria-selected={mode === option}
-              className={cn(
-                "rounded-full px-4 py-2 text-sm font-medium capitalize transition-colors",
-                mode === option ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-600 hover:text-zinc-950",
-              )}
-              onClick={() => onModeChange(option)}
-              role="tab"
-              type="button"
-            >
-              {option === "summary" ? "Summary" : "Details"}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          aria-label="Weekly timesheet view"
+          className="self-start sm:self-auto"
+          onChange={onModeChange}
+          options={[
+            { label: "Summary", value: "summary" },
+            { label: "Details", value: "details" },
+          ]}
+          value={mode}
+        />
       </div>
       <div className="mt-4 divide-y divide-zinc-100">
         {days.map((day) => (
