@@ -18,14 +18,6 @@ export function AppSidebar({ className, navigationSections, onNavigate }: AppSid
   return (
     <aside className={cn("border-zinc-200 bg-white text-zinc-900", className)}>
       <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-10 top-16 h-24 w-24 rotate-45 rounded-md bg-[var(--he-yellow)]/10"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -left-12 bottom-24 h-20 w-20 rotate-45 border border-[var(--he-yellow)]/25"
-        />
 
         <SidebarBrandHeader />
 
@@ -43,26 +35,13 @@ export function AppSidebar({ className, navigationSections, onNavigate }: AppSid
 
 function SidebarBrandHeader() {
   return (
-    <div className="relative z-10 border-b border-[var(--he-border)] bg-white/95 px-4 py-5">
-      <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-[var(--he-border)] bg-white shadow-sm">
-          <Image
-            src="/brand/he-operations-logo.svg"
-            alt="Hector Egger Operations Platform"
-            width={40}
-            height={40}
-            className="h-9 w-9 object-contain"
-            priority
-          />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-[var(--he-muted)]">
-            Hector Egger
-          </p>
-          <p className="truncate text-sm font-semibold leading-5 text-[var(--he-charcoal)]">Operations Platform</p>
-        </div>
-      </div>
-      <div className="mt-4 h-1 w-16 rounded-full bg-[var(--he-yellow)]" aria-hidden="true" />
+    <div className="relative z-10 aspect-square w-full overflow-hidden">
+      <Image
+        src="/brand/he-operations-logo.svg"
+        alt="Hector Egger Operations Platform"
+        fill
+        className="object-contain"
+      />
     </div>
   );
 }
@@ -134,21 +113,13 @@ function SidebarNavItem({ item, isActive, onNavigate }: SidebarNavItemProps) {
 
 function SidebarBrandFooter() {
   return (
-    <div className="relative z-10 mt-auto border-t border-[var(--he-border)] bg-white/95 p-4">
-      <div className="rounded-xl border border-[var(--he-border)] bg-zinc-50/80 p-3">
-        <div aria-hidden="true" className="flex justify-center">
-          <Image
-            src="/brand/he-footer-signature.svg"
-            alt=""
-            width={128}
-            height={128}
-            className="h-12 w-auto object-contain opacity-90"
-          />
-        </div>
-        <p className="mt-2 text-center text-[0.68rem] font-medium uppercase tracking-[0.16em] text-[var(--he-muted)]">
-          Built for operations
-        </p>
-      </div>
+    <div className="relative z-10 aspect-square w-full overflow-hidden">
+      <Image
+        src="/brand/he-footer-signature.svg"
+        alt=""
+        fill
+        className="object-cover opacity-90"
+      />
     </div>
   );
 }
