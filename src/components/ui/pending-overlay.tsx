@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormStatus } from "react-dom";
+import { useSyncExternalStore } from "react";
+import { createPortal, useFormStatus } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/src/lib/utils";
 
@@ -11,6 +12,27 @@ type PendingOverlayProps = {
   className?: string;
 };
 
+type PendingModalProps = Required<Pick<PendingOverlayProps, "message" | "description">>;
+
+const subscribeToPortalTarget = () => () => {};
+const getPortalTargetSnapshot = () => document.body;
+const getServerPortalTargetSnapshot = () => null;
+
+function PendingModal({ message, description }: PendingModalProps) {
+  return (
+    <div
+      role="status"
+      className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 text-center shadow-2xl shadow-zinc-950/20"
+    >
+      <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 ring-8 ring-amber-50">
+        <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />
+      </div>
+      <p className="mt-4 text-base font-semibold text-zinc-950">{message}</p>
+      <p className="mt-2 text-sm leading-6 text-zinc-600">{description}</p>
+    </div>
+  );
+}
+
 export function FullScreenPendingOverlay({
   pending,
   message = "Working on it…",
@@ -19,31 +41,28 @@ export function FullScreenPendingOverlay({
 }: PendingOverlayProps) {
   const formStatus = useFormStatus();
   const isPending = pending ?? formStatus.pending;
+  const portalTarget = useSyncExternalStore(
+    subscribeToPortalTarget,
+    getPortalTargetSnapshot,
+    getServerPortalTargetSnapshot,
+  );
 
-  if (!isPending) {
+  if (!isPending || !portalTarget) {
     return null;
   }
 
-  return (
+  return createPortal(
     <div
       className={cn(
-        "fixed inset-0 z-[100] flex items-center justify-center bg-zinc-950/35 px-4 backdrop-blur-sm",
+        "fixed inset-0 z-[1000] flex items-center justify-center bg-zinc-950/35 px-4 backdrop-blur-sm",
         className,
       )}
       aria-live="polite"
       aria-busy="true"
     >
-      <div
-        role="status"
-        className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-6 text-center shadow-2xl shadow-zinc-950/20"
-      >
-        <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 ring-8 ring-amber-50">
-          <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />
-        </div>
-        <p className="mt-4 text-base font-semibold text-zinc-950">{message}</p>
-        <p className="mt-2 text-sm leading-6 text-zinc-600">{description}</p>
-      </div>
-    </div>
+      <PendingModal message={message} description={description} />
+    </div>,
+    portalTarget,
   );
 }
 
