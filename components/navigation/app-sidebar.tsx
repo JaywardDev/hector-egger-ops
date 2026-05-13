@@ -39,6 +39,7 @@ function SidebarBrandHeader() {
       <Image
         src="/brand/he-operations-logo.svg"
         alt="Hector Egger Operations Platform"
+        priority
         fill
         className="object-contain"
       />
