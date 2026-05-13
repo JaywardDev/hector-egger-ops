@@ -173,6 +173,7 @@ export function ApprovalsClient({
               onSelectDay={setSelectedDate}
               entryActionLabel="Review"
               missingActionLabel="View"
+              context="approval"
             />
             <Card className="space-y-3">
               <h3 className="font-semibold text-zinc-950">Return for correction</h3>

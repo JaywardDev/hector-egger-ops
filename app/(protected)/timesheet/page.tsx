@@ -33,6 +33,7 @@ export default async function TimesheetPage() {
     getTimesheetLookups(actor),
   ]);
   const entryByDate = new Map(entries.map((entry) => [entry.work_date, entry] as const));
+  const weekRangeLabel = `${formatTimesheetDisplayDate(weekDates[0])} – ${formatTimesheetDisplayDate(weekDates[weekDates.length - 1])}`;
   const canEditApproved = canEditApprovedTimesheets(roles);
   const days = weekDates.map((date) => {
     const entry = entryByDate.get(date) ?? null;
@@ -47,7 +48,19 @@ export default async function TimesheetPage() {
 
   return (
     <PageContainer>
-      <PageHeader title="Weekly Timesheet" />
+      <PageHeader
+        accent
+        title="Weekly Timesheet"
+        eyebrow="Personal timesheet"
+        description="Plan, review, and keep the current week ready for approval."
+        metadata={
+          <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span>{weekRangeLabel}</span>
+            <span aria-hidden="true" className="text-zinc-300">•</span>
+            <span>{profile.full_name ?? profile.email}</span>
+          </span>
+        }
+      />
       <WeeklyTimesheetClient
         days={days}
         userName={profile.full_name ?? profile.email}
