@@ -1,8 +1,8 @@
 import { forwardRef, type ButtonHTMLAttributes } from "react";
 import { cn } from "@/src/lib/utils";
 
-type ButtonVariant = "default" | "secondary" | "danger" | "ghost";
-type ButtonSize = "sm" | "md";
+type ButtonVariant = "default" | "secondary" | "danger" | "ghost" | "brand";
+type ButtonSize = "sm" | "md" | "lg";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
@@ -14,11 +14,13 @@ const variantClassNames: Record<ButtonVariant, string> = {
   secondary: "border border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-100",
   danger: "border-red-300 text-red-700 hover:bg-red-50",
   ghost: "border-transparent text-zinc-700 hover:bg-zinc-100",
+  brand: "border-zinc-950 bg-zinc-950 text-white shadow-sm hover:bg-zinc-800",
 };
 
 const sizeClassNames: Record<ButtonSize, string> = {
   sm: "px-2 py-1 text-xs",
   md: "px-3 py-1.5 text-sm",
+  lg: "px-4 py-3 text-sm",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(

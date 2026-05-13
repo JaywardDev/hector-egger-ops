@@ -31,9 +31,14 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   const params = await searchParams;
 
   return (
-    <Stack>
-      <p className="text-sm text-zinc-700">Sign in with your Supabase credentials.</p>
-      <form action={signInAction} className="space-y-3">
+    <Stack gap="lg">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight text-zinc-950">Sign in</h2>
+        <p className="mt-2 text-sm leading-6 text-zinc-600">
+          Sign in with your company credentials.
+        </p>
+      </div>
+      <form action={signInAction} className="space-y-4">
         <FormField label="Email" htmlFor="sign-in-email">
           <Input
             id="sign-in-email"
@@ -41,6 +46,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             type="email"
             name="email"
             placeholder="you@company.com"
+            className="px-3 py-3"
           />
         </FormField>
 
@@ -51,17 +57,18 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
             type="password"
             name="password"
             placeholder="••••••••"
+            className="px-3 py-3"
           />
         </FormField>
 
         {params.error ? <FormErrorText>{params.error}</FormErrorText> : null}
 
-        <Button type="submit" className="w-full">
+        <Button type="submit" variant="brand" size="lg" className="w-full">
           Sign in
         </Button>
       </form>
 
-      <p className="text-sm text-zinc-600">
+      <p className="text-center text-sm text-zinc-600">
         Need an account?{" "}
         <Link href="/request-access" className="font-medium text-zinc-900 underline underline-offset-2">
           Request access

@@ -31,9 +31,14 @@ export default async function RequestAccessPage({ searchParams }: RequestAccessP
   const params = await searchParams;
 
   return (
-    <Stack>
-      <p className="text-sm text-zinc-700">Request access to Hector Egger Ops.</p>
-      <form action={requestAccessAction} className="space-y-3">
+    <Stack gap="lg">
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight text-zinc-950">Request access</h2>
+        <p className="mt-2 text-sm leading-6 text-zinc-600">
+          Create an account for the Hector Egger Operations Platform. Access is granted after admin review.
+        </p>
+      </div>
+      <form action={requestAccessAction} className="space-y-4">
         <FormField label="First Name" htmlFor="request-access-first-name">
           <Input
             id="request-access-first-name"
@@ -41,6 +46,7 @@ export default async function RequestAccessPage({ searchParams }: RequestAccessP
             type="text"
             name="firstName"
             placeholder="Jane"
+            className="px-3 py-3"
           />
         </FormField>
 
@@ -50,6 +56,7 @@ export default async function RequestAccessPage({ searchParams }: RequestAccessP
             type="text"
             name="middleName"
             placeholder="Optional"
+            className="px-3 py-3"
           />
         </FormField>
 
@@ -60,6 +67,7 @@ export default async function RequestAccessPage({ searchParams }: RequestAccessP
             type="text"
             name="lastName"
             placeholder="Doe"
+            className="px-3 py-3"
           />
         </FormField>
 
@@ -70,6 +78,7 @@ export default async function RequestAccessPage({ searchParams }: RequestAccessP
             type="email"
             name="email"
             placeholder="you@company.com"
+            className="px-3 py-3"
           />
         </FormField>
 
@@ -80,17 +89,18 @@ export default async function RequestAccessPage({ searchParams }: RequestAccessP
             type="password"
             name="password"
             placeholder="••••••••"
+            className="px-3 py-3"
           />
         </FormField>
 
         {params.error ? <FormErrorText>{params.error}</FormErrorText> : null}
 
-        <Button type="submit" className="w-full">
+        <Button type="submit" variant="brand" size="lg" className="w-full">
           Request access
         </Button>
       </form>
 
-      <p className="text-sm text-zinc-600">
+      <p className="text-center text-sm text-zinc-600">
         Already have an account?{" "}
         <Link href="/sign-in" className="font-medium text-zinc-900 underline underline-offset-2">
           Sign in
