@@ -19,6 +19,7 @@
       }
     ],
     "paths": {
+      "lucide-react": ["./components/icons/lucide-react.tsx"],
       "@/*": ["./*"]
     }
   },

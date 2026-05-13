@@ -72,6 +72,8 @@ type SidebarNavItemProps = {
 };
 
 function SidebarNavItem({ item, isActive, onNavigate }: SidebarNavItemProps) {
+  const Icon = item.icon;
+
   if (item.disabled) {
     return (
       <button
@@ -81,7 +83,10 @@ function SidebarNavItem({ item, isActive, onNavigate }: SidebarNavItemProps) {
         title={`${item.label} is locked for your role`}
         className="flex min-h-10 w-full cursor-not-allowed items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm font-medium text-zinc-400"
       >
-        <span>{item.label}</span>
+        <span className="flex items-center gap-3">
+          <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+          <span>{item.label}</span>
+        </span>
         {item.locked ? <span aria-hidden="true">🔒</span> : null}
       </button>
     );
@@ -106,7 +111,10 @@ function SidebarNavItem({ item, isActive, onNavigate }: SidebarNavItemProps) {
           isActive ? "bg-[var(--he-yellow)]" : "bg-transparent group-hover:bg-[var(--he-yellow)]/50",
         )}
       />
-      <span className="relative">{item.label}</span>
+      <span className="relative flex items-center gap-3">
+        <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
+        <span>{item.label}</span>
+      </span>
     </Link>
   );
 }

@@ -1,3 +1,15 @@
+import {
+  ChartColumn,
+  CircleCheck,
+  Clock3,
+  History,
+  LayoutDashboard,
+  List,
+  MapPin,
+  Settings,
+  User,
+  type LucideIcon,
+} from "lucide-react";
 import { canAccessAdmin } from "@/src/lib/permissions/admin";
 import type { PermissionAuthContext } from "@/src/lib/permissions/roles";
 import { isAdminOrSupervisor, isApprovedUser } from "@/src/lib/permissions/roles";
@@ -13,6 +25,7 @@ export type AppNavItem = {
   permission: AppNavPermission;
   section: AppNavSection;
   internal?: boolean;
+  icon: LucideIcon;
 };
 
 export type ResolvedAppNavItem = AppNavItem & {
@@ -26,15 +39,50 @@ export type ResolvedAppNavSection = {
 };
 
 export const APP_NAV_ITEMS: AppNavItem[] = [
-  { label: "Timesheet", href: "/timesheet", permission: "timesheet", section: "main" },
-  { label: "Approvals", href: "/approvals", permission: "timesheetApprovals", section: "main" },
-  { label: "Admin", href: "/admin", permission: "admin", section: "main" },
-  { label: "Dashboard", href: "/dashboard", permission: "internalTools", section: "internal", internal: true },
-  { label: "Production", href: "/production", permission: "internalTools", section: "internal", internal: true },
-  { label: "Stock Take", href: "/stock-take", permission: "internalTools", section: "internal", internal: true },
-  { label: "Inventory", href: "/inventory", permission: "internalTools", section: "internal", internal: true },
-  { label: "Locations", href: "/locations", permission: "internalTools", section: "internal", internal: true },
-  { label: "History", href: "/history", permission: "internalTools", section: "internal", internal: true },
+  { label: "Timesheet", href: "/timesheet", permission: "timesheet", section: "main", icon: Clock3 },
+  { label: "Approvals", href: "/approvals", permission: "timesheetApprovals", section: "main", icon: CircleCheck },
+  { label: "Admin", href: "/admin", permission: "admin", section: "main", icon: User },
+  {
+    label: "Dashboard",
+    href: "/dashboard",
+    permission: "internalTools",
+    section: "internal",
+    internal: true,
+    icon: LayoutDashboard,
+  },
+  {
+    label: "Production",
+    href: "/production",
+    permission: "internalTools",
+    section: "internal",
+    internal: true,
+    icon: Settings,
+  },
+  {
+    label: "Stock Take",
+    href: "/stock-take",
+    permission: "internalTools",
+    section: "internal",
+    internal: true,
+    icon: ChartColumn,
+  },
+  {
+    label: "Inventory",
+    href: "/inventory",
+    permission: "internalTools",
+    section: "internal",
+    internal: true,
+    icon: List,
+  },
+  {
+    label: "Locations",
+    href: "/locations",
+    permission: "internalTools",
+    section: "internal",
+    internal: true,
+    icon: MapPin,
+  },
+  { label: "History", href: "/history", permission: "internalTools", section: "internal", internal: true, icon: History },
 ];
 
 export const canAccessNavigationPermission = (
