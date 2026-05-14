@@ -5,6 +5,7 @@ import { Button } from "@/src/components/ui/button";
 import { SegmentedControl } from "@/src/components/ui/segmented-control";
 import { StatusBadge } from "@/src/components/ui/status-badge";
 import { formatNzDate, getTodayNzDate } from "@/src/lib/dateTime";
+import { formatTimesheetDisplayDate, getNzWeekDates } from "@/src/lib/timesheets/date";
 import { TIMESHEET_STATUS_BADGE_CONFIG, formatTimesheetHours } from "@/src/lib/timesheets/formatting";
 import type { TimesheetDaySummary, TimesheetLeaveType, TimesheetLookups, TimesheetWorkMode } from "@/src/lib/timesheets/types";
 
@@ -166,10 +167,11 @@ export function WeeklyTimesheetView({
   context = "self",
 }: WeeklyTimesheetViewProps) {
   const todayDate = getTodayNzDate();
+  const weekDates = getNzWeekDates();
   const totalHours = days.reduce((sum, day) => sum + (day.entry?.payable_hours ?? 0), 0);
-  const completedDays = days.filter((day) => day.entry).length;
+  const weekRangeLabel = `${formatTimesheetDisplayDate(weekDates[0])} – ${formatTimesheetDisplayDate(weekDates[weekDates.length - 1])}`;
   const heading = context === "approval" ? "Review week" : "Week overview";
-  const description = context === "approval" ? "Daily submissions for supervisor review." : "Your current week at a glance.";
+  const description = context === "approval" ? "Daily submissions for supervisor review." : `${weekRangeLabel} · Total Hours${formatTimesheetHours(totalHours)}`;
 
   return (
     <section className="rounded-[1.35rem] border border-zinc-200/80 bg-white px-3 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.04)] sm:px-4 sm:py-4" aria-labelledby="weekly-timesheet-heading">
@@ -177,7 +179,6 @@ export function WeeklyTimesheetView({
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--he-muted)]">Timesheet</p>
           <h2 id="weekly-timesheet-heading" className="mt-1 text-lg font-semibold text-zinc-950">{heading}</h2>
-          <p className="mt-1 text-sm text-zinc-500">{description} {completedDays}/7 days · {formatTimesheetHours(totalHours)}</p>
         </div>
         <SegmentedControl aria-label="Weekly timesheet view" className="self-start sm:self-auto" onChange={onModeChange} options={WEEKDAY_MODE_OPTIONS} value={mode} />
       </div>

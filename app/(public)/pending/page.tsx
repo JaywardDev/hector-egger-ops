@@ -24,7 +24,7 @@ export default async function PendingPage({ searchParams }: PendingPageProps) {
         <p className="mt-2 text-sm leading-6 text-zinc-600">
           {isDisabled
             ? "This account cannot access the platform right now."
-            : "Your profile is complete and is waiting for administrator approval."}
+            : "Your request is currently under review. Please check back again later."}
         </p>
       </div>
 
