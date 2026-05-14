@@ -49,7 +49,7 @@ export function AppSidebar({ className, layout = "desktop", navigationSections, 
 
 function SidebarBrandHeader({ layout }: { layout: AppSidebarLayout }) {
   return (
-    <div className={cn("relative z-10 w-full overflow-hidden", layout === "mobile" ? "h-36 shrink-0" : "aspect-square")}>
+    <div className={cn("relative z-10 w-full overflow-hidden", layout === "mobile" ? "h-48 shrink-0" : "aspect-square")}>
       <Image
         src="/brand/he-operations-logo.svg"
         alt="Hector Egger Operations Platform"

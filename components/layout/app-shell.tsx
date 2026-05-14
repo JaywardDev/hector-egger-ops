@@ -89,19 +89,9 @@ export function AppShell({
             id="mobile-navigation"
             className="relative z-10 flex h-full w-80 max-w-[85vw] flex-col overflow-y-auto overscroll-contain border-r border-zinc-200 bg-white"
           >
-            <div className="shrink-0 flex items-center justify-between border-b border-zinc-200 px-4 py-3">
-              <h2 id="mobile-nav-title" className="text-sm font-semibold text-zinc-900">
-                Navigation
-              </h2>
-              <button
-                type="button"
-                onClick={() => setIsMobileNavOpen(false)}
-                className="rounded-md border border-zinc-300 px-2 py-1 text-sm text-zinc-700"
-                aria-label="Close navigation menu"
-              >
-                Close
-              </button>
-            </div>
+            <h2 className="sr-only" id="mobile-nav-title">
+              Navigation
+            </h2>
 
             <AppSidebar
               className="min-h-0 shrink-0"
