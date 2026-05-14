@@ -64,6 +64,13 @@ export const Eye = createIcon([
   { tag: "circle", attrs: { cx: "12", cy: "12", r: "3" } },
 ]);
 
+export const EyeOff = createIcon([
+  { tag: "path", attrs: { d: "M10.7 5.1A10.9 10.9 0 0 1 12 5c7 0 10 7 10 7a13.2 13.2 0 0 1-3.1 4.4" } },
+  { tag: "path", attrs: { d: "M6.6 6.6C3.5 8.6 2 12 2 12s3 7 10 7a9.7 9.7 0 0 0 5.4-1.6" } },
+  { tag: "path", attrs: { d: "M2 2l20 20" } },
+  { tag: "path", attrs: { d: "M9.9 9.9a3 3 0 0 0 4.2 4.2" } },
+]);
+
 export const LayoutDashboard = createIcon([
   { tag: "rect", attrs: { x: "3", y: "3", width: "7", height: "9", rx: "1" } },
   { tag: "rect", attrs: { x: "14", y: "3", width: "7", height: "5", rx: "1" } },
