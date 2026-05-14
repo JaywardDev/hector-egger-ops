@@ -55,7 +55,7 @@ function SidebarBrandHeader({ layout }: { layout: AppSidebarLayout }) {
         alt="Hector Egger Operations Platform"
         priority
         fill
-        className="object-contain"
+        className={cn("object-cover", layout === "mobile" ? "object-cover object-left-top" : "object-contain")}
       />
     </div>
   );
