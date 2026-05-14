@@ -515,7 +515,8 @@ export function DailyTimesheetForm({
           <Alert variant="error">{incompleteActivityError}</Alert>
         ) : null}
         <PendingActionButton
-          className="w-full border-blue-700 bg-blue-600 !text-white shadow-sm hover:bg-blue-700 disabled:border-blue-300 disabled:bg-blue-300 disabled:!text-white disabled:opacity-80"
+          variant="brand"
+          className="w-full"
           disabled={
             !canEdit ||
             !allocationMatches ||
