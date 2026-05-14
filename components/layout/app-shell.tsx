@@ -87,9 +87,9 @@ export function AppShell({
           />
           <div
             id="mobile-navigation"
-            className="relative z-10 flex h-full w-80 max-w-[85vw] flex-col border-r border-zinc-200 bg-white"
+            className="relative z-10 flex h-full w-80 max-w-[85vw] flex-col overflow-y-auto overscroll-contain border-r border-zinc-200 bg-white"
           >
-            <div className="flex items-center justify-between border-b border-zinc-200 px-4 py-3">
+            <div className="shrink-0 flex items-center justify-between border-b border-zinc-200 px-4 py-3">
               <h2 id="mobile-nav-title" className="text-sm font-semibold text-zinc-900">
                 Navigation
               </h2>
@@ -103,9 +103,14 @@ export function AppShell({
               </button>
             </div>
 
-            <AppSidebar className="flex-1 overflow-y-auto" navigationSections={navigationSections} onNavigate={() => setIsMobileNavOpen(false)} />
+            <AppSidebar
+              className="min-h-0 shrink-0"
+              layout="mobile"
+              navigationSections={navigationSections}
+              onNavigate={() => setIsMobileNavOpen(false)}
+            />
 
-            <div className="space-y-3 border-t border-zinc-200 p-4">
+            <div className="shrink-0 space-y-3 border-t border-zinc-200 p-4">
               <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
                 <p className="break-all">{session?.user.email ?? "No active user"}</p>
                 <p className="text-xs text-zinc-500">{accessState}</p>

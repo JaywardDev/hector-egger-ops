@@ -6,22 +6,36 @@ import { usePathname } from "next/navigation";
 import type { ResolvedAppNavItem, ResolvedAppNavSection } from "@/lib/navigation";
 import { cn } from "@/src/lib/utils";
 
+type AppSidebarLayout = "desktop" | "mobile";
+
 type AppSidebarProps = {
   className?: string;
+  layout?: AppSidebarLayout;
   navigationSections: ResolvedAppNavSection[];
   onNavigate?: () => void;
 };
 
-export function AppSidebar({ className, navigationSections, onNavigate }: AppSidebarProps) {
+export function AppSidebar({ className, layout = "desktop", navigationSections, onNavigate }: AppSidebarProps) {
   const pathname = usePathname();
+  const isMobileLayout = layout === "mobile";
 
   return (
-    <aside className={cn("border-zinc-200 bg-white text-zinc-900", className)}>
-      <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
+    <aside className={cn("border-zinc-200 bg-white text-zinc-900", isMobileLayout && "min-h-0", className)}>
+      <div
+        className={cn(
+          "relative flex min-h-0 flex-col",
+          isMobileLayout ? "overflow-visible" : "h-full overflow-hidden",
+        )}
+      >
+        <SidebarBrandHeader layout={layout} />
 
-        <SidebarBrandHeader />
-
-        <nav aria-label="Primary" className="relative z-10 flex-1 space-y-6 overflow-y-auto p-4 -mt-12">
+        <nav
+          aria-label="Primary"
+          className={cn(
+            "relative z-10 space-y-6 p-4",
+            isMobileLayout ? "min-h-0 pt-2 -mt-4" : "flex-1 overflow-y-auto -mt-12",
+          )}
+        >
           {navigationSections.map((section) => (
             <SidebarNavSection key={section.label} section={section} pathname={pathname} onNavigate={onNavigate} />
           ))}
@@ -33,9 +47,9 @@ export function AppSidebar({ className, navigationSections, onNavigate }: AppSid
   );
 }
 
-function SidebarBrandHeader() {
+function SidebarBrandHeader({ layout }: { layout: AppSidebarLayout }) {
   return (
-    <div className="relative z-10 aspect-square w-full overflow-hidden">
+    <div className={cn("relative z-10 w-full overflow-hidden", layout === "mobile" ? "h-36 shrink-0" : "aspect-square")}>
       <Image
         src="/brand/he-operations-logo.svg"
         alt="Hector Egger Operations Platform"
