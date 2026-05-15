@@ -11,6 +11,7 @@ import { Badge } from "@/src/components/ui/badge";
 import { Button } from "@/src/components/ui/button";
 import { PendingActionButton } from "@/src/components/ui/pending-button";
 import { StatusBadge } from "@/src/components/ui/status-badge";
+import { formatRoleLabel } from "@/src/lib/auth/role-labels";
 import { TIMESHEET_STATUS_BADGE_CONFIG } from "@/src/lib/timesheets/formatting";
 import { Card } from "@/src/components/ui/card";
 import { Textarea } from "@/src/components/ui/textarea";
@@ -136,7 +137,7 @@ export function ApprovalsClient({
               >
                 <div className="min-w-0">
                   <p className="font-medium text-zinc-950">{person.full_name ?? person.email}</p>
-                  <p className="text-sm text-zinc-500">{person.email} · {person.role}</p>
+                  <p className="text-sm text-zinc-500">{person.email} · {formatRoleLabel(person.role)}</p>
                 </div>
                 <div className="flex flex-wrap gap-2 sm:justify-end">
                   <Badge variant="neutral">{person.totalHours} h</Badge>

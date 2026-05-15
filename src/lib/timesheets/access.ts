@@ -2,6 +2,7 @@ import "server-only";
 
 import type { AuthSession } from "@/src/lib/auth/session";
 import { getCurrentAccountStatus, getCurrentUserRoles, type AppRole } from "@/src/lib/auth/profile-access";
+import { formatRoleDisjunction } from "@/src/lib/auth/role-labels";
 
 export type TimesheetActor = {
   session: AuthSession;
@@ -33,7 +34,7 @@ export const assertTimesheetReadAccess = async (actor: Omit<TimesheetActor, "pro
 export const assertTimesheetWriteAccess = async (actor: Omit<TimesheetActor, "profileId">) => {
   const { accountStatus, roles } = await resolveActor(actor);
   if (accountStatus !== "approved" || !roles.some((role) => ["admin", "supervisor", "operator"].includes(role))) {
-    throw new Error("Operator, supervisor, or admin access is required for timesheets");
+    throw new Error(`${formatRoleDisjunction(["operator", "supervisor", "admin"])} access is required for timesheets`);
   }
 };
 

@@ -6,6 +6,7 @@ import {
   getCurrentUserRoles,
   type AppRole,
 } from "@/src/lib/auth/profile-access";
+import { formatRoleDisjunction } from "@/src/lib/auth/role-labels";
 
 export type ApprovedAccessContext = {
   accountStatus: "approved";
@@ -66,7 +67,7 @@ export const assertProductionEntryWriteAccess = async (actor: ProductionActor) =
     !roles.some((role) => ["admin", "supervisor", "operator"].includes(role))
   ) {
     throw new Error(
-      "Operator, supervisor, or admin access is required for entry writes",
+      `${formatRoleDisjunction(["operator", "supervisor", "admin"])} access is required for entry writes`,
     );
   }
 };

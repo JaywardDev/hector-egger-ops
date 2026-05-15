@@ -7,6 +7,7 @@ import {
   getCurrentUserRoles,
   type AppRole,
 } from "@/src/lib/auth/profile-access";
+import { formatRoleLabel } from "@/src/lib/auth/role-labels";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import { withServerTiming } from "@/src/lib/server-timing";
@@ -302,7 +303,7 @@ const assertEntryWriteAccess = async ({
     )
   ) {
     throw new Error(
-      "Approved stock take operator access is required to record counts",
+      `Approved stock take ${formatRoleLabel("operator").toLowerCase()} access is required to record counts`,
     );
   }
 };

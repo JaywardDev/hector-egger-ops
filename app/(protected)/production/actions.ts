@@ -6,6 +6,7 @@ import {
   requireOperationalWriteAccess,
   requireProtectedAccess,
 } from "@/src/lib/auth/guards";
+import { formatRoleDisjunction } from "@/src/lib/auth/role-labels";
 import { parseNzDate } from "@/src/lib/dateTime";
 import {
   archiveProductionProject,
@@ -293,7 +294,7 @@ export async function createProductionEntryAction(input: {
   const { session, roles, profile } = await requireProtectedAccess();
 
   if (!roles.some((role) => ["admin", "supervisor", "operator"].includes(role))) {
-    throw new Error("Operator, supervisor, or admin access is required for entry writes");
+    throw new Error(`${formatRoleDisjunction(["operator", "supervisor", "admin"])} access is required for entry writes`);
   }
 
   if (!profile) {
@@ -395,7 +396,7 @@ export async function updateProductionEntryAction(
   const { session, roles, profile } = await requireProtectedAccess("/production/entries");
 
   if (!roles.some((role) => ["admin", "supervisor", "operator"].includes(role))) {
-    throw new Error("Operator, supervisor, or admin access is required for entry writes");
+    throw new Error(`${formatRoleDisjunction(["operator", "supervisor", "admin"])} access is required for entry writes`);
   }
 
   const existingEntry = await getProductionEntryDetail({
@@ -484,7 +485,7 @@ export async function deleteProductionEntryAction(entryId: string) {
   const { session, roles, profile } = await requireProtectedAccess("/production/entries");
 
   if (!roles.some((role) => ["admin", "supervisor", "operator"].includes(role))) {
-    throw new Error("Operator, supervisor, or admin access is required for entry writes");
+    throw new Error(`${formatRoleDisjunction(["operator", "supervisor", "admin"])} access is required for entry writes`);
   }
 
   const existingEntry = await getProductionEntryDetail({

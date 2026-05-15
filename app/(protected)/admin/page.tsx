@@ -25,6 +25,7 @@ import {
   listPendingUsers,
 } from "@/src/lib/admin/user-approvals";
 import { isProfileComplete, type AppRole, type StaffGroup } from "@/src/lib/auth/profile-access";
+import { formatRoleLabel, formatRoleList } from "@/src/lib/auth/role-labels";
 import { requireAdminAccess } from "@/src/lib/auth/guards";
 import { formatNzDateTime } from "@/src/lib/dateTime";
 
@@ -41,19 +42,10 @@ const staffGroupLabels: Record<StaffGroup, string> = {
   office: "Office",
 };
 
-const roleLabels: Record<AppRole, string> = {
-  operator: "operator",
-  supervisor: "supervisor",
-  admin: "admin",
-};
-
 const formatDate = (date: string | null) => formatNzDateTime(date);
 
 const displayStaffGroup = (staffGroup: StaffGroup | null) =>
   staffGroup ? staffGroupLabels[staffGroup] : "Unassigned staff group";
-
-const displayRoles = (roles: AppRole[]) =>
-  roles.length > 0 ? roles.map((role) => roleLabels[role]).join(", ") : "No role";
 
 const hasCompletedApprovalProfile = (user: AdminUserRecord) =>
   Boolean(user.profile_completed_at && isProfileComplete(user));
@@ -84,7 +76,7 @@ function RoleSelect({ user, idPrefix, defaultRole = "operator", required = false
       <Select id={`${idPrefix}-role-${user.id}`} name="role" defaultValue={selectedRole} className="w-auto min-w-36" required={required}>
         {required ? <option value="">Select role</option> : null}
         {ADMIN_ROLE_OPTIONS.map((role) => (
-          <option key={role} value={role}>{roleLabels[role]}</option>
+          <option key={role} value={role}>{formatRoleLabel(role)}</option>
         ))}
       </Select>
     </FormField>
@@ -104,7 +96,7 @@ function UserDetails({ user }: { user: AdminUserRecord }) {
       </div>
       <div>
         <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Roles</dt>
-        <dd className="text-zinc-800">{displayRoles(user.roles)}</dd>
+        <dd className="text-zinc-800">{formatRoleList(user.roles)}</dd>
       </div>
       <div>
         <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Staff group</dt>

@@ -11,7 +11,7 @@ export const mockUsers = [
     id: "mock-user-002",
     name: "Noah Operator",
     email: "noah.operator@example.test",
-    role: "Operator",
+    role: "Staff",
     status: "Pending",
     crew: "Site Crew 2",
   },
