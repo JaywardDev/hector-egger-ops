@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/src/lib/auth/guards";
-import { AppQrCodeCard } from "@/components/share/app-qr-code-card";
+import { AppQrCodeDisclosure } from "@/components/share/app-qr-code-card";
 import { SignInForm } from "@/app/(public)/sign-in/sign-in-form";
 
 type SignInPageProps = {
@@ -30,7 +30,7 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
   return (
     <div className="space-y-6">
       <SignInForm error={params.error} />
-      <AppQrCodeCard showInstallHelp={params.install === "1"} />
+      <AppQrCodeDisclosure defaultOpen={params.install === "1"} showInstallHelp />
     </div>
   );
 }
