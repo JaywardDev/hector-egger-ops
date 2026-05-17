@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/src/components/ui/button";
 import { cn } from "@/src/lib/utils";
@@ -12,11 +12,12 @@ type BeforeInstallPromptEvent = Event & {
 
 type AppQrCodeCardProps = {
   className?: string;
+  qrSize?: number;
   showInstallHelp?: boolean;
   targetPath?: string;
 };
 
-type AppQrCodeDisclosureProps = {
+type AppQrCodeModalTriggerProps = {
   className?: string;
   defaultOpen?: boolean;
   showInstallHelp?: boolean;
@@ -28,48 +29,116 @@ const signInPath = "/sign-in?install=1";
 const isBeforeInstallPromptEvent = (event: Event): event is BeforeInstallPromptEvent =>
   "prompt" in event && typeof event.prompt === "function" && "userChoice" in event;
 
-export function AppQrCodeDisclosure({
+export function AppQrCodeModalTrigger({
   className,
   defaultOpen = false,
   showInstallHelp = true,
   targetPath = signInPath,
-}: AppQrCodeDisclosureProps) {
+}: AppQrCodeModalTriggerProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const panelId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+
+  const closeModal = useCallback(() => {
+    setIsOpen(false);
+    window.requestAnimationFrame(() => {
+      triggerRef.current?.focus();
+    });
+  }, []);
+
+  useEffect(() => {
+    setIsOpen(defaultOpen);
+  }, [defaultOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    dialogRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeModal();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [closeModal, isOpen]);
 
   return (
-    <div className={cn("space-y-3", className)}>
+    <div className={cn("text-center", className)}>
       <button
+        ref={triggerRef}
         type="button"
-        className="mx-auto inline-flex w-full items-center justify-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-700 shadow-sm shadow-zinc-950/5 transition-colors hover:border-[var(--he-yellow)] hover:bg-[var(--he-yellow)]/10 hover:text-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)] sm:w-auto"
-        aria-expanded={isOpen}
-        aria-controls={panelId}
-        onClick={() => setIsOpen((current) => !current)}
+        className="group inline-flex items-center justify-center rounded-sm text-sm font-medium text-zinc-600 underline-offset-4 transition-colors hover:text-zinc-950 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--he-yellow)]"
+        onClick={() => setIsOpen(true)}
       >
-        <span className="h-1.5 w-1.5 rounded-full bg-[var(--he-yellow)]" aria-hidden="true" />
-        Open or install app
-        <svg
-          aria-hidden="true"
-          className={cn("h-4 w-4 text-zinc-500 transition-transform", isOpen ? "rotate-180" : "rotate-0")}
-          viewBox="0 0 20 20"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <span className="transition-colors group-hover:text-amber-700">Open app on another device</span>
       </button>
 
       {isOpen ? (
-        <div id={panelId}>
-          <AppQrCodeCard showInstallHelp={showInstallHelp} targetPath={targetPath} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+          <button
+            type="button"
+            aria-label="Close app QR code dialog"
+            className="absolute inset-0 bg-zinc-950/45 backdrop-blur-[2px]"
+            onClick={closeModal}
+          />
+
+          <div
+            ref={dialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={descriptionId}
+            tabIndex={-1}
+            className="relative z-10 w-full max-w-sm rounded-3xl border border-white/80 bg-white p-4 text-left shadow-2xl shadow-zinc-950/25 outline-none sm:max-w-md sm:p-5"
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Open the app</p>
+                <h2 id={titleId} className="mt-1 text-lg font-semibold text-zinc-950">
+                  Sign in on another device
+                </h2>
+                <p id={descriptionId} className="mt-1 text-sm leading-6 text-zinc-600">
+                  Scan the QR code to open the Hector Egger sign-in page on your phone, tablet, or another device.
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close app QR code dialog"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xl leading-none text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)]"
+                onClick={closeModal}
+              >
+                ×
+              </button>
+            </div>
+
+            <AppQrCodeCard
+              className="border-0 p-0 shadow-none"
+              qrSize={184}
+              showInstallHelp={showInstallHelp}
+              targetPath={targetPath}
+            />
+          </div>
         </div>
       ) : null}
     </div>
   );
 }
 
+export const AppQrCodeDisclosure = AppQrCodeModalTrigger;
+
 export function AppQrCodeCard({
   className,
+  qrSize = 116,
   showInstallHelp = false,
   targetPath = signInPath,
 }: AppQrCodeCardProps) {
@@ -120,6 +189,8 @@ export function AppQrCodeCard({
     setInstallPrompt(null);
   };
 
+  const showInstallPrompt = showInstallHelp && Boolean(installPrompt || installOutcome);
+
   return (
     <section
       className={cn(
@@ -128,11 +199,11 @@ export function AppQrCodeCard({
       )}
       aria-labelledby={titleId}
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="mx-auto rounded-2xl border border-zinc-200 bg-white p-2 shadow-inner shadow-zinc-950/5 sm:mx-0 sm:p-3">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <div className="rounded-3xl border border-zinc-200 bg-white p-3 shadow-inner shadow-zinc-950/5">
           <QRCodeSVG
             value={appUrl}
-            size={116}
+            size={qrSize}
             marginSize={1}
             level="M"
             bgColor="#ffffff"
@@ -141,33 +212,29 @@ export function AppQrCodeCard({
           />
         </div>
 
-        <div className="min-w-0 flex-1 text-center sm:text-left">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">Open the app</p>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">Sign-in link</p>
           <h3 id={titleId} className="mt-1 text-base font-semibold text-zinc-950">
-            Scan to sign in on your device
+            Scan to open the sign-in page
           </h3>
           <p className="mt-2 text-sm leading-6 text-zinc-600">
-            Scan this QR code to open the app. If your browser supports installation, you may see an Install button after opening it.
+            Scanning opens the app sign-in page for this site. It does not install the app automatically.
           </p>
-          <p className="mt-2 hidden break-all rounded-md bg-zinc-50 px-2.5 py-2 text-xs text-zinc-500 sm:block">{displayUrl}</p>
+          <p className="mt-3 break-all rounded-md bg-zinc-50 px-2.5 py-2 text-xs text-zinc-500">{displayUrl}</p>
         </div>
       </div>
 
-      {showInstallHelp ? (
+      {showInstallPrompt ? (
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-sm text-zinc-700">
-          <p className="font-medium text-zinc-950">Installation options</p>
+          <p className="font-medium text-zinc-950">Optional app install</p>
           {installPrompt ? (
             <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="leading-6">This browser has made an app install prompt available. Use it only if you want to add the app to this device.</p>
+              <p className="leading-6">This browser has made an install prompt available. You can keep using the sign-in page without installing.</p>
               <Button type="button" variant="brand" size="sm" className="shrink-0" onClick={handleInstallClick}>
                 Install app
               </Button>
             </div>
-          ) : (
-            <p className="mt-2 leading-6">
-              If your browser does not show an install prompt, continue in the browser or use the browser menu when available. On iPhone or iPad, open Safari, tap <span className="font-medium">Share</span>, then <span className="font-medium">Add to Home Screen</span>.
-            </p>
-          )}
+          ) : null}
           {installOutcome === "dismissed" ? (
             <p className="mt-2 text-xs text-zinc-600">Install was dismissed. You can keep using the app in the browser.</p>
           ) : null}
