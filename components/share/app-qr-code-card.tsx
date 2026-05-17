@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/src/components/ui/button";
 import { cn } from "@/src/lib/utils";
@@ -26,6 +27,10 @@ type AppQrCodeModalTriggerProps = {
 
 const signInPath = "/sign-in?install=1";
 
+const subscribeToPortalTarget = () => () => {};
+const getPortalTargetSnapshot = () => document.body;
+const getServerPortalTargetSnapshot = () => null;
+
 const isBeforeInstallPromptEvent = (event: Event): event is BeforeInstallPromptEvent =>
   "prompt" in event && typeof event.prompt === "function" && "userChoice" in event;
 
@@ -40,6 +45,11 @@ export function AppQrCodeModalTrigger({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   const descriptionId = useId();
+  const portalTarget = useSyncExternalStore(
+    subscribeToPortalTarget,
+    getPortalTargetSnapshot,
+    getServerPortalTargetSnapshot,
+  );
 
   const closeModal = useCallback(() => {
     setIsOpen(false);
@@ -53,7 +63,7 @@ export function AppQrCodeModalTrigger({
   }, [defaultOpen]);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!isOpen || !portalTarget) {
       return;
     }
 
@@ -70,7 +80,7 @@ export function AppQrCodeModalTrigger({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [closeModal, isOpen]);
+  }, [closeModal, isOpen, portalTarget]);
 
   return (
     <div className={cn("text-center", className)}>
@@ -83,53 +93,56 @@ export function AppQrCodeModalTrigger({
         <span className="transition-colors group-hover:text-amber-700">Open app on another device</span>
       </button>
 
-      {isOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-          <button
-            type="button"
-            aria-label="Close app QR code dialog"
-            className="absolute inset-0 bg-zinc-950/45 backdrop-blur-[2px]"
-            onClick={closeModal}
-          />
-
-          <div
-            ref={dialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            aria-describedby={descriptionId}
-            tabIndex={-1}
-            className="relative z-10 w-full max-w-sm rounded-3xl border border-white/80 bg-white p-4 text-left shadow-2xl shadow-zinc-950/25 outline-none sm:max-w-md sm:p-5"
-          >
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Open the app</p>
-                <h2 id={titleId} className="mt-1 text-lg font-semibold text-zinc-950">
-                  Sign in on another device
-                </h2>
-                <p id={descriptionId} className="mt-1 text-sm leading-6 text-zinc-600">
-                  Scan the QR code to open the Hector Egger sign-in page on your phone, tablet, or another device.
-                </p>
-              </div>
+      {isOpen && portalTarget
+        ? createPortal(
+            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 sm:p-6">
               <button
                 type="button"
                 aria-label="Close app QR code dialog"
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xl leading-none text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)]"
+                className="absolute inset-0 bg-zinc-950/45 backdrop-blur-[2px]"
                 onClick={closeModal}
-              >
-                ×
-              </button>
-            </div>
+              />
 
-            <AppQrCodeCard
-              className="border-0 p-0 shadow-none"
-              qrSize={184}
-              showInstallHelp={showInstallHelp}
-              targetPath={targetPath}
-            />
-          </div>
-        </div>
-      ) : null}
+              <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                aria-describedby={descriptionId}
+                tabIndex={-1}
+                className="relative z-10 w-full max-w-sm rounded-3xl border border-white/80 bg-white p-4 text-left shadow-2xl shadow-zinc-950/25 outline-none sm:max-w-md sm:p-5"
+              >
+                <div className="mb-4 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-700">Open the app</p>
+                    <h2 id={titleId} className="mt-1 text-lg font-semibold text-zinc-950">
+                      Sign in on another device
+                    </h2>
+                    <p id={descriptionId} className="mt-1 text-sm leading-6 text-zinc-600">
+                      Scan the QR code to open the Hector Egger sign-in page on your phone, tablet, or another device.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    aria-label="Close app QR code dialog"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xl leading-none text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)]"
+                    onClick={closeModal}
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <AppQrCodeCard
+                  className="border-0 p-0 shadow-none"
+                  qrSize={184}
+                  showInstallHelp={showInstallHelp}
+                  targetPath={targetPath}
+                />
+              </div>
+            </div>,
+            portalTarget,
+          )
+        : null}
     </div>
   );
 }
