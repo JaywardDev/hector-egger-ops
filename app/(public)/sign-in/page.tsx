@@ -1,10 +1,12 @@
 import { redirect } from "next/navigation";
 import { getAuthContext } from "@/src/lib/auth/guards";
+import { AppQrCodeCard } from "@/components/share/app-qr-code-card";
 import { SignInForm } from "@/app/(public)/sign-in/sign-in-form";
 
 type SignInPageProps = {
   searchParams: Promise<{
     error?: string;
+    install?: string;
   }>;
 };
 
@@ -25,5 +27,10 @@ export default async function SignInPage({ searchParams }: SignInPageProps) {
 
   const params = await searchParams;
 
-  return <SignInForm error={params.error} />;
+  return (
+    <div className="space-y-6">
+      <SignInForm error={params.error} />
+      <AppQrCodeCard showInstallHelp={params.install === "1"} />
+    </div>
+  );
 }
