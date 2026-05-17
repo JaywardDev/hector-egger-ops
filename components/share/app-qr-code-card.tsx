@@ -13,22 +13,30 @@ type BeforeInstallPromptEvent = Event & {
 type AppQrCodeCardProps = {
   className?: string;
   showInstallHelp?: boolean;
+  targetPath?: string;
 };
 
 const signInPath = "/sign-in?install=1";
 
-export function AppQrCodeCard({ className, showInstallHelp = false }: AppQrCodeCardProps) {
-  const [appUrl, setAppUrl] = useState(signInPath);
+const isBeforeInstallPromptEvent = (event: Event): event is BeforeInstallPromptEvent =>
+  "prompt" in event && typeof event.prompt === "function" && "userChoice" in event;
+
+export function AppQrCodeCard({
+  className,
+  showInstallHelp = false,
+  targetPath = signInPath,
+}: AppQrCodeCardProps) {
+  const [appUrl, setAppUrl] = useState(targetPath);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installOutcome, setInstallOutcome] = useState<"accepted" | "dismissed" | null>(null);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
-      setAppUrl(`${window.location.origin}${signInPath}`);
+      setAppUrl(new URL(targetPath, window.location.origin).toString());
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, []);
+  }, [targetPath]);
 
   useEffect(() => {
     if (!showInstallHelp) {
@@ -36,8 +44,12 @@ export function AppQrCodeCard({ className, showInstallHelp = false }: AppQrCodeC
     }
 
     const handleBeforeInstallPrompt = (event: Event) => {
+      if (!isBeforeInstallPromptEvent(event)) {
+        return;
+      }
+
       event.preventDefault();
-      setInstallPrompt(event as BeforeInstallPromptEvent);
+      setInstallPrompt(event);
     };
 
     window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
@@ -63,16 +75,16 @@ export function AppQrCodeCard({ className, showInstallHelp = false }: AppQrCodeC
   return (
     <section
       className={cn(
-        "rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm shadow-zinc-950/5",
+        "rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm shadow-zinc-950/5 sm:p-4",
         className,
       )}
       aria-labelledby="app-qr-code-title"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div className="mx-auto rounded-2xl border border-zinc-200 bg-white p-3 shadow-inner shadow-zinc-950/5 sm:mx-0">
+        <div className="mx-auto rounded-2xl border border-zinc-200 bg-white p-2 shadow-inner shadow-zinc-950/5 sm:mx-0 sm:p-3">
           <QRCodeSVG
             value={appUrl}
-            size={132}
+            size={116}
             marginSize={1}
             level="M"
             bgColor="#ffffff"
@@ -89,7 +101,7 @@ export function AppQrCodeCard({ className, showInstallHelp = false }: AppQrCodeC
           <p className="mt-2 text-sm leading-6 text-zinc-600">
             The code opens the secure sign-in page for this environment. Install is optional and always requires your confirmation.
           </p>
-          <p className="mt-2 break-all rounded-md bg-zinc-50 px-2.5 py-2 text-xs text-zinc-500">{displayUrl}</p>
+          <p className="mt-2 hidden break-all rounded-md bg-zinc-50 px-2.5 py-2 text-xs text-zinc-500 sm:block">{displayUrl}</p>
         </div>
       </div>
 
@@ -105,7 +117,7 @@ export function AppQrCodeCard({ className, showInstallHelp = false }: AppQrCodeC
             </div>
           ) : (
             <p className="mt-2 leading-6">
-              If no install button appears, use your browser menu: Chrome or Edge can show <span className="font-medium">Install app</span>. On iPhone or iPad, open Safari and choose <span className="font-medium">Share</span> then <span className="font-medium">Add to Home Screen</span>.
+              If no install button appears, use your browser menu. In Chrome or Edge, choose <span className="font-medium">Install app</span>. On iPhone or iPad, open Safari, tap <span className="font-medium">Share</span>, then <span className="font-medium">Add to Home Screen</span>.
             </p>
           )}
           {installOutcome === "dismissed" ? (
