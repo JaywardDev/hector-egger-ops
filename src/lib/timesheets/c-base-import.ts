@@ -89,6 +89,7 @@ const emptySummary = (): CBaseImportDiffSummary => ({
 });
 
 const normalizeHeader = (value: string) => value.trim();
+const normalizeHeaderCell = (value: string | boolean) => (typeof value === "string" ? normalizeHeader(value) : "");
 const normalizeCode = (value: string) => value.trim();
 const normalizeLabel = (value: string) => value.trim().replace(/\s+/g, " ");
 
@@ -215,7 +216,7 @@ export const parseWorksheet = (buffer: Buffer, sheetName: string, file: SourceFi
     return { rows: [], errors: [{ file, rowNumber: null, field: null, code: null, message: "Worksheet is empty." }] };
   }
 
-  const headers = headerRow.cells.map(normalizeHeader);
+  const headers = headerRow.cells.map(normalizeHeaderCell);
   const expectedHeaders = [...REQUIRED_HEADERS[file]];
   if (headers.length !== expectedHeaders.length || headers.some((header, index) => header !== expectedHeaders[index])) {
     return {
