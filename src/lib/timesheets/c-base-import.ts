@@ -63,7 +63,7 @@ export type CBaseImportPreparationResult = {
 
 type WorkbookRow = {
   rowNumber: number;
-  values: Record<string, string>;
+  values: Record<string, string | boolean>;
 };
 
 const REQUIRED_HEADERS = {
@@ -229,7 +229,9 @@ export const parseWorksheet = (buffer: Buffer, sheetName: string, file: SourceFi
   return { rows, errors };
 };
 
-const parseStrictBoolean = (value: string): boolean | null => {
+const parseStrictBoolean = (value: string | boolean): boolean | null => {
+  if (typeof value === "boolean") return value;
+
   const normalized = value.trim().toLowerCase();
   if (normalized === "true") return true;
   if (normalized === "false") return false;
