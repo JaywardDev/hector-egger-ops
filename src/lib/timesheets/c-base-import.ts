@@ -244,6 +244,16 @@ const getRequiredStringCell = (row: WorkbookRow, key: string): string | null => 
   return value;
 };
 
+const parseOptionalIntegerCell = (value: string | boolean | undefined, fallback: number): number => {
+  if (typeof value !== "string") return fallback;
+
+  const trimmed = value.trim();
+  if (!trimmed) return fallback;
+
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
 export const parseSourceRows = (rows: WorkbookRow[], file: SourceFile) => {
   const errors: CBaseImportValidationError[] = [];
   const parsed: CBaseImportRow[] = [];
@@ -263,7 +273,7 @@ export const parseSourceRows = (rows: WorkbookRow[], file: SourceFile) => {
     }
     if (!code || !label) continue;
 
-    const sortOrder = Number.parseInt(row.values[file === "buildings" ? "DISPLAYAS" : "DisplayAs"] ?? "", 10);
+    const sortOrder = parseOptionalIntegerCell(row.values[file === "buildings" ? "DISPLAYAS" : "DisplayAs"], row.rowNumber);
 
     let isHidden = false;
     let visibleToStaffGroups: StaffGroup[] = [];
@@ -296,7 +306,7 @@ export const parseSourceRows = (rows: WorkbookRow[], file: SourceFile) => {
       code,
       label,
       hidden: isHidden,
-      sortOrder: Number.isFinite(sortOrder) ? sortOrder : 100,
+      sortOrder,
       visibleToStaffGroups,
     };
 
