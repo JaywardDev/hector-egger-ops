@@ -39,6 +39,7 @@ const leaveLabels: Record<TimesheetLeaveType, string> = {
 const workModeLabels: Record<Exclude<TimesheetWorkMode, "mixed">, string> = {
   factory: "Factory",
   site: "Site",
+  office: "Office",
 };
 
 function getFullDateLabel(date: string) {

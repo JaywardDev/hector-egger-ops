@@ -7,8 +7,8 @@ import type {
   TimesheetWorkMode,
 } from "@/src/lib/timesheets/types";
 
-const workModes = new Set<TimesheetWorkMode>(["factory", "site", "mixed"]);
-const activityModes = new Set<TimesheetActivityMode>(["factory", "site"]);
+const workModes = new Set<TimesheetWorkMode>(["factory", "site", "office", "mixed"]);
+const activityModes = new Set<TimesheetActivityMode>(["factory", "site", "office"]);
 const leaveTypes = new Set<TimesheetLeaveType>([
   "annual",
   "sick",
@@ -154,9 +154,9 @@ export const validateTimesheetEntryInput = (
       );
     if (input.workMode === "mixed") {
       if (!activityModes.has(row.workMode))
-        throw new Error("Mixed mode rows must choose factory or site.");
+        throw new Error("Mixed mode rows must choose factory, site, or office.");
     } else if (row.workMode !== input.workMode) {
-      throw new Error("Factory/site rows must inherit the selected work mode.");
+      throw new Error("Non-mixed rows must inherit the selected work mode.");
     }
   }
 

@@ -19,6 +19,7 @@ import type {
   SaveTimesheetEntryInput,
   TimesheetActivityInput,
   TimesheetEntryWithActivities,
+  TimesheetActivityMode,
   TimesheetLeaveType,
   TimesheetLookups,
   TimesheetWorkMode,
@@ -47,7 +48,7 @@ const defaultActivity = (
   clientId: crypto.randomUUID(),
   projectId: lookups.projects[0]?.id ?? "",
   taskId: lookups.tasks[0]?.id ?? "",
-  workMode: workMode === "site" ? "site" : "factory",
+  workMode: workMode === "mixed" ? "factory" : workMode,
   hours: Number(hoursText) || 0,
   hoursText,
 });
@@ -317,6 +318,7 @@ export function DailyTimesheetForm({
             >
               <option value="factory">Factory</option>
               <option value="site">Site</option>
+              <option value="office">Office</option>
               <option value="mixed">Mixed</option>
             </Select>
           </label>
@@ -393,12 +395,13 @@ export function DailyTimesheetForm({
                         disabled={disabled}
                         onChange={(event) =>
                           updateActivity(activity.clientId, {
-                            workMode: event.target.value as "factory" | "site",
+                            workMode: event.target.value as TimesheetActivityMode,
                           })
                         }
                       >
                         <option value="factory">Factory</option>
                         <option value="site">Site</option>
+                        <option value="office">Office</option>
                       </Select>
                     </label>
                   ) : null}

@@ -1,5 +1,5 @@
-export type TimesheetWorkMode = "factory" | "site" | "mixed";
-export type TimesheetActivityMode = "factory" | "site";
+export type TimesheetWorkMode = "factory" | "site" | "office" | "mixed";
+export type TimesheetActivityMode = "factory" | "site" | "office";
 export type TimesheetStatus = "submitted" | "returned" | "supervisor_approved" | "approved";
 export type StaffGroup = "factory" | "site" | "office";
 export type TimesheetLeaveType = "annual" | "sick" | "bereavement" | "unpaid" | "other";
