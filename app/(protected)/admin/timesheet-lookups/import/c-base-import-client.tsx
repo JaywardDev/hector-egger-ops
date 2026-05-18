@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { importCBaseTimesheetLookupsAction, initialCBaseImportState } from "@/app/(protected)/admin/timesheet-lookups/import/actions";
+import { importCBaseTimesheetLookupsAction, type CBaseImportActionState } from "@/app/(protected)/admin/timesheet-lookups/import/actions";
 import { Alert } from "@/src/components/ui/alert";
 import { Button } from "@/src/components/ui/button";
 import { Card } from "@/src/components/ui/card";
@@ -17,6 +17,13 @@ const summaryItems = [
   ["Deactivated by missing export row", "deactivatedByMissingCount"],
   ["Invalid rows", "invalidRowsCount"],
 ] as const;
+const initialCBaseImportState: CBaseImportActionState = {
+  status: "idle",
+  mode: null,
+  message: null,
+  summary: null,
+  errors: [],
+};
 
 export function CBaseTimesheetImportClient() {
   const [state, formAction, isPending] = useActionState(importCBaseTimesheetLookupsAction, initialCBaseImportState);

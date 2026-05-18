@@ -17,13 +17,6 @@ export type CBaseImportActionState = {
   errors: CBaseImportValidationError[];
 };
 
-export const initialCBaseImportState: CBaseImportActionState = {
-  status: "idle",
-  mode: null,
-  message: null,
-  summary: null,
-  errors: [],
-};
 
 const fileFromFormData = (formData: FormData, fieldName: string) => {
   const value = formData.get(fieldName);
