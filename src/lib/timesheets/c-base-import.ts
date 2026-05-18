@@ -169,11 +169,14 @@ const cellColumn = (reference: string) => reference.replace(/[0-9]/g, "");
 const columnIndex = (column: string) =>
   column.split("").reduce((total, character) => total * 26 + character.charCodeAt(0) - 64, 0) - 1;
 
-const readCellValue = (cell: string, sharedStrings: string[]) => {
+const readCellValue = (cell: string, sharedStrings: string[]): string | boolean => {
   const type = cell.match(/\bt="([^"]+)"/)?.[1];
   const inline = cell.match(/<is>[\s\S]*?<t[^>]*>([\s\S]*?)<\/t>[\s\S]*?<\/is>/)?.[1];
   const value = inline ?? cell.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? "";
+
   if (type === "s") return sharedStrings[Number(value)] ?? "";
+  if (type === "b") return value === "1";
+
   return escapeXml(value);
 };
 
@@ -199,9 +202,10 @@ export const parseWorksheet = (buffer: Buffer, sheetName: string, file: SourceFi
 
   const sharedStrings = getSharedStrings(files);
   const rawRows = Array.from(worksheetXml.matchAll(/<row\b[^>]*r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g)).map(([, rowNumber, rowXml]) => {
-    const cells: string[] = [];
+    const cells: Array<string | boolean> = [];
     for (const [, reference, cellXml] of rowXml.matchAll(/<c\b[^>]*r="([A-Z]+)\d+"[^>]*>([\s\S]*?)<\/c>/g)) {
-      cells[columnIndex(cellColumn(reference))] = readCellValue(cellXml, sharedStrings).trim();
+      const cellValue = readCellValue(cellXml, sharedStrings);
+      cells[columnIndex(cellColumn(reference))] = typeof cellValue === "string" ? cellValue.trim() : cellValue;
     }
     return { rowNumber: Number(rowNumber), cells };
   });
