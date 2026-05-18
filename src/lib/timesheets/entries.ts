@@ -5,11 +5,11 @@ import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import { assertTimesheetReadAccess, assertTimesheetWriteAccess, canEditApprovedTimesheets, createSessionHeaders, type TimesheetActor } from "@/src/lib/timesheets/access";
 import { validateTimesheetEntryInput } from "@/src/lib/timesheets/validation";
-import type { SaveTimesheetEntryInput, TimesheetActivityRecord, TimesheetEntryRecord, TimesheetEntryWithActivities, TimesheetPreferenceRecord, TimesheetWorkMode } from "@/src/lib/timesheets/types";
+import type { SaveTimesheetEntryInput, TimesheetActivityRecord, TimesheetEntryRecord, TimesheetEntryWithActivities, TimesheetLookupOption, TimesheetPreferenceRecord, TimesheetWorkMode } from "@/src/lib/timesheets/types";
 
 export const timesheetEntrySelect = "id,profile_id,work_date,status,time_in,time_out,work_mode,leave_type,leave_hours,is_public_holiday,unpaid_break,paid_break,payable_hours,allocation_hours,submitted_at,approved_at,approved_by_profile_id,returned_at,returned_by_profile_id,return_comment,created_at,updated_at";
 const entrySelect = timesheetEntrySelect;
-export const timesheetActivitySelect = "id,entry_id,project_id,task_id,work_mode,hours,sort_order";
+export const timesheetActivitySelect = "id,entry_id,project_id,task_id,project_code_snapshot,project_label_snapshot,task_code_snapshot,task_label_snapshot,work_mode,hours,sort_order";
 const activitySelect = timesheetActivitySelect;
 
 type ActorWithRoles = TimesheetActor & { accessContext: { accountStatus: "approved"; roles: import("@/src/lib/auth/profile-access").AppRole[] } };
@@ -66,18 +66,23 @@ const getExistingEntry = async (profileId: string, workDate: string): Promise<Ti
 export const getValidLookupIds = async () => {
   const supabase = createServiceRoleSupabaseClient();
   const [projectsResponse, tasksResponse] = await Promise.all([
-    supabase.request("/rest/v1/timesheet_projects?select=id&is_active=eq.true"),
-    supabase.request("/rest/v1/timesheet_tasks?select=id&is_active=eq.true"),
+    supabase.request("/rest/v1/timesheet_projects?select=id,code,label,is_active,sort_order&is_active=eq.true"),
+    supabase.request("/rest/v1/timesheet_tasks?select=id,code,label,is_active,sort_order&is_active=eq.true"),
   ]);
   if (!projectsResponse.ok || !tasksResponse.ok) throw new Error("Failed to validate lookup options");
-  const projects = (await projectsResponse.json()) as { id: string }[];
-  const tasks = (await tasksResponse.json()) as { id: string }[];
-  return { projectIds: new Set(projects.map((row) => row.id)), taskIds: new Set(tasks.map((row) => row.id)) };
+  const projects = (await projectsResponse.json()) as TimesheetLookupOption[];
+  const tasks = (await tasksResponse.json()) as TimesheetLookupOption[];
+  return {
+    projectIds: new Set(projects.map((row) => row.id)),
+    taskIds: new Set(tasks.map((row) => row.id)),
+    projectById: new Map(projects.map((row) => [row.id, row])),
+    taskById: new Map(tasks.map((row) => [row.id, row])),
+  };
 };
 
 export const saveOwnTimesheetEntry = async (actor: ActorWithRoles, input: SaveTimesheetEntryInput): Promise<TimesheetEntryWithActivities> => {
   await assertTimesheetWriteAccess(actor);
-  const { projectIds, taskIds } = await getValidLookupIds();
+  const { projectIds, taskIds, projectById, taskById } = await getValidLookupIds();
   const validated = validateTimesheetEntryInput(input, projectIds, taskIds);
   const existing = await getExistingEntry(actor.profileId, validated.workDate);
   if (existing?.status === "supervisor_approved" || (existing?.status === "approved" && !canEditApprovedTimesheets(actor.accessContext.roles))) {
@@ -128,14 +133,22 @@ export const saveOwnTimesheetEntry = async (actor: ActorWithRoles, input: SaveTi
     const activityResponse = await supabase.request(`/rest/v1/timesheet_entry_activities?select=${activitySelect}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Prefer: "return=representation" },
-      body: JSON.stringify(validated.activities.map((activity, index) => ({
-        entry_id: entry.id,
-        project_id: activity.projectId,
-        task_id: activity.taskId,
-        work_mode: input.workMode === "mixed" ? activity.workMode : input.workMode,
-        hours: activity.hours,
-        sort_order: index,
-      }))),
+      body: JSON.stringify(validated.activities.map((activity, index) => {
+        const project = projectById.get(activity.projectId);
+        const task = taskById.get(activity.taskId);
+        return {
+          entry_id: entry.id,
+          project_id: activity.projectId,
+          task_id: activity.taskId,
+          project_code_snapshot: project?.code ?? null,
+          project_label_snapshot: project?.label ?? null,
+          task_code_snapshot: task?.code ?? null,
+          task_label_snapshot: task?.label ?? null,
+          work_mode: input.workMode === "mixed" ? activity.workMode : input.workMode,
+          hours: activity.hours,
+          sort_order: index,
+        };
+      })),
     });
     if (!activityResponse.ok) throw new Error("Failed to save timesheet activity rows");
     activities = (await activityResponse.json()) as TimesheetActivityRecord[];

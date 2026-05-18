@@ -8,6 +8,7 @@ import { Alert } from "@/src/components/ui/alert";
 import { StatusBadge } from "@/src/components/ui/status-badge";
 import { Button } from "@/src/components/ui/button";
 import { TIMESHEET_STATUS_BADGE_CONFIG, formatTimesheetHours } from "@/src/lib/timesheets/formatting";
+import { getActivityProjectDisplay, getActivityTaskDisplay } from "@/src/lib/timesheets/activity-display";
 import type { TimesheetEntryWithActivities, TimesheetLookups } from "@/src/lib/timesheets/types";
 
 export function DailyTimesheetReview({
@@ -118,12 +119,12 @@ export function DailyTimesheetReview({
             ) : (
               <div className="divide-y divide-zinc-100 rounded-lg border border-zinc-200">
                 {entry.activities.map((activity) => {
-                  const project = projectById.get(activity.project_id);
-                  const task = taskById.get(activity.task_id);
+                  const projectLabel = getActivityProjectDisplay(activity, projectById);
+                  const taskLabel = getActivityTaskDisplay(activity, taskById);
                   return (
                     <div key={activity.id} className="grid gap-2 p-3 text-sm sm:grid-cols-[1fr_1fr_120px_100px]">
-                      <span>{project ? `${project.code} — ${project.label}` : "Unknown project"}</span>
-                      <span>{task?.label ?? "Unknown task"}</span>
+                      <span>{projectLabel}</span>
+                      <span>{taskLabel}</span>
                       <span className="capitalize">{activity.work_mode}</span>
                       <span className="font-medium">{formatTimesheetHours(activity.hours)}</span>
                     </div>

@@ -5,7 +5,7 @@ import { Button } from "@/src/components/ui/button";
 import { SegmentedControl } from "@/src/components/ui/segmented-control";
 import { StatusBadge } from "@/src/components/ui/status-badge";
 import { formatNzDate, getTodayNzDate } from "@/src/lib/dateTime";
-import { formatTimesheetDisplayDate, getNzWeekDates } from "@/src/lib/timesheets/date";
+import { getActivityProjectDisplay, getActivityTaskDisplay } from "@/src/lib/timesheets/activity-display";
 import { TIMESHEET_STATUS_BADGE_CONFIG, formatTimesheetHours } from "@/src/lib/timesheets/formatting";
 import type { TimesheetDaySummary, TimesheetLeaveType, TimesheetLookups, TimesheetWorkMode } from "@/src/lib/timesheets/types";
 
@@ -74,10 +74,8 @@ function ActivitySummary({ day, lookups }: { day: TimesheetDaySummary; lookups: 
   return (
     <ul className="mt-3 space-y-1.5 text-sm text-zinc-600" aria-label={`${day.weekdayLabel} activity summary`}>
       {visibleActivities.map((activity) => {
-        const project = projectById.get(activity.project_id);
-        const task = taskById.get(activity.task_id);
-        const projectLabel = project ? `${project.code || "General"} / ${project.label || "unassigned"}` : "General / unassigned";
-        const taskLabel = task?.label ?? "Unassigned task";
+        const projectLabel = getActivityProjectDisplay(activity, projectById);
+        const taskLabel = getActivityTaskDisplay(activity, taskById);
         return (
           <li key={activity.id} className="leading-6">
             <span className="text-zinc-800">{projectLabel}</span> · {taskLabel} · {workModeLabels[activity.work_mode]} · {formatTimesheetHours(activity.hours)}
@@ -168,11 +166,7 @@ export function WeeklyTimesheetView({
   context = "self",
 }: WeeklyTimesheetViewProps) {
   const todayDate = getTodayNzDate();
-  const weekDates = getNzWeekDates();
-  const totalHours = days.reduce((sum, day) => sum + (day.entry?.payable_hours ?? 0), 0);
-  const weekRangeLabel = `${formatTimesheetDisplayDate(weekDates[0])} – ${formatTimesheetDisplayDate(weekDates[weekDates.length - 1])}`;
   const heading = context === "approval" ? "Review week" : "Week overview";
-  const description = context === "approval" ? "Daily submissions for supervisor review." : `${weekRangeLabel} · Total Hours${formatTimesheetHours(totalHours)}`;
 
   return (
     <section className="rounded-[1.35rem] border border-zinc-200/80 bg-white px-3 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.04)] sm:px-4 sm:py-4" aria-labelledby="weekly-timesheet-heading">

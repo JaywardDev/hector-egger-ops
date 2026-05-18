@@ -22,6 +22,10 @@ export type TimesheetActivityRecord = {
   entry_id: string;
   project_id: string;
   task_id: string;
+  project_code_snapshot: string | null;
+  project_label_snapshot: string | null;
+  task_code_snapshot: string | null;
+  task_label_snapshot: string | null;
   work_mode: TimesheetActivityMode;
   hours: number;
   sort_order: number;
