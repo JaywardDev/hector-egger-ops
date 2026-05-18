@@ -66,9 +66,6 @@ type WorkbookRow = {
   values: Record<string, string | boolean>;
 };
 
-const C_BASE_IMPORT_AUDIT_MARKER = "C_BASE_IMPORT_BOOLEAN_AUDIT_2026_05_19";
-const C_BASE_IMPORT_AUDIT_PREFIX = "[C-BASE-IMPORT-AUDIT]";
-
 const REQUIRED_HEADERS = {
   buildings: ["PRODUCTION_SEQUENCE", "TITLE", "DISPLAYAS", "STATUS", "TIMESHEET_SITE", "TIMESHEET_FACTORY", "TIMESHEET_OFFICE"],
   costcodes: ["COSTCODE_ID", "Description", "DisplayAs", "Department"],
@@ -179,15 +176,7 @@ const readCellValue = (cell: string, sharedStrings: string[]): string | boolean 
   const value = inline ?? cell.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? "";
 
   if (type === "s") return sharedStrings[Number(value)] ?? "";
-  if (type === "b") {
-    const parsedBoolean = value === "1";
-    console.info(C_BASE_IMPORT_AUDIT_PREFIX, C_BASE_IMPORT_AUDIT_MARKER, "readCellValue boolean cell", {
-      rawValue: value,
-      returnedValue: parsedBoolean,
-      returnedType: typeof parsedBoolean,
-    });
-    return parsedBoolean;
-  }
+  if (type === "b") return value === "1";
 
   return escapeXml(value);
 };
@@ -251,6 +240,8 @@ const parseStrictBoolean = (value: string | boolean): boolean | null => {
   const normalized = value.trim().toLowerCase();
   if (normalized === "true") return true;
   if (normalized === "false") return false;
+  if (normalized === "1") return true;
+  if (normalized === "0") return false;
   return null;
 };
 
@@ -410,20 +401,6 @@ export const prepareCBaseImport = async (
   costcodesBuffer: Buffer,
 ): Promise<CBaseImportPreparationResult> => {
   const buildingsWorksheet = parseWorksheet(buildingsBuffer, "qry_TIMESHEET_BuildingsExport", "buildings");
-  console.info(C_BASE_IMPORT_AUDIT_PREFIX, C_BASE_IMPORT_AUDIT_MARKER, "buildings worksheet parsed", {
-    workbookFileName: "unavailable_in_prepareCBaseImport",
-    worksheetRowCount: buildingsWorksheet.rows.length,
-    firstFiveParsedDataRowsAfterHeader: buildingsWorksheet.rows.slice(0, 5),
-    timesheetColumnsValueAndType: buildingsWorksheet.rows.slice(0, 5).map((row) => ({
-      rowNumber: row.rowNumber,
-      TIMESHEET_SITE: row.values.TIMESHEET_SITE,
-      TIMESHEET_SITE_type: typeof row.values.TIMESHEET_SITE,
-      TIMESHEET_FACTORY: row.values.TIMESHEET_FACTORY,
-      TIMESHEET_FACTORY_type: typeof row.values.TIMESHEET_FACTORY,
-      TIMESHEET_OFFICE: row.values.TIMESHEET_OFFICE,
-      TIMESHEET_OFFICE_type: typeof row.values.TIMESHEET_OFFICE,
-    })),
-  });
   const costcodesWorksheet = parseWorksheet(costcodesBuffer, "qry_TIMESHEET_CostcodesExport", "costcodes");
   const projects = parseSourceRows(buildingsWorksheet.rows, "buildings");
   const tasks = parseSourceRows(costcodesWorksheet.rows, "costcodes");

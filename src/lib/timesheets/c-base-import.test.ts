@@ -104,13 +104,13 @@ test("buildings accepts lowercase and whitespace boolean strings", () => {
   assert.deepEqual(result.parsed[0]?.visibleToStaffGroups, ["site", "office"]);
 });
 
-test("buildings rejects numeric and numeric-string TIMESHEET flags", () => {
-  const numericResult = parseSourceRows(
+test("buildings accepts exact numeric string TIMESHEET flags", () => {
+  const result = parseSourceRows(
     [{ rowNumber: 2, values: { PRODUCTION_SEQUENCE: "P1", TITLE: "Proj 1", DISPLAYAS: "1", TIMESHEET_SITE: "1", TIMESHEET_FACTORY: "0", TIMESHEET_OFFICE: "FALSE" } }],
     "buildings",
   );
-  assert.equal(numericResult.errors.some((error) => error.field === "TIMESHEET_SITE"), true);
-  assert.equal(numericResult.errors.some((error) => error.field === "TIMESHEET_FACTORY"), true);
+  assert.deepEqual(result.errors, []);
+  assert.deepEqual(result.parsed[0]?.visibleToStaffGroups, ["site"]);
 });
 
 test("department ALL maps all staff groups", () => {
