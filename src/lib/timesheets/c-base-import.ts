@@ -238,12 +238,22 @@ const parseStrictBoolean = (value: string | boolean): boolean | null => {
   return null;
 };
 
+const getRequiredStringCell = (row: WorkbookRow, key: string): string | null => {
+  const value = row.values[key];
+  if (typeof value !== "string") return null;
+  return value;
+};
+
 export const parseSourceRows = (rows: WorkbookRow[], file: SourceFile) => {
   const errors: CBaseImportValidationError[] = [];
   const parsed: CBaseImportRow[] = [];
   for (const row of rows) {
-    const code = normalizeCode(row.values[file === "buildings" ? "PRODUCTION_SEQUENCE" : "COSTCODE_ID"] ?? "");
-    const label = normalizeLabel(row.values[file === "buildings" ? "TITLE" : "Description"] ?? "");
+    const codeFieldKey = file === "buildings" ? "PRODUCTION_SEQUENCE" : "COSTCODE_ID";
+    const labelFieldKey = file === "buildings" ? "TITLE" : "Description";
+    const rawCode = getRequiredStringCell(row, codeFieldKey);
+    const rawLabel = getRequiredStringCell(row, labelFieldKey);
+    const code = rawCode === null ? "" : normalizeCode(rawCode);
+    const label = rawLabel === null ? "" : normalizeLabel(rawLabel);
 
     if (!code) {
       errors.push({ file, rowNumber: row.rowNumber, field: "code", code: null, message: "Code is required." });
@@ -269,7 +279,8 @@ export const parseSourceRows = (rows: WorkbookRow[], file: SourceFile) => {
         isHidden = visibleToStaffGroups.length === 0;
       }
     } else {
-      const department = (row.values.Department ?? "").trim();
+      const departmentRaw = getRequiredStringCell(row, "Department");
+      const department = departmentRaw === null ? "" : departmentRaw.trim();
       if (!ALLOWED_DEPARTMENTS.has(department)) {
         errors.push({ file, rowNumber: row.rowNumber, field: "Department", code, message: "Department must be one of ALL, Factory, Site, Office, Hide." });
       } else if (department === "Factory") visibleToStaffGroups = ["factory"];
