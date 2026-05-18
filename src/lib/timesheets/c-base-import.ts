@@ -66,6 +66,13 @@ type WorkbookRow = {
   values: Record<string, string>;
 };
 
+const REQUIRED_HEADERS = {
+  buildings: ["PRODUCTION_SEQUENCE", "TITLE", "DISPLAYAS", "STATUS", "TIMESHEET_SITE", "TIMESHEET_FACTORY", "TIMESHEET_OFFICE"],
+  costcodes: ["COSTCODE_ID", "Description", "DisplayAs", "Department"],
+} as const;
+
+const ALLOWED_DEPARTMENTS = new Set(["ALL", "Factory", "Site", "Office", "Hide"]);
+
 const allStaffGroups: StaffGroup[] = ["factory", "site", "office"];
 const select = "id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at";
 
@@ -81,7 +88,7 @@ const emptySummary = (): CBaseImportDiffSummary => ({
   duplicateCostCodes: [],
 });
 
-const normalizeHeader = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+const normalizeHeader = (value: string) => value.trim();
 const normalizeCode = (value: string) => value.trim();
 const normalizeLabel = (value: string) => value.trim().replace(/\s+/g, " ");
 
@@ -170,7 +177,7 @@ const readCellValue = (cell: string, sharedStrings: string[]) => {
   return escapeXml(value);
 };
 
-const parseWorksheet = (buffer: Buffer, sheetName: string, file: SourceFile): { rows: WorkbookRow[]; errors: CBaseImportValidationError[] } => {
+export const parseWorksheet = (buffer: Buffer, sheetName: string, file: SourceFile): { rows: WorkbookRow[]; errors: CBaseImportValidationError[] } => {
   const files = unzipXlsx(buffer);
   const worksheetPath = getWorksheetPath(files, sheetName);
   const errors: CBaseImportValidationError[] = [];
@@ -205,6 +212,13 @@ const parseWorksheet = (buffer: Buffer, sheetName: string, file: SourceFile): { 
   }
 
   const headers = headerRow.cells.map(normalizeHeader);
+  const expectedHeaders = [...REQUIRED_HEADERS[file]];
+  if (headers.length !== expectedHeaders.length || headers.some((header, index) => header !== expectedHeaders[index])) {
+    return {
+      rows: [],
+      errors: [{ file, rowNumber: headerRow.rowNumber, field: "headers", code: null, message: `Headers must exactly match: ${expectedHeaders.join(", ")}.` }],
+    };
+  }
   const rows = rawRows
     .filter((row) => row.rowNumber > headerRow.rowNumber && row.cells.some(Boolean))
     .map((row) => ({
@@ -215,21 +229,19 @@ const parseWorksheet = (buffer: Buffer, sheetName: string, file: SourceFile): { 
   return { rows, errors };
 };
 
-const firstValue = (row: WorkbookRow, headers: string[]) => headers.map((header) => row.values[header] ?? "").find((value) => value.trim().length > 0) ?? "";
+const parseStrictBoolean = (value: string): boolean | null => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  return null;
+};
 
-const parseBoolean = (value: string) => ["true", "yes", "y", "1", "hidden", "inactive"].includes(value.trim().toLowerCase());
-
-const parseSourceRows = (rows: WorkbookRow[], file: SourceFile) => {
+export const parseSourceRows = (rows: WorkbookRow[], file: SourceFile) => {
   const errors: CBaseImportValidationError[] = [];
   const parsed: CBaseImportRow[] = [];
-  const codeHeaders = file === "buildings" ? ["buildingcode", "code", "buildingid", "id"] : ["costcode", "code", "costcodeid", "id"];
-  const labelHeaders = file === "buildings" ? ["buildingname", "building", "name", "description"] : ["costcodedescription", "costcodename", "description", "name"];
-
   for (const row of rows) {
-    const code = normalizeCode(firstValue(row, codeHeaders));
-    const label = normalizeLabel(firstValue(row, labelHeaders));
-    const hiddenValue = firstValue(row, ["hidden", "hide", "inactive", "isactive"]);
-    const sortValue = firstValue(row, ["sortorder", "sort", "displayorder", "sequence"]);
+    const code = normalizeCode(row.values[file === "buildings" ? "PRODUCTION_SEQUENCE" : "COSTCODE_ID"] ?? "");
+    const label = normalizeLabel(row.values[file === "buildings" ? "TITLE" : "Description"] ?? "");
 
     if (!code) {
       errors.push({ file, rowNumber: row.rowNumber, field: "code", code: null, message: "Code is required." });
@@ -239,13 +251,40 @@ const parseSourceRows = (rows: WorkbookRow[], file: SourceFile) => {
     }
     if (!code || !label) continue;
 
-    const sortOrder = Number.parseInt(sortValue, 10);
+    const sortOrder = Number.parseInt(row.values[file === "buildings" ? "DISPLAYAS" : "DisplayAs"] ?? "", 10);
+
+    let isHidden = false;
+    let visibleToStaffGroups: StaffGroup[] = [];
+    if (file === "buildings") {
+      const site = parseStrictBoolean(row.values.TIMESHEET_SITE ?? "");
+      const factory = parseStrictBoolean(row.values.TIMESHEET_FACTORY ?? "");
+      const office = parseStrictBoolean(row.values.TIMESHEET_OFFICE ?? "");
+      if (site === null) errors.push({ file, rowNumber: row.rowNumber, field: "TIMESHEET_SITE", code, message: "TIMESHEET_SITE must be strict boolean TRUE/FALSE." });
+      if (factory === null) errors.push({ file, rowNumber: row.rowNumber, field: "TIMESHEET_FACTORY", code, message: "TIMESHEET_FACTORY must be strict boolean TRUE/FALSE." });
+      if (office === null) errors.push({ file, rowNumber: row.rowNumber, field: "TIMESHEET_OFFICE", code, message: "TIMESHEET_OFFICE must be strict boolean TRUE/FALSE." });
+      if (site !== null && factory !== null && office !== null) {
+        visibleToStaffGroups = [site ? "site" : null, factory ? "factory" : null, office ? "office" : null].filter(Boolean) as StaffGroup[];
+        isHidden = visibleToStaffGroups.length === 0;
+      }
+    } else {
+      const department = (row.values.Department ?? "").trim();
+      if (!ALLOWED_DEPARTMENTS.has(department)) {
+        errors.push({ file, rowNumber: row.rowNumber, field: "Department", code, message: "Department must be one of ALL, Factory, Site, Office, Hide." });
+      } else if (department === "Factory") visibleToStaffGroups = ["factory"];
+      else if (department === "Site") visibleToStaffGroups = ["site"];
+      else if (department === "Office") visibleToStaffGroups = ["office"];
+      else if (department === "ALL") visibleToStaffGroups = [...allStaffGroups];
+      else if (department === "Hide") {
+        visibleToStaffGroups = [];
+        isHidden = true;
+      }
+    }
     const canonical = {
       code,
       label,
-      hidden: parseBoolean(hiddenValue),
+      hidden: isHidden,
       sortOrder: Number.isFinite(sortOrder) ? sortOrder : 100,
-      visibleToStaffGroups: allStaffGroups,
+      visibleToStaffGroups,
     };
 
     parsed.push({
@@ -287,7 +326,7 @@ const rowNeedsUpdate = (existing: ExistingLookupRow, desired: CBaseImportRow) =>
   existing.inactive_at !== null;
 
 const diffRows = (kind: LookupKind, desiredRows: CBaseImportRow[], existingRows: ExistingLookupRow[]) => {
-  const existingByCode = new Map(existingRows.map((row) => [row.code, row]));
+  const existingByCode = new Map(existingRows.filter((row) => row.source_system === "c_base").map((row) => [row.code, row]));
   const desiredByCode = new Set(desiredRows.map((row) => row.code));
   const diffs: CBaseImportDiffRow[] = desiredRows.map((desired) => {
     const existing = existingByCode.get(desired.code) ?? null;
@@ -365,8 +404,8 @@ export const prepareCBaseImport = async (
   };
 };
 
-const upsertRows = async (path: string, diffs: CBaseImportDiffRow[], now: string) => {
-  const rows = diffs
+const buildApplyRows = (diffs: CBaseImportDiffRow[], now: string) =>
+  diffs
     .filter((diff) => diff.action !== "unchanged")
     .map((diff) => ({
       code: diff.code,
@@ -382,31 +421,10 @@ const upsertRows = async (path: string, diffs: CBaseImportDiffRow[], now: string
       updated_at: now,
     }));
 
-  if (rows.length === 0) return;
-
-  const supabase = createServiceRoleSupabaseClient();
-  const response = await supabase.request(`${path}?on_conflict=code`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Prefer: "resolution=merge-duplicates,return=minimal" },
-    body: JSON.stringify(rows),
-  });
-  if (!response.ok) throw new Error("Failed to apply C Base timesheet lookup rows.");
-};
-
-const deactivateMissingRows = async (path: string, rows: ExistingLookupRow[], now: string) => {
-  if (rows.length === 0) return;
-  const supabase = createServiceRoleSupabaseClient();
-  await Promise.all(rows.map(async (row) => {
-    const response = await supabase.request(`${path}?id=eq.${encodeURIComponent(row.id)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify({ is_active: false, inactive_reason: "missing_from_c_base_export", inactive_at: now, updated_at: now }),
-    });
-    if (!response.ok) throw new Error("Failed to deactivate missing C Base timesheet lookup rows.");
-  }));
-};
-
 export const applyCBaseImport = async ({
+  actorProfileId,
+  buildingsFilename,
+  costcodesFilename,
   result,
 }: {
   session: AuthSession;
@@ -420,10 +438,22 @@ export const applyCBaseImport = async ({
   }
 
   const now = new Date().toISOString();
-  await Promise.all([
-    upsertRows("/rest/v1/timesheet_projects", result.projectDiffs, now),
-    upsertRows("/rest/v1/timesheet_tasks", result.taskDiffs, now),
-    deactivateMissingRows("/rest/v1/timesheet_projects", result.projectDeactivationsByMissing, now),
-    deactivateMissingRows("/rest/v1/timesheet_tasks", result.taskDeactivationsByMissing, now),
-  ]);
+  const supabase = createServiceRoleSupabaseClient();
+  const payload = {
+    p_actor_profile_id: actorProfileId,
+    p_buildings_filename: buildingsFilename,
+    p_costcodes_filename: costcodesFilename,
+    p_projects: buildApplyRows(result.projectDiffs, now),
+    p_tasks: buildApplyRows(result.taskDiffs, now),
+    p_missing_project_codes: result.projectDeactivationsByMissing.map((row) => row.code),
+    p_missing_task_codes: result.taskDeactivationsByMissing.map((row) => row.code),
+    p_summary: result.summary,
+    p_validation_errors: result.validationErrors,
+  };
+  const response = await supabase.request(`/rest/v1/rpc/apply_c_base_timesheet_lookup_import`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error("Failed to apply C Base import transaction.");
 };
