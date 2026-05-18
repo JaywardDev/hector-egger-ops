@@ -17,7 +17,7 @@ import { Card } from "@/src/components/ui/card";
 import { Textarea } from "@/src/components/ui/textarea";
 import { cn } from "@/src/lib/utils";
 import type { ApprovalStaffProfile } from "@/src/lib/timesheets/approvals";
-import type { StaffGroup, TimesheetDaySummary, TimesheetEntryWithActivities, TimesheetLookups } from "@/src/lib/timesheets/types";
+import type { StaffGroup, TimesheetDaySummary, TimesheetEntryWithActivities, TimesheetLookups, TimesheetLookupsByStaffGroup } from "@/src/lib/timesheets/types";
 
 type WeeklyTimesheetMode = "summary" | "details";
 
@@ -37,13 +37,13 @@ const groupLabels: Record<StaffGroup, string> = { factory: "Factory", site: "Sit
 export function ApprovalsClient({
   groups,
   visibleGroups,
-  lookups,
+  lookupsByGroup,
   weekStart,
   weekRangeLabel,
 }: {
   groups: GroupData;
   visibleGroups: StaffGroup[];
-  lookups: TimesheetLookups;
+  lookupsByGroup: TimesheetLookupsByStaffGroup;
   weekStart: string;
   weekRangeLabel: string;
 }) {
@@ -59,6 +59,9 @@ export function ApprovalsClient({
   const staff = useMemo(() => (selectedGroup ? (groups[selectedGroup] ?? []) : []), [groups, selectedGroup]);
   const selectedStaff = useMemo(() => staff.find((person) => person.id === selectedProfileId) ?? null, [staff, selectedProfileId]);
   const selectedDay = useMemo(() => selectedStaff?.days.find((day) => day.date === selectedDate) ?? null, [selectedDate, selectedStaff]);
+  const selectedLookups: TimesheetLookups = selectedGroup
+    ? (lookupsByGroup[selectedGroup] ?? { projects: [], tasks: [] })
+    : { projects: [], tasks: [] };
 
   const closeWeekly = () => {
     setSelectedProfileId(null);
@@ -170,7 +173,7 @@ export function ApprovalsClient({
             {feedback ? <Alert variant={feedback.type}>{feedback.message}</Alert> : null}
             <WeeklyTimesheetView
               days={selectedStaff.days}
-              lookups={lookups}
+              lookups={selectedLookups}
               mode={mode}
               onModeChange={setMode}
               onSelectDay={setSelectedDate}
@@ -204,7 +207,7 @@ export function ApprovalsClient({
             {selectedDay ? (
               <DailyTimesheetReview
                 entry={selectedDay.entry as TimesheetEntryWithActivities | null}
-                lookups={lookups}
+                lookups={selectedLookups}
                 displayDate={`${selectedDay.weekdayLabel}, ${selectedDay.displayDate}`}
                 employeeName={selectedStaff.full_name ?? selectedStaff.email}
                 targetProfileId={selectedStaff.id}

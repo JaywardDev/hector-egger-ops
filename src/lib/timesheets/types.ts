@@ -100,3 +100,5 @@ export type TimesheetLookups = {
   projects: TimesheetLookupOption[];
   tasks: TimesheetLookupOption[];
 };
+
+export type TimesheetLookupsByStaffGroup = Partial<Record<StaffGroup, TimesheetLookups>>;

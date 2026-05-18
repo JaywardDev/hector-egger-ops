@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import { assertTimesheetReadAccess, assertTimesheetWriteAccess, canEditApprovedTimesheets, createSessionHeaders, type TimesheetActor } from "@/src/lib/timesheets/access";
 import { validateTimesheetEntryInput } from "@/src/lib/timesheets/validation";
-import type { SaveTimesheetEntryInput, TimesheetActivityRecord, TimesheetEntryRecord, TimesheetEntryWithActivities, TimesheetLookupOption, TimesheetPreferenceRecord, TimesheetWorkMode } from "@/src/lib/timesheets/types";
+import type { SaveTimesheetEntryInput, TimesheetActivityRecord, TimesheetEntryRecord, TimesheetEntryWithActivities, StaffGroup, TimesheetLookupOption, TimesheetPreferenceRecord, TimesheetWorkMode } from "@/src/lib/timesheets/types";
 
 export const timesheetEntrySelect = "id,profile_id,work_date,status,time_in,time_out,work_mode,leave_type,leave_hours,is_public_holiday,unpaid_break,paid_break,payable_hours,allocation_hours,submitted_at,approved_at,approved_by_profile_id,returned_at,returned_by_profile_id,return_comment,created_at,updated_at";
 const entrySelect = timesheetEntrySelect;
@@ -63,11 +63,19 @@ const getExistingEntry = async (profileId: string, workDate: string): Promise<Ti
   return entry ?? null;
 };
 
-export const getValidLookupIds = async () => {
+const staffGroupVisibilityFilter = (staffGroup: StaffGroup) =>
+  `visible_to_staff_groups=cs.${encodeURIComponent(`{${staffGroup}}`)}`;
+
+export const getValidLookupIds = async (staffGroup: StaffGroup | null | undefined) => {
+  if (!staffGroup) {
+    throw new Error("A staff group is required before choosing timesheet project and task options.");
+  }
+
   const supabase = createServiceRoleSupabaseClient();
+  const visibilityFilter = staffGroupVisibilityFilter(staffGroup);
   const [projectsResponse, tasksResponse] = await Promise.all([
-    supabase.request("/rest/v1/timesheet_projects?select=id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at&is_active=eq.true"),
-    supabase.request("/rest/v1/timesheet_tasks?select=id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at&is_active=eq.true"),
+    supabase.request(`/rest/v1/timesheet_projects?select=id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at&is_active=eq.true&${visibilityFilter}`),
+    supabase.request(`/rest/v1/timesheet_tasks?select=id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at&is_active=eq.true&${visibilityFilter}`),
   ]);
   if (!projectsResponse.ok || !tasksResponse.ok) throw new Error("Failed to validate lookup options");
   const projects = (await projectsResponse.json()) as TimesheetLookupOption[];
@@ -80,9 +88,13 @@ export const getValidLookupIds = async () => {
   };
 };
 
-export const saveOwnTimesheetEntry = async (actor: ActorWithRoles, input: SaveTimesheetEntryInput): Promise<TimesheetEntryWithActivities> => {
+export const saveOwnTimesheetEntry = async (
+  actor: ActorWithRoles,
+  input: SaveTimesheetEntryInput,
+  staffGroup: StaffGroup | null | undefined,
+): Promise<TimesheetEntryWithActivities> => {
   await assertTimesheetWriteAccess(actor);
-  const { projectIds, taskIds, projectById, taskById } = await getValidLookupIds();
+  const { projectIds, taskIds, projectById, taskById } = await getValidLookupIds(staffGroup);
   const validated = validateTimesheetEntryInput(input, projectIds, taskIds);
   const existing = await getExistingEntry(actor.profileId, validated.workDate);
   if (existing?.status === "supervisor_approved" || (existing?.status === "approved" && !canEditApprovedTimesheets(actor.accessContext.roles))) {

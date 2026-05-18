@@ -22,6 +22,7 @@ export async function saveTimesheetEntryAction(input: SaveTimesheetEntryInput): 
         route: "/timesheet",
       },
       input,
+      profile.staff_group,
     );
     revalidatePath("/timesheet");
     return { ok: true, message: "Timesheet saved." };

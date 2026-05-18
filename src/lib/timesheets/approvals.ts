@@ -334,9 +334,9 @@ export const saveEmployeeTimesheetCorrectionAtomic = async (
     throw new Error("Supervisors cannot correct their own timesheet through approvals.");
   }
 
-  await assertCanManageTargetProfile(actor, targetProfileId);
+  const target = await assertCanManageTargetProfile(actor, targetProfileId);
 
-  const { projectIds, taskIds } = await getValidLookupIds();
+  const { projectIds, taskIds } = await getValidLookupIds(target.staff_group);
   const validated = validateTimesheetEntryInput(input, projectIds, taskIds);
 
   const supabase = createServiceRoleSupabaseClient();

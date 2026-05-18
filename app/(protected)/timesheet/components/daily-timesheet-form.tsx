@@ -267,6 +267,11 @@ export function DailyTimesheetForm({
         {feedback ? (
           <Alert variant={feedback.type}>{feedback.message}</Alert>
         ) : null}
+        {lookups.projects.length === 0 || lookups.tasks.length === 0 ? (
+          <Alert variant="warning">
+            No project or task options are available for this employee&rsquo;s staff group. Ask an admin to assign a staff group or make the relevant lookup rows visible before submitting.
+          </Alert>
+        ) : null}
       </section>
 
       <section className="space-y-3">

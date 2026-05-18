@@ -30,7 +30,7 @@ export default async function TimesheetPage() {
   const [entries, preferredWorkMode, lookups] = await Promise.all([
     listOwnTimesheetEntriesForDates(actor, weekDates),
     getTimesheetPreference(actor),
-    getTimesheetLookups(actor),
+    getTimesheetLookups(actor, profile.staff_group),
   ]);
   const entryByDate = new Map(entries.map((entry) => [entry.work_date, entry] as const));
   const weekRangeLabel = `${formatTimesheetDisplayDate(weekDates[0])} – ${formatTimesheetDisplayDate(weekDates[weekDates.length - 1])}`;
@@ -59,6 +59,11 @@ export default async function TimesheetPage() {
           </span>
         }
       />
+      {!profile.staff_group ? (
+        <Alert className="mb-4" variant="warning">
+          Your profile is missing a staff group, so project and task options are unavailable. Ask an admin to assign your staff group before submitting timesheets.
+        </Alert>
+      ) : null}
       <WeeklyTimesheetClient
         days={days}
         userName={profile.full_name ?? profile.email}

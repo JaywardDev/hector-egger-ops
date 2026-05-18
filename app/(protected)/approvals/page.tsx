@@ -11,7 +11,7 @@ import {
 } from "@/src/lib/timesheets/approvals";
 import { formatTimesheetDisplayDate, formatTimesheetWeekday } from "@/src/lib/timesheets/date";
 import { getTimesheetLookups } from "@/src/lib/timesheets/lookups";
-import type { StaffGroup, TimesheetDaySummary, TimesheetEntryWithActivities } from "@/src/lib/timesheets/types";
+import type { StaffGroup, TimesheetDaySummary, TimesheetEntryWithActivities, TimesheetLookupsByStaffGroup } from "@/src/lib/timesheets/types";
 
 type StaffWithWeek = ApprovalStaffProfile & {
   days: TimesheetDaySummary[];
@@ -82,7 +82,11 @@ export default async function ApprovalsPage() {
       : [];
 
   const weekDates = getApprovalWeekDates();
-  const lookups = await getTimesheetLookups(actor);
+  const lookupsByGroup = Object.fromEntries(
+    await Promise.all(
+      approvalGroups.map(async (group) => [group, await getTimesheetLookups(actor, group)] as const),
+    ),
+  ) as TimesheetLookupsByStaffGroup;
   const staffByGroup = await Promise.all(
     approvalGroups.map(async (group) => [group, await listApprovedStaffByGroup(actor, group)] as const),
   );
@@ -101,7 +105,7 @@ export default async function ApprovalsPage() {
       <ApprovalsClient
         groups={groups}
         visibleGroups={approvalGroups}
-        lookups={lookups}
+        lookupsByGroup={lookupsByGroup}
         weekStart={weekDates[0]}
         weekRangeLabel={weekRangeLabel}
       />
