@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { assertTimesheetReadAccess, createSessionHeaders, type TimesheetActor } from "@/src/lib/timesheets/access";
 import type { TimesheetLookupOption, TimesheetLookups } from "@/src/lib/timesheets/types";
 
-const select = "id,code,label,is_active,sort_order";
+const select = "id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at";
 
 const loadLookup = async (path: string, actor: TimesheetActor): Promise<TimesheetLookupOption[]> => {
   const supabase = createServerSupabaseClient();

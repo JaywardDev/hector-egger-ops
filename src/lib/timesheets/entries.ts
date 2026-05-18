@@ -66,8 +66,8 @@ const getExistingEntry = async (profileId: string, workDate: string): Promise<Ti
 export const getValidLookupIds = async () => {
   const supabase = createServiceRoleSupabaseClient();
   const [projectsResponse, tasksResponse] = await Promise.all([
-    supabase.request("/rest/v1/timesheet_projects?select=id,code,label,is_active,sort_order&is_active=eq.true"),
-    supabase.request("/rest/v1/timesheet_tasks?select=id,code,label,is_active,sort_order&is_active=eq.true"),
+    supabase.request("/rest/v1/timesheet_projects?select=id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at&is_active=eq.true"),
+    supabase.request("/rest/v1/timesheet_tasks?select=id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at&is_active=eq.true"),
   ]);
   if (!projectsResponse.ok || !tasksResponse.ok) throw new Error("Failed to validate lookup options");
   const projects = (await projectsResponse.json()) as TimesheetLookupOption[];

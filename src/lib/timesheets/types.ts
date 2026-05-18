@@ -4,12 +4,20 @@ export type TimesheetStatus = "submitted" | "returned" | "supervisor_approved" |
 export type StaffGroup = "factory" | "site" | "office";
 export type TimesheetLeaveType = "annual" | "sick" | "bereavement" | "unpaid" | "other";
 
+export type TimesheetLookupSourceSystem = "manual" | "c_base";
+
 export type TimesheetLookupOption = {
   id: string;
   code: string;
   label: string;
   is_active: boolean;
   sort_order: number;
+  visible_to_staff_groups: StaffGroup[];
+  source_system: TimesheetLookupSourceSystem;
+  source_row_hash: string | null;
+  last_seen_at: string | null;
+  inactive_reason: string | null;
+  inactive_at: string | null;
 };
 
 export type TimesheetPreferenceRecord = {
