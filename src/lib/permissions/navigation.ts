@@ -42,6 +42,10 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   { label: "Timesheet", href: "/timesheet", permission: "timesheet", section: "main", icon: Clock3 },
   { label: "Approvals", href: "/approvals", permission: "timesheetApprovals", section: "main", icon: CircleCheck },
   { label: "Admin", href: "/admin", permission: "admin", section: "main", icon: User },
+  { label: "User Admin", href: "/admin/users", permission: "admin", section: "main", icon: User },
+  { label: "Pending Users", href: "/admin/users/pending", permission: "admin", section: "main", icon: User },
+  { label: "Manage Users", href: "/admin/users/manage", permission: "admin", section: "main", icon: User },
+  { label: "C Base Import", href: "/admin/timesheet-lookups/import", permission: "admin", section: "main", icon: User },
   {
     label: "Dashboard",
     href: "/dashboard",
