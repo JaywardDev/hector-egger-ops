@@ -604,7 +604,7 @@ export function DailyTimesheetForm({
                 <p className="text-xs font-normal text-zinc-500">Internal only. Not for client-facing summaries.</p>
               </label>
               <div className="flex justify-end gap-2">
-                <Button onClick={closeNotesEditor} variant="outline">Cancel</Button>
+                <Button onClick={closeNotesEditor} variant="secondary">Cancel</Button>
                 <Button onClick={saveNotesEditor} variant="brand">Done</Button>
               </div>
             </div>
@@ -624,7 +624,7 @@ export function DailyTimesheetForm({
             <p className="text-xs font-normal text-zinc-500">Internal only. Not for client-facing summaries.</p>
           </label>
           <div className="flex justify-end gap-2">
-            <Button onClick={closeNotesEditor} variant="outline">Cancel</Button>
+            <Button onClick={closeNotesEditor} variant="secondary">Cancel</Button>
             <Button onClick={saveNotesEditor} variant="brand">Done</Button>
           </div>
         </div>
