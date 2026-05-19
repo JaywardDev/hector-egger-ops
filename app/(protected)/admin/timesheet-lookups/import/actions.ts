@@ -60,6 +60,7 @@ export async function importCBaseTimesheetLookupsAction(
   const mode = formData.get("mode") === "apply" ? "apply" : "dry-run";
   const buildingsFile = fileFromFormData(formData, "buildingsFile");
   const costcodesFile = fileFromFormData(formData, "costcodesFile");
+  let failedStep: "prevalidate" | "read-buffer" | "parse-workbook" | "validate-workbook" | "prepare-sync" | "apply-sync" = "prevalidate";
 
   try {
     if (!authContext.profile) {
@@ -69,11 +70,14 @@ export async function importCBaseTimesheetLookupsAction(
       throw new Error("Please choose both C Base export files before validating.");
     }
 
+    failedStep = "read-buffer";
     const [buildingsBuffer, costcodesBuffer] = await Promise.all([
       readWorkbook(buildingsFile, "buildings"),
       readWorkbook(costcodesFile, "costcodes"),
     ]);
+    failedStep = "parse-workbook";
     const result = await prepareCBaseImport(authContext.session, buildingsBuffer, costcodesBuffer);
+    failedStep = "validate-workbook";
 
     if (result.validationErrors.length > 0) {
       return {
@@ -85,7 +89,9 @@ export async function importCBaseTimesheetLookupsAction(
       };
     }
 
+    failedStep = "prepare-sync";
     if (mode === "apply") {
+      failedStep = "apply-sync";
       await applyCBaseImport({
         session: authContext.session,
         actorProfileId: authContext.profile.id,
@@ -115,6 +121,24 @@ export async function importCBaseTimesheetLookupsAction(
     const friendlyParserError = "One of the C Base export files could not be parsed. Please re-export both .xlsx files from C Base and try again.";
     const rawMessage = error instanceof Error ? error.message : null;
     const isParserReadError = rawMessage !== null && /unexpected end of file|invalid|corrupt|inflate/i.test(rawMessage);
+
+    console.error("[c-base-import] action failed", {
+      mode,
+      failedStep,
+      formDataHasBuildingsFile: formData.has("buildingsFile"),
+      formDataHasCostcodesFile: formData.has("costcodesFile"),
+      formDataMode: formData.get("mode"),
+      buildingsFileType: buildingsFile?.constructor?.name ?? null,
+      buildingsFileName: buildingsFile?.name ?? null,
+      buildingsFileSize: buildingsFile?.size ?? null,
+      buildingsFileMimeType: buildingsFile?.type ?? null,
+      costcodesFileType: costcodesFile?.constructor?.name ?? null,
+      costcodesFileName: costcodesFile?.name ?? null,
+      costcodesFileSize: costcodesFile?.size ?? null,
+      costcodesFileMimeType: costcodesFile?.type ?? null,
+      rawMessage,
+      sanitizedMessage: isParserReadError ? friendlyParserError : rawMessage ?? "C Base import failed before any rows were written.",
+    });
 
     return {
       status: "error",
