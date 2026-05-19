@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppSidebar } from "@/components/navigation/app-sidebar";
 import { PendingSubmitButton } from "@/src/components/ui/pending-button";
 import { FullScreenPendingOverlay } from "@/src/components/ui/pending-overlay";
@@ -25,10 +25,32 @@ export function AppShell({
   signOutAction = "/auth/sign-out",
 }: AppShellProps) {
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isMobileNavVisible, setIsMobileNavVisible] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
   const navigationSections = getNavigationSections({ accessState, roles });
 
+  const openMobileNav = () => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+    setIsMobileNavVisible(true);
+    setIsMobileNavOpen(true);
+  };
+
+  const closeMobileNav = () => {
+    setIsMobileNavOpen(false);
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+    }
+    closeTimerRef.current = window.setTimeout(() => {
+      setIsMobileNavVisible(false);
+      closeTimerRef.current = null;
+    }, 200);
+  };
+
   useEffect(() => {
-    if (!isMobileNavOpen) {
+    if (!isMobileNavVisible) {
       return;
     }
 
@@ -38,7 +60,15 @@ export function AppShell({
     return () => {
       document.body.style.overflow = originalOverflow;
     };
-  }, [isMobileNavOpen]);
+  }, [isMobileNavVisible]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-zinc-50 text-zinc-900 md:flex">
@@ -49,7 +79,7 @@ export function AppShell({
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => setIsMobileNavOpen(true)}
+              onClick={openMobileNav}
               className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-zinc-300 text-zinc-700 md:hidden"
               aria-label="Open navigation menu"
               aria-expanded={isMobileNavOpen}
@@ -77,17 +107,26 @@ export function AppShell({
         <main className="flex-1 p-4 sm:p-6">{children}</main>
       </div>
 
-      {isMobileNavOpen ? (
-        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-labelledby="mobile-nav-title">
+      {isMobileNavVisible ? (
+        <div
+          className="fixed inset-0 z-50 md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mobile-nav-title"
+        >
           <button
             type="button"
-            className="absolute inset-0 bg-zinc-950/45"
+            className={`absolute inset-0 bg-zinc-950/45 transition-opacity duration-200 ease-out motion-reduce:transition-none ${
+              isMobileNavOpen ? "opacity-100" : "opacity-0"
+            }`}
             aria-label="Close navigation menu"
-            onClick={() => setIsMobileNavOpen(false)}
+            onClick={closeMobileNav}
           />
           <div
             id="mobile-navigation"
-            className="relative z-10 flex h-full w-80 max-w-[85vw] flex-col overflow-y-auto overscroll-contain border-r border-zinc-200 bg-white"
+            className={`relative z-10 flex h-full w-80 max-w-[85vw] flex-col overflow-y-auto overscroll-contain border-r border-zinc-200 bg-white transition-transform duration-200 ease-out motion-reduce:transition-none ${
+              isMobileNavOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
           >
             <h2 className="sr-only" id="mobile-nav-title">
               Navigation
@@ -97,7 +136,7 @@ export function AppShell({
               className="min-h-0 shrink-0"
               layout="mobile"
               navigationSections={navigationSections}
-              onNavigate={() => setIsMobileNavOpen(false)}
+              onNavigate={closeMobileNav}
             />
 
             <div className="shrink-0 space-y-3 border-t border-zinc-200 p-4">
