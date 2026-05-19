@@ -103,30 +103,50 @@ const escapeXml = (value: string) =>
 
 const unzipXlsx = (buffer: Buffer) => {
   const files = new Map<string, string>();
-  let offset = 0;
+  const eocdSignature = 0x06054b50;
+  const centralDirSignature = 0x02014b50;
+  const localFileSignature = 0x04034b50;
+  let eocdOffset = -1;
+  const eocdScanStart = Math.max(0, buffer.length - 65535 - 22);
 
-  while (offset < buffer.length - 4) {
-    const signature = buffer.readUInt32LE(offset);
-    if (signature !== 0x04034b50) break;
+  for (let offset = buffer.length - 22; offset >= eocdScanStart; offset -= 1) {
+    if (buffer.readUInt32LE(offset) === eocdSignature) {
+      eocdOffset = offset;
+      break;
+    }
+  }
+  if (eocdOffset < 0) return files;
 
-    const method = buffer.readUInt16LE(offset + 8);
-    const compressedSize = buffer.readUInt32LE(offset + 18);
-    const fileNameLength = buffer.readUInt16LE(offset + 26);
-    const extraLength = buffer.readUInt16LE(offset + 28);
-    const fileNameStart = offset + 30;
-    const fileName = buffer.subarray(fileNameStart, fileNameStart + fileNameLength).toString("utf8");
-    const dataStart = fileNameStart + fileNameLength + extraLength;
-    const compressed = buffer.subarray(dataStart, dataStart + compressedSize);
+  const centralDirectoryOffset = buffer.readUInt32LE(eocdOffset + 16);
+  const totalEntries = buffer.readUInt16LE(eocdOffset + 10);
+  let centralOffset = centralDirectoryOffset;
 
-    if (!fileName.endsWith("/")) {
-      if (method === 0) {
-        files.set(fileName, compressed.toString("utf8"));
-      } else if (method === 8) {
-        files.set(fileName, inflateRawSync(compressed).toString("utf8"));
+  for (let i = 0; i < totalEntries && centralOffset + 46 <= buffer.length; i += 1) {
+    if (buffer.readUInt32LE(centralOffset) !== centralDirSignature) break;
+
+    const method = buffer.readUInt16LE(centralOffset + 10);
+    const compressedSize = buffer.readUInt32LE(centralOffset + 20);
+    const fileNameLength = buffer.readUInt16LE(centralOffset + 28);
+    const extraLength = buffer.readUInt16LE(centralOffset + 30);
+    const commentLength = buffer.readUInt16LE(centralOffset + 32);
+    const localHeaderOffset = buffer.readUInt32LE(centralOffset + 42);
+    const fileName = buffer.subarray(centralOffset + 46, centralOffset + 46 + fileNameLength).toString("utf8");
+
+    if (!fileName.endsWith("/") && localHeaderOffset + 30 <= buffer.length && buffer.readUInt32LE(localHeaderOffset) === localFileSignature) {
+      const localNameLength = buffer.readUInt16LE(localHeaderOffset + 26);
+      const localExtraLength = buffer.readUInt16LE(localHeaderOffset + 28);
+      const dataStart = localHeaderOffset + 30 + localNameLength + localExtraLength;
+      const compressed = buffer.subarray(dataStart, dataStart + compressedSize);
+
+      try {
+        if (method === 0) files.set(fileName, compressed.toString("utf8"));
+        else if (method === 8) files.set(fileName, inflateRawSync(compressed).toString("utf8"));
+      } catch {
+        // Unsupported binary/invalid XML payloads are skipped.
       }
     }
 
-    offset = dataStart + compressedSize;
+    centralOffset += 46 + fileNameLength + extraLength + commentLength;
   }
 
   return files;
