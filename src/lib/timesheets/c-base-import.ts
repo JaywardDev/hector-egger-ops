@@ -201,6 +201,18 @@ const readCellValue = (cell: string, sharedStrings: string[]): string | boolean 
   return escapeXml(value);
 };
 
+const diagnosticCharCodes = (value: string) => Array.from(value).map((character) => character.codePointAt(0));
+
+const diagnosticFirstDifference = (actual: string, expected: string) => {
+  const maxLength = Math.max(actual.length, expected.length);
+  for (let index = 0; index < maxLength; index += 1) {
+    const actualCode = actual.codePointAt(index);
+    const expectedCode = expected.codePointAt(index);
+    if (actualCode !== expectedCode) return { index, actualCode: actualCode ?? null, expectedCode: expectedCode ?? null };
+  }
+  return null;
+};
+
 export const parseWorksheet = (buffer: Buffer, sheetName: string, file: SourceFile): { rows: WorkbookRow[]; errors: CBaseImportValidationError[] } => {
   const files = unzipXlsx(buffer);
   const worksheetPath = getWorksheetPath(files, sheetName);
@@ -238,6 +250,34 @@ export const parseWorksheet = (buffer: Buffer, sheetName: string, file: SourceFi
 
   const headers = headerRow.cells.map(normalizeHeaderCell);
   const expectedHeaders = [...REQUIRED_HEADERS[file]];
+  console.info("[c-base-import][header-diagnostics]", {
+    file,
+    headerRowNumber: headerRow.rowNumber,
+    worksheetPath,
+    parsedHeaders: headerRow.cells.map((rawHeader, index) => {
+      const rawString = typeof rawHeader === "string" ? rawHeader : "";
+      const normalizedHeader = headers[index] ?? "";
+      const expectedHeader = expectedHeaders[index] ?? "";
+      return {
+        index,
+        rawValue: rawString,
+        normalizedValue: normalizedHeader,
+        rawLength: rawString.length,
+        normalizedLength: normalizedHeader.length,
+        rawCharCodes: diagnosticCharCodes(rawString),
+        normalizedCharCodes: diagnosticCharCodes(normalizedHeader),
+        expectedValue: expectedHeader,
+        expectedLength: expectedHeader.length,
+        expectedCharCodes: diagnosticCharCodes(expectedHeader),
+        firstDifferingCharacter: diagnosticFirstDifference(normalizedHeader, expectedHeader),
+      };
+    }),
+    expectedHeaders,
+    normalizedExpectedHeaders: expectedHeaders.map(normalizeHeader),
+    parsedHeaderCount: headers.length,
+    expectedHeaderCount: expectedHeaders.length,
+    mismatchIndex: headers.findIndex((header, index) => header !== expectedHeaders[index]),
+  });
   if (headers.length !== expectedHeaders.length || headers.some((header, index) => header !== expectedHeaders[index])) {
     return {
       rows: [],
