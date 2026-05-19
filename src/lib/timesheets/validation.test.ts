@@ -13,7 +13,7 @@ const baseInput = (): SaveTimesheetEntryInput => ({
   isPublicHoliday: false,
   unpaidBreak: true,
   paidBreak: true,
-  activities: [{ projectId: "p-f", taskId: "t-f", workMode: "factory", hours: 8 }],
+  activities: [{ projectId: "p-f", taskId: "t-f", workMode: "factory", hours: 8, clientDescription: null, internalNote: null }],
 });
 const byLocation = (f: string[], s: string[], o: string[]) => new Map<TimesheetActivityMode, Set<string>>([
   ["factory", new Set(f)],

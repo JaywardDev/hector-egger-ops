@@ -37,6 +37,8 @@ export type TimesheetActivityRecord = {
   work_mode: TimesheetActivityMode;
   hours: number;
   sort_order: number;
+  client_description: string | null;
+  internal_note: string | null;
 };
 
 export type TimesheetEntryRecord = {
@@ -81,6 +83,8 @@ export type TimesheetActivityInput = {
   taskId: string;
   workMode: TimesheetActivityMode;
   hours: number;
+  clientDescription: string | null;
+  internalNote: string | null;
 };
 
 export type SaveTimesheetEntryInput = {

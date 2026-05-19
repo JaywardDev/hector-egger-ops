@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { StickyNote } from "lucide-react";
 import { saveTimesheetEntryAction } from "@/app/(protected)/timesheet/actions";
 import { Alert } from "@/src/components/ui/alert";
 import { Button } from "@/src/components/ui/button";
 import { PendingActionButton } from "@/src/components/ui/pending-button";
 import { Input } from "@/src/components/ui/input";
 import { Select } from "@/src/components/ui/select";
+import { BottomSheet } from "@/src/components/ui/bottom-sheet";
 import { formatNzDate } from "@/src/lib/dateTime";
 import { cn } from "@/src/lib/utils";
 import {
@@ -32,6 +34,7 @@ type DraftActivity = TimesheetActivityInput & {
   clientId: string;
   hoursText: string;
 };
+const hasNoteContent = (value: string | null | undefined) => Boolean(value?.trim());
 
 const leaveCodeToType: Record<string, TimesheetLeaveType> = { LA: "annual", LB: "bereavement", LS: "sick", LSACC: "sick", LSACCNW: "sick", LW: "unpaid", TIL: "other" };
 
@@ -45,6 +48,8 @@ const defaultActivity = (
   taskId: lookups.tasks.find(isWorkActivityTask)?.id ?? "",
   workMode: workMode === "mixed" ? "factory" : workMode,
   hours: Number(hoursText) || 0,
+  clientDescription: null,
+  internalNote: null,
   hoursText,
 });
 
@@ -60,6 +65,8 @@ const entryToActivities = (
       taskId: activity.task_id,
       workMode: activity.work_mode,
       hours: activity.hours,
+      clientDescription: activity.client_description,
+      internalNote: activity.internal_note,
       hoursText: String(activity.hours),
     }));
   }
@@ -128,6 +135,8 @@ export function DailyTimesheetForm({
     message: string;
   } | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [activeNotesRowId, setActiveNotesRowId] = useState<string | null>(null);
+  const [draftNotes, setDraftNotes] = useState<{ clientDescription: string; internalNote: string }>({ clientDescription: "", internalNote: "" });
 
   const disabled = !canEdit || isPublicHoliday;
   const leaveHours = Number(leaveHoursText) || 0;
@@ -210,6 +219,16 @@ export function DailyTimesheetForm({
       ),
     );
   };
+  const openNotesEditor = (activity: DraftActivity) => {
+    setActiveNotesRowId(activity.clientId);
+    setDraftNotes({ clientDescription: activity.clientDescription ?? "", internalNote: activity.internalNote ?? "" });
+  };
+  const closeNotesEditor = () => setActiveNotesRowId(null);
+  const saveNotesEditor = () => {
+    if (!activeNotesRowId) return;
+    updateActivity(activeNotesRowId, { clientDescription: draftNotes.clientDescription, internalNote: draftNotes.internalNote });
+    closeNotesEditor();
+  };
 
   const submit = () => {
     setFeedback(null);
@@ -230,6 +249,8 @@ export function DailyTimesheetForm({
             taskId: row.taskId,
             workMode: workMode === "mixed" ? row.workMode : workMode,
             hours: row.hours,
+            clientDescription: row.clientDescription,
+            internalNote: row.internalNote,
           })),
     };
 
@@ -382,7 +403,19 @@ export function DailyTimesheetForm({
                     </Select>
                   </label>
                   <label className="space-y-1 text-xs font-medium text-zinc-600">
-                    Task
+                    <span className="flex items-center justify-between">
+                      <span>Task</span>
+                      <button
+                        type="button"
+                        aria-label={`Edit notes for row ${index + 1}`}
+                        className="relative rounded p-1 text-zinc-500 transition hover:bg-zinc-200 hover:text-zinc-700 disabled:opacity-40"
+                        disabled={disabled}
+                        onClick={() => openNotesEditor(activity)}
+                      >
+                        <StickyNote className="size-4" />
+                        {hasNoteContent(activity.clientDescription) || hasNoteContent(activity.internalNote) ? <span className="absolute right-0 top-0 size-2 rounded-full bg-amber-400" /> : null}
+                      </button>
+                    </span>
                     <Select
                       className={cn(
                         incompleteRow?.missingTask &&
@@ -554,6 +587,48 @@ export function DailyTimesheetForm({
           {submitLabel}
         </PendingActionButton>
       </section>
+      {activeNotesRowId !== null ? (
+        <div className="fixed inset-0 z-40 hidden sm:block">
+          <button type="button" className="absolute inset-0 bg-zinc-900/30" onClick={closeNotesEditor} aria-label="Close notes editor" />
+          <div className="absolute right-0 top-0 h-full w-full max-w-md overflow-y-auto bg-white p-4 shadow-xl">
+            <h3 className="text-base font-semibold text-zinc-900">Activity notes</h3>
+            <div className="mt-3 space-y-3">
+              <label className="space-y-1 text-sm font-medium text-zinc-700">
+                Client description
+                <textarea className="min-h-20 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" value={draftNotes.clientDescription} onChange={(event) => setDraftNotes((current) => ({ ...current, clientDescription: event.target.value }))} />
+                <p className="text-xs font-normal text-zinc-500">May appear in client summaries or future exports.</p>
+              </label>
+              <label className="space-y-1 text-sm font-medium text-zinc-700">
+                Internal management note
+                <textarea className="min-h-20 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" value={draftNotes.internalNote} onChange={(event) => setDraftNotes((current) => ({ ...current, internalNote: event.target.value }))} />
+                <p className="text-xs font-normal text-zinc-500">Internal only. Not for client-facing summaries.</p>
+              </label>
+              <div className="flex justify-end gap-2">
+                <Button onClick={closeNotesEditor} variant="outline">Cancel</Button>
+                <Button onClick={saveNotesEditor} variant="brand">Done</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      <BottomSheet open={activeNotesRowId !== null} title="Activity notes" onClose={closeNotesEditor}>
+        <div className="space-y-3">
+          <label className="space-y-1 text-sm font-medium text-zinc-700">
+            Client description
+            <textarea className="min-h-20 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" value={draftNotes.clientDescription} onChange={(event) => setDraftNotes((current) => ({ ...current, clientDescription: event.target.value }))} />
+            <p className="text-xs font-normal text-zinc-500">May appear in client summaries or future exports.</p>
+          </label>
+          <label className="space-y-1 text-sm font-medium text-zinc-700">
+            Internal management note
+            <textarea className="min-h-20 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm" value={draftNotes.internalNote} onChange={(event) => setDraftNotes((current) => ({ ...current, internalNote: event.target.value }))} />
+            <p className="text-xs font-normal text-zinc-500">Internal only. Not for client-facing summaries.</p>
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button onClick={closeNotesEditor} variant="outline">Cancel</Button>
+            <Button onClick={saveNotesEditor} variant="brand">Done</Button>
+          </div>
+        </div>
+      </BottomSheet>
     </div>
   );
 }

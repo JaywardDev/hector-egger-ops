@@ -8,7 +8,7 @@ import { addDays, getNzWeekDates } from "@/src/lib/timesheets/date";
 import {
   getValidLookupIds,
   normalizeTimesheetEntry,
-  timesheetActivitySelect,
+  timesheetActivityInternalSelect,
   timesheetEntrySelect,
 } from "@/src/lib/timesheets/entries";
 import type {
@@ -187,7 +187,7 @@ export const listTimesheetEntriesForProfileForDates = async (
   if (entries.length === 0) return [];
 
   const activitiesResponse = await supabase.request(
-    `/rest/v1/timesheet_entry_activities?select=${timesheetActivitySelect}&entry_id=in.(${inList(entries.map((entry) => entry.id))})&order=sort_order.asc`,
+    `/rest/v1/timesheet_entry_activities?select=${timesheetActivityInternalSelect}&entry_id=in.(${inList(entries.map((entry) => entry.id))})&order=sort_order.asc`,
     { cache: "no-store" },
   );
   if (!activitiesResponse.ok) throw new Error("Failed to load employee timesheet activities");
@@ -373,6 +373,8 @@ export const saveEmployeeTimesheetCorrectionAtomic = async (
         task_id: activity.taskId,
         work_mode: input.workMode === "mixed" ? activity.workMode : input.workMode,
         hours: activity.hours,
+        client_description: activity.clientDescription?.trim() || null,
+        internal_note: activity.internalNote?.trim() || null,
       })),
       p_comment: comment?.trim() || null,
     }),

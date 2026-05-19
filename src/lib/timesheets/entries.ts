@@ -9,8 +9,9 @@ import type { SaveTimesheetEntryInput, TimesheetActivityMode, TimesheetActivityR
 
 export const timesheetEntrySelect = "id,profile_id,work_date,status,time_in,time_out,work_mode,leave_type,leave_hours,is_public_holiday,unpaid_break,paid_break,payable_hours,allocation_hours,submitted_at,approved_at,approved_by_profile_id,returned_at,returned_by_profile_id,return_comment,created_at,updated_at";
 const entrySelect = timesheetEntrySelect;
-export const timesheetActivitySelect = "id,entry_id,project_id,task_id,project_code_snapshot,project_label_snapshot,task_code_snapshot,task_label_snapshot,work_mode,hours,sort_order";
-const activitySelect = timesheetActivitySelect;
+export const timesheetActivitySelect = "id,entry_id,project_id,task_id,project_code_snapshot,project_label_snapshot,task_code_snapshot,task_label_snapshot,work_mode,hours,sort_order,client_description";
+export const timesheetActivityInternalSelect = "id,entry_id,project_id,task_id,project_code_snapshot,project_label_snapshot,task_code_snapshot,task_label_snapshot,work_mode,hours,sort_order,client_description,internal_note";
+const activitySelect = timesheetActivityInternalSelect;
 
 type ActorWithRoles = TimesheetActor & { accessContext: { accountStatus: "approved"; roles: import("@/src/lib/auth/profile-access").AppRole[] } };
 
@@ -19,8 +20,12 @@ export const normalizeTimesheetEntry = (entry: TimesheetEntryRecord, activities:
   leave_hours: Number(entry.leave_hours),
   payable_hours: Number(entry.payable_hours),
   allocation_hours: Number(entry.allocation_hours),
-  activities: activities.map((activity) => ({ ...activity, hours: Number(activity.hours) })),
+  activities: activities.map((activity) => ({ ...activity, hours: Number(activity.hours), client_description: activity.client_description ?? null, internal_note: activity.internal_note ?? null })),
 });
+const normalizeOptionalNote = (value: string | null | undefined) => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
 
 export const getTimesheetPreference = async (actor: TimesheetActor): Promise<TimesheetWorkMode> => {
   await assertTimesheetReadAccess(actor);
@@ -160,6 +165,8 @@ export const saveOwnTimesheetEntry = async (
           task_label_snapshot: task?.label ?? null,
           work_mode: input.workMode === "mixed" ? activity.workMode : input.workMode,
           hours: activity.hours,
+          client_description: normalizeOptionalNote(activity.clientDescription),
+          internal_note: normalizeOptionalNote(activity.internalNote),
           sort_order: index,
         };
       })),
