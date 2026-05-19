@@ -59,11 +59,6 @@ export default async function TimesheetPage() {
           </span>
         }
       />
-      {!profile.staff_group ? (
-        <Alert className="mb-4" variant="warning">
-          Your profile is missing a staff group, so project and task options are unavailable. Ask an admin to assign your staff group before submitting timesheets.
-        </Alert>
-      ) : null}
       <WeeklyTimesheetClient
         days={days}
         userName={profile.full_name ?? profile.email}

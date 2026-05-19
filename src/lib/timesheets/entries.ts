@@ -63,22 +63,15 @@ const getExistingEntry = async (profileId: string, workDate: string): Promise<Ti
   return entry ?? null;
 };
 
-const staffGroupVisibilityFilter = (staffGroup: StaffGroup) =>
-  `visible_to_staff_groups=cs.${encodeURIComponent(`{${staffGroup}}`)}`;
-
 const locationModes: TimesheetActivityMode[] = ["factory", "site", "office"];
 const leaveTaskCodes = new Set(["LA", "LB", "LS", "LSACC", "LSACCNW", "LW", "TIL"]);
 
 export const getValidLookupIds = async (staffGroup: StaffGroup | null | undefined) => {
-  if (!staffGroup) {
-    throw new Error("A staff group is required before choosing timesheet project and task options.");
-  }
-
+  void staffGroup;
   const supabase = createServiceRoleSupabaseClient();
-  const visibilityFilter = staffGroupVisibilityFilter(staffGroup);
   const [projectsResponse, tasksResponse] = await Promise.all([
-    supabase.request(`/rest/v1/timesheet_projects?select=id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at&is_active=eq.true&${visibilityFilter}`),
-    supabase.request(`/rest/v1/timesheet_tasks?select=id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at&is_active=eq.true&${visibilityFilter}`),
+    supabase.request(`/rest/v1/timesheet_projects?select=id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at&is_active=eq.true`),
+    supabase.request(`/rest/v1/timesheet_tasks?select=id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at&is_active=eq.true`),
   ]);
   if (!projectsResponse.ok || !tasksResponse.ok) throw new Error("Failed to validate lookup options");
   const projects = (await projectsResponse.json()) as TimesheetLookupOption[];

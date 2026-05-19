@@ -2,21 +2,16 @@ import "server-only";
 
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { assertTimesheetReadAccess, createSessionHeaders, type TimesheetActor } from "@/src/lib/timesheets/access";
-import { filterLookupsForLocation, getLeaveTaskOptions, hasPublicHolidayTask } from "@/src/lib/timesheets/lookup-shared";
 import type { StaffGroup, TimesheetLookupOption, TimesheetLookups } from "@/src/lib/timesheets/types";
 
 const select = "id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at";
 
-const staffGroupVisibilityFilter = (staffGroup: StaffGroup) =>
-  `visible_to_staff_groups=cs.${encodeURIComponent(`{${staffGroup}}`)}`;
-
 const loadLookup = async (
   path: string,
   actor: TimesheetActor,
-  staffGroup: StaffGroup,
 ): Promise<TimesheetLookupOption[]> => {
   const supabase = createServerSupabaseClient();
-  const response = await supabase.request(`${path}?select=${select}&is_active=eq.true&${staffGroupVisibilityFilter(staffGroup)}&order=sort_order.asc,code.asc`, {
+  const response = await supabase.request(`${path}?select=${select}&is_active=eq.true&order=sort_order.asc,code.asc`, {
     cache: "no-store",
     headers: createSessionHeaders(actor.session),
   });
@@ -30,11 +25,11 @@ export const getTimesheetLookups = async (
   staffGroup: StaffGroup | null | undefined,
 ): Promise<TimesheetLookups> => {
   await assertTimesheetReadAccess(actor);
-  if (!staffGroup) return emptyTimesheetLookups();
+  void staffGroup;
 
   const [projects, tasks] = await Promise.all([
-    loadLookup("/rest/v1/timesheet_projects", actor, staffGroup),
-    loadLookup("/rest/v1/timesheet_tasks", actor, staffGroup),
+    loadLookup("/rest/v1/timesheet_projects", actor),
+    loadLookup("/rest/v1/timesheet_tasks", actor),
   ]);
   return { projects, tasks };
 };

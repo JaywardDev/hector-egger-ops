@@ -60,3 +60,39 @@ test("special costcodes cannot be used as normal activity tasks", () => {
     /Special timesheet costcodes/,
   );
 });
+
+
+test("single work-location rows validate independently of profile staff group", () => {
+  const siteInput = { ...baseInput(), workMode: "site" as const, activities: [{ projectId: "p-site", taskId: "t-site", workMode: "site" as const, hours: 8 }] };
+  const officeInput = { ...baseInput(), workMode: "office" as const, activities: [{ projectId: "p-office", taskId: "t-office", workMode: "office" as const, hours: 8 }] };
+
+  assert.doesNotThrow(() =>
+    validateTimesheetEntryInput(
+      siteInput,
+      new Set(["p-site", "p-office"]),
+      new Set(["t-site", "t-office"]),
+      byLocation([], ["p-site"], ["p-office"]),
+      byLocation([], ["t-site"], ["t-office"]),
+    ),
+  );
+
+  assert.doesNotThrow(() =>
+    validateTimesheetEntryInput(
+      officeInput,
+      new Set(["p-site", "p-office"]),
+      new Set(["t-site", "t-office"]),
+      byLocation([], ["p-site"], ["p-office"]),
+      byLocation([], ["t-site"], ["t-office"]),
+    ),
+  );
+
+  assert.throws(() =>
+    validateTimesheetEntryInput(
+      { ...siteInput, activities: [{ ...siteInput.activities[0], projectId: "p-office" }] },
+      new Set(["p-site", "p-office"]),
+      new Set(["t-site", "t-office"]),
+      byLocation([], ["p-site"], ["p-office"]),
+      byLocation([], ["t-site"], ["t-office"]),
+    ),
+  /Project is not available/);
+});

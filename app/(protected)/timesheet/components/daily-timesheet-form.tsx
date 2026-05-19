@@ -296,7 +296,7 @@ export function DailyTimesheetForm({
           />
           Public holiday
         </label>
-        {!publicHolidayAvailable ? (<p className="text-xs text-zinc-500">Public holiday is unavailable because PUHO is not active for this staff group.</p>) : null}
+        {!publicHolidayAvailable ? (<p className="text-xs text-zinc-500">Public holiday is unavailable because the PUHO costcode is not active for this work location.</p>) : null}
       </section>
 
       <div
