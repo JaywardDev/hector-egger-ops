@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { StickyNote } from "lucide-react";
 import { saveTimesheetEntryAction } from "@/app/(protected)/timesheet/actions";
 import { Alert } from "@/src/components/ui/alert";
@@ -212,23 +212,28 @@ export function DailyTimesheetForm({
     }
   };
 
-  const updateActivity = (clientId: string, patch: Partial<DraftActivity>) => {
+  const updateActivity = useCallback((clientId: string, patch: Partial<DraftActivity>) => {
     setActivities((current) =>
       current.map((row) =>
         row.clientId === clientId ? { ...row, ...patch } : row,
       ),
     );
-  };
-  const openNotesEditor = (activity: DraftActivity) => {
+  }, []);
+  const openNotesEditor = useCallback((activity: DraftActivity) => {
     setActiveNotesRowId(activity.clientId);
     setDraftNotes({ clientDescription: activity.clientDescription ?? "", internalNote: activity.internalNote ?? "" });
-  };
-  const closeNotesEditor = () => setActiveNotesRowId(null);
-  const saveNotesEditor = () => {
+  }, []);
+  const closeNotesEditor = useCallback(() => {
+    setActiveNotesRowId(null);
+  }, []);
+  const saveNotesEditor = useCallback(() => {
     if (!activeNotesRowId) return;
-    updateActivity(activeNotesRowId, { clientDescription: draftNotes.clientDescription, internalNote: draftNotes.internalNote });
-    closeNotesEditor();
-  };
+    updateActivity(activeNotesRowId, {
+      clientDescription: draftNotes.clientDescription,
+      internalNote: draftNotes.internalNote,
+    });
+    setActiveNotesRowId(null);
+  }, [activeNotesRowId, draftNotes.clientDescription, draftNotes.internalNote, updateActivity]);
 
   const submit = () => {
     setFeedback(null);

@@ -19,18 +19,20 @@ export function BottomSheet({
   onClose,
   children,
 }: BottomSheetProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) {
       return;
     }
 
-    panelRef.current?.focus();
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        onClose();
+        onCloseRef.current();
       }
     };
 
@@ -38,7 +40,7 @@ export function BottomSheet({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) {
     return null;
@@ -54,7 +56,6 @@ export function BottomSheet({
       />
 
       <div
-        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
