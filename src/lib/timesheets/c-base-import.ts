@@ -152,7 +152,7 @@ const unzipXlsx = (buffer: Buffer) => {
   return files;
 };
 
-const getSharedStrings = (files: Map<string, string>) => {
+const parseSharedStrings = (files: Map<string, string>) => {
   const xml = files.get("xl/sharedStrings.xml");
   if (!xml) return [];
 
@@ -192,25 +192,13 @@ const columnIndex = (column: string) =>
 
 const readCellValue = (cell: string, sharedStrings: string[]): string | boolean => {
   const type = cell.match(/\bt="([^"]+)"/)?.[1];
-  const inline = cell.match(/<is>[\s\S]*?<t[^>]*>([\s\S]*?)<\/t>[\s\S]*?<\/is>/)?.[1];
-  const value = inline ?? cell.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? "";
+  const inline = Array.from(cell.matchAll(/<is>[\s\S]*?<t[^>]*>([\s\S]*?)<\/t>[\s\S]*?<\/is>/g), ([, text]) => escapeXml(text)).join("");
+  const value = (inline || cell.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? "").trim();
 
-  if (type === "s") return sharedStrings[Number(value)] ?? "";
+  if (type === "s") return sharedStrings[Number.parseInt(value, 10)] ?? "";
   if (type === "b") return value === "1";
 
   return escapeXml(value);
-};
-
-const diagnosticCharCodes = (value: string) => Array.from(value).map((character) => character.codePointAt(0));
-
-const diagnosticFirstDifference = (actual: string, expected: string) => {
-  const maxLength = Math.max(actual.length, expected.length);
-  for (let index = 0; index < maxLength; index += 1) {
-    const actualCode = actual.codePointAt(index);
-    const expectedCode = expected.codePointAt(index);
-    if (actualCode !== expectedCode) return { index, actualCode: actualCode ?? null, expectedCode: expectedCode ?? null };
-  }
-  return null;
 };
 
 export const parseWorksheet = (buffer: Buffer, sheetName: string, file: SourceFile): { rows: WorkbookRow[]; errors: CBaseImportValidationError[] } => {
@@ -233,10 +221,10 @@ export const parseWorksheet = (buffer: Buffer, sheetName: string, file: SourceFi
     };
   }
 
-  const sharedStrings = getSharedStrings(files);
+  const sharedStrings = parseSharedStrings(files);
   const rawRows = Array.from(worksheetXml.matchAll(/<row\b[^>]*r="(\d+)"[^>]*>([\s\S]*?)<\/row>/g)).map(([, rowNumber, rowXml]) => {
     const cells: Array<string | boolean> = [];
-    for (const [, reference, cellXml] of rowXml.matchAll(/<c\b[^>]*r="([A-Z]+)\d+"[^>]*>([\s\S]*?)<\/c>/g)) {
+    for (const [, cellXml, reference] of rowXml.matchAll(/(<c\b[^>]*r="([A-Z]+)\d+"[^>]*>[\s\S]*?<\/c>)/g)) {
       const cellValue = readCellValue(cellXml, sharedStrings);
       cells[columnIndex(cellColumn(reference))] = typeof cellValue === "string" ? cellValue.trim() : cellValue;
     }
@@ -250,34 +238,6 @@ export const parseWorksheet = (buffer: Buffer, sheetName: string, file: SourceFi
 
   const headers = headerRow.cells.map(normalizeHeaderCell);
   const expectedHeaders = [...REQUIRED_HEADERS[file]];
-  console.info("[c-base-import][header-diagnostics]", {
-    file,
-    headerRowNumber: headerRow.rowNumber,
-    worksheetPath,
-    parsedHeaders: headerRow.cells.map((rawHeader, index) => {
-      const rawString = typeof rawHeader === "string" ? rawHeader : "";
-      const normalizedHeader = headers[index] ?? "";
-      const expectedHeader = expectedHeaders[index] ?? "";
-      return {
-        index,
-        rawValue: rawString,
-        normalizedValue: normalizedHeader,
-        rawLength: rawString.length,
-        normalizedLength: normalizedHeader.length,
-        rawCharCodes: diagnosticCharCodes(rawString),
-        normalizedCharCodes: diagnosticCharCodes(normalizedHeader),
-        expectedValue: expectedHeader,
-        expectedLength: expectedHeader.length,
-        expectedCharCodes: diagnosticCharCodes(expectedHeader),
-        firstDifferingCharacter: diagnosticFirstDifference(normalizedHeader, expectedHeader),
-      };
-    }),
-    expectedHeaders,
-    normalizedExpectedHeaders: expectedHeaders.map(normalizeHeader),
-    parsedHeaderCount: headers.length,
-    expectedHeaderCount: expectedHeaders.length,
-    mismatchIndex: headers.findIndex((header, index) => header !== expectedHeaders[index]),
-  });
   if (headers.length !== expectedHeaders.length || headers.some((header, index) => header !== expectedHeaders[index])) {
     return {
       rows: [],

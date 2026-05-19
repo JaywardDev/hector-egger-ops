@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { parseSourceRows, parseWorksheet } from "@/src/lib/timesheets/c-base-import";
@@ -170,6 +171,22 @@ test("worksheet parser reads ZIPs that use data descriptors and central-director
   const result = parseWorksheet(workbook, "qry_TIMESHEET_BuildingsExport", "buildings");
   assert.deepEqual(result.errors, []);
   assert.equal(result.rows[0]?.values.TIMESHEET_SITE, true);
+});
+
+test("costcodes workbook resolves shared-string headers", () => {
+  const workbook = readFileSync("docs/qry_TIMESHEET_CostcodesExport.xlsx");
+  const result = parseWorksheet(workbook, "qry_TIMESHEET_CostcodesExport", "costcodes");
+
+  assert.deepEqual(result.errors, []);
+  assert.ok(result.rows.length > 0);
+});
+
+test("buildings workbook still parses successfully", () => {
+  const workbook = readFileSync("docs/qry_TIMESHEET_BuildingsExport.xlsx");
+  const result = parseWorksheet(workbook, "qry_TIMESHEET_BuildingsExport", "buildings");
+
+  assert.deepEqual(result.errors, []);
+  assert.ok(result.rows.length > 0);
 });
 
 test("costcodes rejects invalid Department", () => {
