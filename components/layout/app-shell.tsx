@@ -27,15 +27,24 @@ export function AppShell({
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isMobileNavVisible, setIsMobileNavVisible] = useState(false);
   const closeTimerRef = useRef<number | null>(null);
+  const openFrameRef = useRef<number | null>(null);
   const navigationSections = getNavigationSections({ accessState, roles });
 
   const openMobileNav = () => {
+    if (openFrameRef.current !== null) {
+      window.cancelAnimationFrame(openFrameRef.current);
+      openFrameRef.current = null;
+    }
     if (closeTimerRef.current !== null) {
       window.clearTimeout(closeTimerRef.current);
       closeTimerRef.current = null;
     }
+    setIsMobileNavOpen(false);
     setIsMobileNavVisible(true);
-    setIsMobileNavOpen(true);
+    openFrameRef.current = window.requestAnimationFrame(() => {
+      setIsMobileNavOpen(true);
+      openFrameRef.current = null;
+    });
   };
 
   const closeMobileNav = () => {
@@ -64,6 +73,9 @@ export function AppShell({
 
   useEffect(() => {
     return () => {
+      if (openFrameRef.current !== null) {
+        window.cancelAnimationFrame(openFrameRef.current);
+      }
       if (closeTimerRef.current !== null) {
         window.clearTimeout(closeTimerRef.current);
       }
