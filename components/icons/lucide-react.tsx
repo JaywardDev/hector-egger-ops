@@ -113,3 +113,8 @@ export const History = createIcon([
 export const Loader2 = createIcon([
   { tag: "path", attrs: { d: "M21 12a9 9 0 1 1-6.2-8.6" } },
 ]);
+
+export const StickyNote = createIcon([
+  { tag: "path", attrs: { d: "M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8Z" } },
+  { tag: "path", attrs: { d: "M15 3v4a1 1 0 0 0 1 1h4" } },
+]);
