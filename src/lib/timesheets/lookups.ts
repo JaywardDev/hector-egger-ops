@@ -2,10 +2,10 @@ import "server-only";
 
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { assertTimesheetReadAccess, createSessionHeaders, type TimesheetActor } from "@/src/lib/timesheets/access";
-import type { StaffGroup, TimesheetActivityMode, TimesheetLookupOption, TimesheetLookups } from "@/src/lib/timesheets/types";
+import { filterLookupsForLocation, getLeaveTaskOptions, hasPublicHolidayTask } from "@/src/lib/timesheets/lookup-shared";
+import type { StaffGroup, TimesheetLookupOption, TimesheetLookups } from "@/src/lib/timesheets/types";
 
 const select = "id,code,label,is_active,sort_order,visible_to_staff_groups,source_system,source_row_hash,last_seen_at,inactive_reason,inactive_at";
-const leaveCodes = ["LA", "LB", "LS", "LSACC", "LSACCNW", "LW", "TIL"] as const;
 
 const staffGroupVisibilityFilter = (staffGroup: StaffGroup) =>
   `visible_to_staff_groups=cs.${encodeURIComponent(`{${staffGroup}}`)}`;
@@ -25,14 +25,6 @@ const loadLookup = async (
 };
 
 export const emptyTimesheetLookups = (): TimesheetLookups => ({ projects: [], tasks: [] });
-export const filterLookupsForLocation = (lookups: TimesheetLookups, location: TimesheetActivityMode): TimesheetLookups => ({
-  projects: lookups.projects.filter((row) => row.visible_to_staff_groups.includes(location)),
-  tasks: lookups.tasks.filter((row) => row.visible_to_staff_groups.includes(location)),
-});
-
-export const getLeaveTaskOptions = (lookups: TimesheetLookups) => lookups.tasks.filter((task) => leaveCodes.includes(task.code as (typeof leaveCodes)[number]));
-export const hasPublicHolidayTask = (lookups: TimesheetLookups) => lookups.tasks.some((task) => task.code === "PUHO");
-
 export const getTimesheetLookups = async (
   actor: TimesheetActor,
   staffGroup: StaffGroup | null | undefined,

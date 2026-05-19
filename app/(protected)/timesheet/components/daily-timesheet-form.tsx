@@ -15,7 +15,7 @@ import {
   getIncompleteActivityRows,
   incompleteActivityMessage,
 } from "@/src/lib/timesheets/validation";
-import { filterLookupsForLocation, getLeaveTaskOptions, hasPublicHolidayTask } from "@/src/lib/timesheets/lookups";
+import { filterLookupsForLocation, getLeaveTaskOptions, hasPublicHolidayTask } from "@/src/lib/timesheets/lookup-shared";
 import type {
   SaveTimesheetEntryInput,
   TimesheetActivityInput,
