@@ -15,6 +15,7 @@ import {
   getIncompleteActivityRows,
   incompleteActivityMessage,
 } from "@/src/lib/timesheets/validation";
+import { filterLookupsForLocation, getLeaveTaskOptions, hasPublicHolidayTask } from "@/src/lib/timesheets/lookups";
 import type {
   SaveTimesheetEntryInput,
   TimesheetActivityInput,
@@ -32,13 +33,7 @@ type DraftActivity = TimesheetActivityInput & {
   hoursText: string;
 };
 
-const leaveOptions: { value: TimesheetLeaveType; label: string }[] = [
-  { value: "annual", label: "Annual leave" },
-  { value: "sick", label: "Sick leave" },
-  { value: "bereavement", label: "Bereavement leave" },
-  { value: "unpaid", label: "Unpaid leave" },
-  { value: "other", label: "Other leave" },
-];
+const leaveCodeToType: Record<string, TimesheetLeaveType> = { LA: "annual", LB: "bereavement", LS: "sick", LSACC: "sick", LSACCNW: "sick", LW: "unpaid", TIL: "other" };
 
 const defaultActivity = (
   lookups: TimesheetLookups,
@@ -175,6 +170,14 @@ export function DailyTimesheetForm({
     incompleteActivityRows.length > 0
       ? incompleteActivityMessage(workMode)
       : null;
+  const publicHolidayAvailable = hasPublicHolidayTask(lookups);
+  const leaveOptions = useMemo(() => getLeaveTaskOptions(lookups).map((task) => ({ value: leaveCodeToType[task.code], label: `${task.code} — ${task.label}` })).filter((option): option is { value: TimesheetLeaveType; label: string } => Boolean(option.value)), [lookups]);
+  const lookupOptionsByLocation = useMemo(() => ({
+    factory: filterLookupsForLocation(lookups, "factory"),
+    site: filterLookupsForLocation(lookups, "site"),
+    office: filterLookupsForLocation(lookups, "office"),
+  }), [lookups]);
+
   const formattedWorkDate = displayDate || formatNzDate(workDate, {
     weekday: "long",
     day: "2-digit",
@@ -279,11 +282,12 @@ export function DailyTimesheetForm({
           <input
             type="checkbox"
             checked={isPublicHoliday}
-            disabled={!canEdit}
+            disabled={!canEdit || !publicHolidayAvailable}
             onChange={(event) => setIsPublicHoliday(event.target.checked)}
           />
           Public holiday
         </label>
+        {!publicHolidayAvailable ? (<p className="text-xs text-zinc-500">Public holiday is unavailable because PUHO is not active for this staff group.</p>) : null}
       </section>
 
       <div
@@ -333,6 +337,8 @@ export function DailyTimesheetForm({
           <h3 className="text-base font-semibold text-zinc-900">Activity</h3>
           <div className="space-y-3">
             {activities.map((activity, index) => {
+              const rowLocation = workMode === "mixed" ? activity.workMode : workMode;
+              const rowLookups = lookupOptionsByLocation[rowLocation];
               const incompleteRow = incompleteActivityRowsByIndex.get(index);
 
               return (
@@ -359,7 +365,7 @@ export function DailyTimesheetForm({
                         })
                       }
                     >
-                      {lookups.projects.map((project) => (
+                      {rowLookups.projects.map((project) => (
                         <option key={project.id} value={project.id}>
                           {project.code} — {project.label}
                         </option>
@@ -381,7 +387,7 @@ export function DailyTimesheetForm({
                         })
                       }
                     >
-                      {lookups.tasks.map((task) => (
+                      {rowLookups.tasks.map((task) => (
                         <option key={task.id} value={task.id}>
                           {task.label}
                         </option>

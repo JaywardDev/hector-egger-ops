@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import { assertTimesheetReadAccess, assertTimesheetWriteAccess, canEditApprovedTimesheets, createSessionHeaders, type TimesheetActor } from "@/src/lib/timesheets/access";
 import { validateTimesheetEntryInput } from "@/src/lib/timesheets/validation";
-import type { SaveTimesheetEntryInput, TimesheetActivityRecord, TimesheetEntryRecord, TimesheetEntryWithActivities, StaffGroup, TimesheetLookupOption, TimesheetPreferenceRecord, TimesheetWorkMode } from "@/src/lib/timesheets/types";
+import type { SaveTimesheetEntryInput, TimesheetActivityMode, TimesheetActivityRecord, TimesheetEntryRecord, TimesheetEntryWithActivities, StaffGroup, TimesheetLookupOption, TimesheetPreferenceRecord, TimesheetWorkMode } from "@/src/lib/timesheets/types";
 
 export const timesheetEntrySelect = "id,profile_id,work_date,status,time_in,time_out,work_mode,leave_type,leave_hours,is_public_holiday,unpaid_break,paid_break,payable_hours,allocation_hours,submitted_at,approved_at,approved_by_profile_id,returned_at,returned_by_profile_id,return_comment,created_at,updated_at";
 const entrySelect = timesheetEntrySelect;
@@ -66,6 +66,9 @@ const getExistingEntry = async (profileId: string, workDate: string): Promise<Ti
 const staffGroupVisibilityFilter = (staffGroup: StaffGroup) =>
   `visible_to_staff_groups=cs.${encodeURIComponent(`{${staffGroup}}`)}`;
 
+const locationModes: TimesheetActivityMode[] = ["factory", "site", "office"];
+const leaveTaskCodes = new Set(["LA", "LB", "LS", "LSACC", "LSACCNW", "LW", "TIL"]);
+
 export const getValidLookupIds = async (staffGroup: StaffGroup | null | undefined) => {
   if (!staffGroup) {
     throw new Error("A staff group is required before choosing timesheet project and task options.");
@@ -80,9 +83,15 @@ export const getValidLookupIds = async (staffGroup: StaffGroup | null | undefine
   if (!projectsResponse.ok || !tasksResponse.ok) throw new Error("Failed to validate lookup options");
   const projects = (await projectsResponse.json()) as TimesheetLookupOption[];
   const tasks = (await tasksResponse.json()) as TimesheetLookupOption[];
+  const projectIdsByLocation = new Map(locationModes.map((mode) => [mode, new Set(projects.filter((row) => row.visible_to_staff_groups.includes(mode)).map((row) => row.id))]));
+  const taskIdsByLocation = new Map(locationModes.map((mode) => [mode, new Set(tasks.filter((row) => row.visible_to_staff_groups.includes(mode)).map((row) => row.id))]));
   return {
     projectIds: new Set(projects.map((row) => row.id)),
     taskIds: new Set(tasks.map((row) => row.id)),
+    projectIdsByLocation,
+    taskIdsByLocation,
+    leaveTaskCodes: new Set(tasks.filter((row) => leaveTaskCodes.has(row.code)).map((row) => row.code)),
+    hasPublicHolidayTask: tasks.some((row) => row.code === "PUHO"),
     projectById: new Map(projects.map((row) => [row.id, row])),
     taskById: new Map(tasks.map((row) => [row.id, row])),
   };
@@ -94,8 +103,8 @@ export const saveOwnTimesheetEntry = async (
   staffGroup: StaffGroup | null | undefined,
 ): Promise<TimesheetEntryWithActivities> => {
   await assertTimesheetWriteAccess(actor);
-  const { projectIds, taskIds, projectById, taskById } = await getValidLookupIds(staffGroup);
-  const validated = validateTimesheetEntryInput(input, projectIds, taskIds);
+  const { projectIds, taskIds, projectIdsByLocation, taskIdsByLocation, leaveTaskCodes, hasPublicHolidayTask, projectById, taskById } = await getValidLookupIds(staffGroup);
+  const validated = validateTimesheetEntryInput(input, projectIds, taskIds, projectIdsByLocation, taskIdsByLocation, leaveTaskCodes, hasPublicHolidayTask);
   const existing = await getExistingEntry(actor.profileId, validated.workDate);
   if (existing?.status === "supervisor_approved" || (existing?.status === "approved" && !canEditApprovedTimesheets(actor.accessContext.roles))) {
     throw new Error("Supervisor-approved timesheet entries are locked.");

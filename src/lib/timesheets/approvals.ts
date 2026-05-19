@@ -336,8 +336,8 @@ export const saveEmployeeTimesheetCorrectionAtomic = async (
 
   const target = await assertCanManageTargetProfile(actor, targetProfileId);
 
-  const { projectIds, taskIds } = await getValidLookupIds(target.staff_group);
-  const validated = validateTimesheetEntryInput(input, projectIds, taskIds);
+  const { projectIds, taskIds, projectIdsByLocation, taskIdsByLocation, leaveTaskCodes, hasPublicHolidayTask } = await getValidLookupIds(target.staff_group);
+  const validated = validateTimesheetEntryInput(input, projectIds, taskIds, projectIdsByLocation, taskIdsByLocation, leaveTaskCodes, hasPublicHolidayTask);
 
   const supabase = createServiceRoleSupabaseClient();
   const existingResponse = await supabase.request(
