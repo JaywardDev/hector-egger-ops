@@ -44,9 +44,14 @@ const validateWorkbookFile = (file: File | null, label: "buildings" | "costcodes
 
 const readWorkbook = async (file: File | null, label: "buildings" | "costcodes") => {
   validateWorkbookFile(file, label);
+  const upload = file;
+
+  if (!(upload instanceof File)) {
+    throw new Error("Please choose both C Base export files before validating.");
+  }
 
   try {
-    return Buffer.from(await file.arrayBuffer());
+    return Buffer.from(await upload.arrayBuffer());
   } catch {
     throw new Error(`The ${fieldLabel(label)} export file could not be read. Please export it again from C Base.`);
   }
