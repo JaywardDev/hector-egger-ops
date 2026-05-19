@@ -1,4 +1,5 @@
 import { parseNzDate } from "@/src/lib/dateTime";
+import { isSpecialTimesheetCostcode } from "@/src/lib/timesheets/lookup-shared";
 import type {
   SaveTimesheetEntryInput,
   TimesheetActivityInput,
@@ -63,6 +64,7 @@ export const validateTimesheetEntryInput = (
   validTaskIdsByLocation?: Map<TimesheetActivityMode, Set<string>>,
   leaveTaskCodes?: Set<string>,
   hasPublicHolidayTask = true,
+  taskCodeById?: Map<string, string>,
 ) => {
   const workDate = parseNzDate(input.workDate);
   if (!workDate) throw new Error("A valid work date is required.");
@@ -89,6 +91,7 @@ export const validateTimesheetEntryInput = (
   for (const row of activities) {
     if (!validProjectIds.has(row.projectId)) throw new Error("Select a valid project for each activity row.");
     if (!validTaskIds.has(row.taskId)) throw new Error("Select a valid task for each activity row.");
+    if (taskCodeById && isSpecialTimesheetCostcode(taskCodeById.get(row.taskId) ?? "")) throw new Error("Special timesheet costcodes cannot be used as normal work tasks.");
     if (!Number.isFinite(row.hours) || row.hours <= 0 || row.hours > 24) throw new Error("Activity hours must be greater than 0 and no more than 24.");
     const effectiveLocation = input.workMode === "mixed" ? row.workMode : input.workMode;
     if (input.workMode === "mixed" && !activityModes.has(row.workMode)) throw new Error("Mixed mode rows must choose factory, site, or office.");

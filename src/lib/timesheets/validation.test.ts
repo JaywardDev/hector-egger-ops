@@ -42,3 +42,21 @@ test("leave and public holiday require imported costcode availability", () => {
   assert.throws(() => validateTimesheetEntryInput(leave, new Set(["p-f"]), new Set(["t-f"]), byLocation(["p-f"], [], []), byLocation(["t-f"], [], []), new Set(), true), /leave type is unavailable/i);
   assert.throws(() => validateTimesheetEntryInput({ ...baseInput(), isPublicHoliday: true }, new Set(["p-f"]), new Set(["t-f"]), undefined, undefined, new Set(["LA"]), false), /PUHO/);
 });
+
+test("special costcodes cannot be used as normal activity tasks", () => {
+  const input = baseInput();
+  assert.throws(
+    () =>
+      validateTimesheetEntryInput(
+        input,
+        new Set(["p-f"]),
+        new Set(["t-f"]),
+        byLocation(["p-f"], [], []),
+        byLocation(["t-f"], [], []),
+        new Set(["LA"]),
+        true,
+        new Map([["t-f", "LA"]]),
+      ),
+    /Special timesheet costcodes/,
+  );
+});

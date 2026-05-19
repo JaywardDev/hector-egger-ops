@@ -15,7 +15,7 @@ import {
   getIncompleteActivityRows,
   incompleteActivityMessage,
 } from "@/src/lib/timesheets/validation";
-import { filterLookupsForLocation, getLeaveTaskOptions, hasPublicHolidayTask } from "@/src/lib/timesheets/lookup-shared";
+import { filterLookupsForLocation, getLeaveTaskOptions, hasPublicHolidayTask, isWorkActivityTask } from "@/src/lib/timesheets/lookup-shared";
 import type {
   SaveTimesheetEntryInput,
   TimesheetActivityInput,
@@ -42,7 +42,7 @@ const defaultActivity = (
 ): DraftActivity => ({
   clientId: crypto.randomUUID(),
   projectId: lookups.projects[0]?.id ?? "",
-  taskId: lookups.tasks[0]?.id ?? "",
+  taskId: lookups.tasks.find(isWorkActivityTask)?.id ?? "",
   workMode: workMode === "mixed" ? "factory" : workMode,
   hours: Number(hoursText) || 0,
   hoursText,
@@ -173,9 +173,18 @@ export function DailyTimesheetForm({
   const publicHolidayAvailable = hasPublicHolidayTask(lookups);
   const leaveOptions = useMemo(() => getLeaveTaskOptions(lookups).map((task) => ({ value: leaveCodeToType[task.code], label: `${task.code} — ${task.label}` })).filter((option): option is { value: TimesheetLeaveType; label: string } => Boolean(option.value)), [lookups]);
   const lookupOptionsByLocation = useMemo(() => ({
-    factory: filterLookupsForLocation(lookups, "factory"),
-    site: filterLookupsForLocation(lookups, "site"),
-    office: filterLookupsForLocation(lookups, "office"),
+    factory: {
+      ...filterLookupsForLocation(lookups, "factory"),
+      tasks: filterLookupsForLocation(lookups, "factory").tasks.filter(isWorkActivityTask),
+    },
+    site: {
+      ...filterLookupsForLocation(lookups, "site"),
+      tasks: filterLookupsForLocation(lookups, "site").tasks.filter(isWorkActivityTask),
+    },
+    office: {
+      ...filterLookupsForLocation(lookups, "office"),
+      tasks: filterLookupsForLocation(lookups, "office").tasks.filter(isWorkActivityTask),
+    },
   }), [lookups]);
 
   const formattedWorkDate = displayDate || formatNzDate(workDate, {
