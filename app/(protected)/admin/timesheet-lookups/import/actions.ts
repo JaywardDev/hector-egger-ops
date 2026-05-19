@@ -20,19 +20,36 @@ export type CBaseImportActionState = {
 
 const fileFromFormData = (formData: FormData, fieldName: string) => {
   const value = formData.get(fieldName);
-  return value instanceof File && value.size > 0 ? value : null;
+  return value instanceof File ? value : null;
+};
+
+const fieldLabel = (label: "buildings" | "costcodes") => (label === "buildings" ? "Buildings" : "Costcodes");
+
+const normalizeFileExtension = (filename: string) => filename.toLowerCase().split(".").pop() ?? "";
+
+const validateWorkbookFile = (file: File | null, label: "buildings" | "costcodes") => {
+  if (!file || !file.name) {
+    throw new Error("Please choose both C Base export files before validating.");
+  }
+
+  if (file.size <= 0) {
+    throw new Error(`The ${fieldLabel(label)} export file appears to be empty. Please export it again from C Base.`);
+  }
+
+  const ext = normalizeFileExtension(file.name);
+  if (ext !== "xlsx") {
+    throw new Error(`The ${fieldLabel(label)} export must be an .xlsx file.`);
+  }
 };
 
 const readWorkbook = async (file: File | null, label: "buildings" | "costcodes") => {
-  if (!file) {
-    throw new Error(`${label === "buildings" ? "BuildingsExport" : "CostcodesExport"} .xlsx file is required.`);
-  }
+  validateWorkbookFile(file, label);
 
-  if (!file.name.toLowerCase().endsWith(".xlsx")) {
-    throw new Error(`${file.name} must be an .xlsx file.`);
+  try {
+    return Buffer.from(await file.arrayBuffer());
+  } catch {
+    throw new Error(`The ${fieldLabel(label)} export file could not be read. Please export it again from C Base.`);
   }
-
-  return Buffer.from(await file.arrayBuffer());
 };
 
 export async function importCBaseTimesheetLookupsAction(
@@ -47,6 +64,9 @@ export async function importCBaseTimesheetLookupsAction(
   try {
     if (!authContext.profile) {
       throw new Error("Admin profile could not be resolved.");
+    }
+    if (!buildingsFile || !buildingsFile.name || !costcodesFile || !costcodesFile.name) {
+      throw new Error("Please choose both C Base export files before validating.");
     }
 
     const [buildingsBuffer, costcodesBuffer] = await Promise.all([
@@ -92,10 +112,14 @@ export async function importCBaseTimesheetLookupsAction(
       errors: [],
     };
   } catch (error) {
+    const friendlyParserError = "One of the C Base export files could not be parsed. Please re-export both .xlsx files from C Base and try again.";
+    const rawMessage = error instanceof Error ? error.message : null;
+    const isParserReadError = rawMessage !== null && /unexpected end of file|invalid|corrupt|inflate/i.test(rawMessage);
+
     return {
       status: "error",
       mode,
-      message: error instanceof Error ? error.message : "C Base import failed before any rows were written.",
+      message: isParserReadError ? friendlyParserError : rawMessage ?? "C Base import failed before any rows were written.",
       summary: null,
       errors: [],
     };

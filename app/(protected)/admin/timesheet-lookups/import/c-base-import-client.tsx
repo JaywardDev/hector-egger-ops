@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { importCBaseTimesheetLookupsAction, type CBaseImportActionState } from "@/app/(protected)/admin/timesheet-lookups/import/actions";
 import { Alert } from "@/src/components/ui/alert";
 import { Button } from "@/src/components/ui/button";
@@ -27,6 +27,9 @@ const initialCBaseImportState: CBaseImportActionState = {
 
 export function CBaseTimesheetImportClient() {
   const [state, formAction, isPending] = useActionState(importCBaseTimesheetLookupsAction, initialCBaseImportState);
+  const [hasBuildingsFile, setHasBuildingsFile] = useState(false);
+  const [hasCostcodesFile, setHasCostcodesFile] = useState(false);
+  const canSubmit = hasBuildingsFile && hasCostcodesFile && !isPending;
 
   return (
     <div className="grid gap-4">
@@ -40,21 +43,35 @@ export function CBaseTimesheetImportClient() {
           <div className="grid gap-2 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="buildingsFile">BuildingsExport .xlsx</Label>
-              <Input id="buildingsFile" name="buildingsFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
+              <Input
+                id="buildingsFile"
+                name="buildingsFile"
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                required
+                onChange={(event) => setHasBuildingsFile((event.currentTarget.files?.length ?? 0) > 0)}
+              />
               <p className="text-xs text-zinc-500">Worksheet: qry_TIMESHEET_BuildingsExport</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="costcodesFile">CostcodesExport .xlsx</Label>
-              <Input id="costcodesFile" name="costcodesFile" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
+              <Input
+                id="costcodesFile"
+                name="costcodesFile"
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                required
+                onChange={(event) => setHasCostcodesFile((event.currentTarget.files?.length ?? 0) > 0)}
+              />
               <p className="text-xs text-zinc-500">Worksheet: qry_TIMESHEET_CostcodesExport</p>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button type="submit" name="mode" value="dry-run" variant="secondary" disabled={isPending}>
+            <Button type="submit" name="mode" value="dry-run" variant="secondary" disabled={!canSubmit}>
               {isPending ? "Checking…" : "Validate / dry run"}
             </Button>
-            <Button type="submit" name="mode" value="apply" variant="primary" disabled={isPending}>
+            <Button type="submit" name="mode" value="apply" variant="primary" disabled={!canSubmit}>
               {isPending ? "Syncing…" : "Validate and apply sync"}
             </Button>
           </div>
