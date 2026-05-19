@@ -193,7 +193,8 @@ const columnIndex = (column: string) =>
 const readCellValue = (cell: string, sharedStrings: string[]): string | boolean => {
   const type = cell.match(/\bt="([^"]+)"/)?.[1];
   const inline = Array.from(cell.matchAll(/<is>[\s\S]*?<t[^>]*>([\s\S]*?)<\/t>[\s\S]*?<\/is>/g), ([, text]) => escapeXml(text)).join("");
-  const value = (inline || cell.match(/<v>([\s\S]*?)<\/v>/)?.[1] ?? "").trim();
+  const inlineValue = inline || cell.match(/<v>([\s\S]*?)<\/v>/)?.[1];
+  const value = (inlineValue ?? "").trim();
 
   if (type === "s") return sharedStrings[Number.parseInt(value, 10)] ?? "";
   if (type === "b") return value === "1";
