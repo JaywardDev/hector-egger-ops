@@ -36,6 +36,18 @@ export type PayrollExportEmployeeRow = {
   leaveRows: PayrollExportLeaveRow[];
 };
 
+type PayrollExportEntryRow = {
+  profile_id: string;
+  payable_hours: number | null;
+  leave_type: TimesheetLeaveType | null;
+  leave_hours: number | null;
+  profile?: {
+    full_name: string | null;
+    email: string | null;
+    account_status: string | null;
+  } | null;
+};
+
 export const formatWeekEndingForPayroll = (weekEndingIso: string) =>
   formatNzDate(weekEndingIso, { day: "2-digit", month: "2-digit", year: "numeric" });
 
@@ -105,12 +117,18 @@ export async function getPayrollExportData(session: AuthSession, selectedDate: s
     `/rest/v1/timesheet_entries?select=profile_id,payable_hours,leave_type,leave_hours,profile:profiles!timesheet_entries_profile_id_fkey(full_name,email,account_status)&work_date=gte.${weekStart}&work_date=lt.${weekEndExclusive}&status=in.(${INCLUDED_STATUSES.join(",")})`,
   );
 
-  const scopedEntries = (response as any[])
+  if (!response.ok) {
+    throw new Error(`Failed to fetch payroll export entries (${response.status})`);
+  }
+
+  const entries = (await response.json()) as PayrollExportEntryRow[];
+
+  const scopedEntries = entries
     .filter((entry) => entry.profile?.account_status === "approved")
     .map((entry) => ({
-      profile_id: entry.profile_id as string,
+      profile_id: entry.profile_id,
       payable_hours: Number(entry.payable_hours),
-      leave_type: entry.leave_type as TimesheetLeaveType | null,
+      leave_type: entry.leave_type,
       leave_hours: Number(entry.leave_hours),
       profile: entry.profile ? { full_name: entry.profile.full_name, email: entry.profile.email } : null,
     }));
