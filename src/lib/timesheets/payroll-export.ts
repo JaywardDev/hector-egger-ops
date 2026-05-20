@@ -15,7 +15,7 @@ export const PAYROLL_EXPORT_HEADERS = [
   "COMMENT_OTHER",
 ] as const;
 
-const INCLUDED_STATUSES = ["supervisor_approved", "approved"] as const;
+const INCLUDED_STATUSES = ["submitted", "supervisor_approved", "approved"] as const;
 const leaveMappings: Partial<Record<TimesheetLeaveType, { costCode: string; comment: string }>> = {
   sick: { costCode: "LS - Leave Sick", comment: "Leave Sick" },
   unpaid: { costCode: "LW - Leave Without Pay", comment: "Leave Without Pay" },
@@ -41,6 +41,7 @@ type PayrollExportEntryRow = {
   payable_hours: number | null;
   leave_type: TimesheetLeaveType | null;
   leave_hours: number | null;
+  status: string | null;
   profile?: {
     full_name: string | null;
     email: string | null;
@@ -113,8 +114,10 @@ export async function getPayrollExportData(session: AuthSession, selectedDate: s
   const weekStart = getNzWeekStart(weekEnding);
   const weekEndExclusive = addNzDays(weekStart, 7);
   const supabase = createServerSupabaseClient();
+  console.info("[payroll-export] loading entries", { weekEnding, weekStart, weekEndExclusive });
+
   const response = await supabase.request(
-    `/rest/v1/timesheet_entries?select=profile_id,payable_hours,leave_type,leave_hours,profile:profiles!timesheet_entries_profile_id_fkey(full_name,email,account_status)&work_date=gte.${weekStart}&work_date=lt.${weekEndExclusive}&status=in.(${INCLUDED_STATUSES.join(",")})`,
+    `/rest/v1/timesheet_entries?select=profile_id,payable_hours,leave_type,leave_hours,status,profile:profiles!timesheet_entries_profile_id_fkey(full_name,email,account_status)&work_date=gte.${weekStart}&work_date=lt.${weekEndExclusive}&status=in.(${INCLUDED_STATUSES.join(",")})`,
   );
 
   if (!response.ok) {
@@ -122,6 +125,12 @@ export async function getPayrollExportData(session: AuthSession, selectedDate: s
   }
 
   const entries = (await response.json()) as PayrollExportEntryRow[];
+  const statusCounts = entries.reduce<Record<string, number>>((acc, entry) => {
+    const status = entry.status ?? "unknown";
+    acc[status] = (acc[status] ?? 0) + 1;
+    return acc;
+  }, {});
+  console.info("[payroll-export] fetched entries", { rawCount: entries.length, statusCounts });
 
   const scopedEntries = entries
     .filter((entry) => entry.profile?.account_status === "approved")
@@ -133,9 +142,12 @@ export async function getPayrollExportData(session: AuthSession, selectedDate: s
       profile: entry.profile ? { full_name: entry.profile.full_name, email: entry.profile.email } : null,
     }));
 
+  const rows = aggregatePayrollExport({ weekEnding, entries: scopedEntries });
+  console.info("[payroll-export] aggregated rows", { finalRowCount: rows.length });
+
   return {
     weekEnding,
     displayWeekEnding: formatWeekEndingForPayroll(weekEnding),
-    rows: aggregatePayrollExport({ weekEnding, entries: scopedEntries }),
+    rows,
   };
 }
