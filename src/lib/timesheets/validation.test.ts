@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { validateTimesheetEntryInput } from "@/src/lib/timesheets/validation";
+import { calculateAllocationHours, validateTimesheetEntryInput } from "@/src/lib/timesheets/validation";
 import type { SaveTimesheetEntryInput, TimesheetActivityMode } from "@/src/lib/timesheets/types";
 
 const baseInput = (): SaveTimesheetEntryInput => ({
@@ -41,6 +41,56 @@ test("leave and public holiday require imported costcode availability", () => {
   assert.doesNotThrow(() => validateTimesheetEntryInput(leave, new Set(["p-f"]), new Set(["t-f"]), byLocation(["p-f"], [], []), byLocation(["t-f"], [], []), new Set(["LA"]), true));
   assert.throws(() => validateTimesheetEntryInput(leave, new Set(["p-f"]), new Set(["t-f"]), byLocation(["p-f"], [], []), byLocation(["t-f"], [], []), new Set(), true), /leave type is unavailable/i);
   assert.throws(() => validateTimesheetEntryInput({ ...baseInput(), isPublicHoliday: true }, new Set(["p-f"]), new Set(["t-f"]), undefined, undefined, new Set(["LA"]), false), /PUHO/);
+});
+
+test("normal leave allocation uses leaveHours only with no hidden +8", () => {
+  const fullDayLeave = {
+    ...baseInput(),
+    leaveType: "annual" as const,
+    leaveHours: 8,
+    paidBreak: false,
+    unpaidBreak: false,
+    activities: [],
+  };
+  assert.equal(calculateAllocationHours(fullDayLeave), 8);
+  assert.doesNotThrow(() =>
+    validateTimesheetEntryInput(
+      fullDayLeave,
+      new Set(["p-f"]),
+      new Set(["t-f"]),
+      byLocation(["p-f"], [], []),
+      byLocation(["t-f"], [], []),
+      new Set(["LA"]),
+      true,
+    ),
+  );
+
+  const partialLeave = { ...fullDayLeave, leaveHours: 4 };
+  assert.equal(calculateAllocationHours(partialLeave), 4);
+});
+
+test("leave requires break checkboxes to remain unticked", () => {
+  const input = {
+    ...baseInput(),
+    leaveType: "annual" as const,
+    leaveHours: 8,
+    paidBreak: true,
+    unpaidBreak: false,
+    activities: [],
+  };
+  assert.throws(
+    () =>
+      validateTimesheetEntryInput(
+        input,
+        new Set(["p-f"]),
+        new Set(["t-f"]),
+        byLocation(["p-f"], [], []),
+        byLocation(["t-f"], [], []),
+        new Set(["LA"]),
+        true,
+      ),
+    /Breaks must be unticked/,
+  );
 });
 
 test("special costcodes cannot be used as normal activity tasks", () => {

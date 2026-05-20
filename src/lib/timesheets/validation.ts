@@ -79,6 +79,7 @@ export const validateTimesheetEntryInput = (
   if (input.leaveType !== null && !leaveTypes.has(input.leaveType)) throw new Error("A valid leave type is required.");
   if (!Number.isFinite(input.leaveHours) || input.leaveHours < 0 || input.leaveHours > 24) throw new Error("Leave hours must be between 0 and 24.");
   if (input.leaveHours > 0 && input.leaveType === null) throw new Error("Select a leave type when leave hours are entered.");
+  if (input.leaveType !== null && (input.paidBreak || input.unpaidBreak)) throw new Error("Breaks must be unticked when leave is selected.");
   if (input.leaveType && leaveTaskCodes) {
     const hasMappedLeaveCode = leaveTypeToTaskCode[input.leaveType].some((code) => leaveTaskCodes.has(code));
     if (!hasMappedLeaveCode) throw new Error("Selected leave type is unavailable for this profile.");

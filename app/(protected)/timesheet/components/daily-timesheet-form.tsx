@@ -119,6 +119,9 @@ export function DailyTimesheetForm({
   const [leaveType, setLeaveType] = useState<TimesheetLeaveType | "">(
     entry?.leave_type ?? "",
   );
+  const [isFullDayLeave, setIsFullDayLeave] = useState(
+    Boolean(entry?.leave_type) && (entry?.leave_hours ?? 0) === 8,
+  );
   const [leaveHoursText, setLeaveHoursText] = useState(
     entry?.leave_hours ? String(entry.leave_hours) : "0",
   );
@@ -139,6 +142,8 @@ export function DailyTimesheetForm({
   const [draftNotes, setDraftNotes] = useState<{ clientDescription: string; internalNote: string }>({ clientDescription: "", internalNote: "" });
 
   const disabled = !canEdit || isPublicHoliday;
+  const leaveSelected = leaveType !== "";
+  const breakDisabled = disabled || leaveSelected;
   const leaveHours = Number(leaveHoursText) || 0;
   const parsedActivities = useMemo(
     () =>
@@ -502,7 +507,7 @@ export function DailyTimesheetForm({
               >
                 ＋
               </span>
-              Add row
+              Add another activity
             </Button>
           </div>
         </section>
@@ -513,9 +518,19 @@ export function DailyTimesheetForm({
             <Select
               value={leaveType}
               disabled={disabled}
-              onChange={(event) =>
-                setLeaveType(event.target.value as TimesheetLeaveType | "")
-              }
+              onChange={(event) => {
+                const nextLeaveType = event.target.value as TimesheetLeaveType | "";
+                setLeaveType(nextLeaveType);
+                if (nextLeaveType !== "") {
+                  setPaidBreak(false);
+                  setUnpaidBreak(false);
+                  setIsFullDayLeave(true);
+                  setLeaveHoursText("8");
+                  return;
+                }
+                setIsFullDayLeave(false);
+                setLeaveHoursText("0");
+              }}
             >
               <option value="">No leave</option>
               {leaveOptions.map((option) => (
@@ -530,9 +545,22 @@ export function DailyTimesheetForm({
             <Input
               inputMode="decimal"
               value={leaveHoursText}
-              disabled={disabled}
+              disabled={disabled || isFullDayLeave}
               onChange={(event) => setLeaveHoursText(event.target.value)}
             />
+            <label className="flex items-center gap-2 pt-2 text-xs font-medium text-zinc-600">
+              <input
+                type="checkbox"
+                checked={isFullDayLeave}
+                disabled={disabled || leaveType === ""}
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  setIsFullDayLeave(checked);
+                  if (checked) setLeaveHoursText("8");
+                }}
+              />
+              Full day leave
+            </label>
           </label>
         </section>
 
@@ -541,26 +569,26 @@ export function DailyTimesheetForm({
             <input
               type="checkbox"
               checked={unpaidBreak}
-              disabled={disabled}
+              disabled={breakDisabled}
               onChange={(event) => setUnpaidBreak(event.target.checked)}
             />
-            Unpaid break (0.5 deducted)
+            Unpaid break
           </label>
           <label className="flex items-center gap-2 text-sm text-zinc-700">
             <input
               type="checkbox"
               checked={paidBreak}
-              disabled={disabled}
+              disabled={breakDisabled}
               onChange={(event) => setPaidBreak(event.target.checked)}
             />
-            Paid break (0.5 included in allocation)
+            Paid break
           </label>
         </section>
       </div>
 
       <section className="space-y-3 rounded-lg bg-zinc-50 p-3">
         <div className="flex justify-between text-sm">
-          <span>Total working hours</span>
+          <span>Total payable hours</span>
           <strong>{payableHours ?? "Invalid"} h</strong>
         </div>
         <div className="flex justify-between text-sm">
@@ -569,7 +597,7 @@ export function DailyTimesheetForm({
         </div>
         {!allocationMatches ? (
           <Alert variant="error">
-            Allocation must equal total working hours before saving.
+            Allocation must equal total payable hours before saving.
           </Alert>
         ) : null}
         {incompleteActivityError ? (
