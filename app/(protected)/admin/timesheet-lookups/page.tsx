@@ -112,10 +112,10 @@ export default async function TimesheetLookupsPage({ searchParams }: Props) {
               <tr key={row.id} className={rowClassName(row)}>
                 <td className="px-2 py-1 font-medium">{row.code}</td>
                 <td className="px-2 py-1">{row.label}</td>
-                <td className="px-2 py-1"><Badge variant={row.is_active ? "success" : "default"}>{row.is_active ? "Active" : "Inactive"}</Badge></td>
-                <td className="px-2 py-1"><Badge variant={row.source_system === "c_base" ? "secondary" : "default"}>{sourceLabel(row.source_system)}</Badge></td>
+                <td className="px-2 py-1">{row.is_active ? <Badge variant="success">Active</Badge> : <Badge>Inactive</Badge>}</td>
+                <td className="px-2 py-1"><Badge variant={row.source_system === "c_base" ? "muted" : "neutral"}>{sourceLabel(row.source_system)}</Badge></td>
                 <td className="px-2 py-1">{row.visible_to_staff_groups.length > 0 ? row.visible_to_staff_groups.join(", ") : "none"}</td>
-                <td className="px-2 py-1">{row.inactive_reason ? <Badge variant="default">{row.inactive_reason}</Badge> : "—"}</td>
+                <td className="px-2 py-1">{row.inactive_reason ? <Badge>{row.inactive_reason}</Badge> : "—"}</td>
                 <td className="px-2 py-1">{formatDateTime(row.inactive_at)}</td>
                 <td className="px-2 py-1">{formatDateTime(row.last_seen_at)}</td>
                 <td className="px-2 py-1">{formatDateTime(row.updated_at)}</td>
