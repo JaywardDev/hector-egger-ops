@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { Alert } from "@/src/components/ui/alert";
@@ -23,6 +24,9 @@ const sortLink = (name: string, currentSort: string, currentDirection: "asc" | "
 
 export default async function TimesheetLookupsPage({ searchParams }: Props) {
   const { session, profile } = await requireAdminAccess();
+  if (!profile) {
+    notFound();
+  }
   const filters = sanitizeLookupFilters(await searchParams);
   const result = await listTimesheetLookupsForAdmin({ session, profileId: profile.id }, filters);
 
