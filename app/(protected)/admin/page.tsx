@@ -38,6 +38,14 @@ export default async function AdminPage() {
           Open C Base import
         </Link>
       </Card>
-    </PageContainer>
+    
+      <Card>
+        <h2 className="text-lg font-semibold text-zinc-950">Payroll cutoff export</h2>
+        <p className="mt-1 text-sm text-zinc-600">Generate weekly payroll cutoff XLSX exports for approved staff and approved timesheet statuses.</p>
+        <Link className="mt-3 inline-flex rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" href="/admin/payroll-export">
+          Open payroll export
+        </Link>
+      </Card>
+</PageContainer>
   );
 }
