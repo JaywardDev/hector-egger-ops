@@ -365,7 +365,7 @@ export const saveEmployeeTimesheetCorrectionAtomic = async (
       p_leave_hours: validated.leaveHours,
       p_is_public_holiday: input.isPublicHoliday,
       p_unpaid_break: input.isPublicHoliday ? false : input.unpaidBreak,
-      p_paid_break: input.isPublicHoliday ? false : input.paidBreak,
+      p_paid_break: input.isPublicHoliday ? false : validated.paidBreak,
       p_payable_hours: validated.payableHours,
       p_allocation_hours: validated.allocationHours,
       p_activities: validated.activities.map((activity) => ({

@@ -20,7 +20,7 @@ const leaveTypeToTaskCode: Record<TimesheetLeaveType, string[]> = {
 };
 
 export const roundHours = (value: number) => Math.round(value * 10) / 10;
-// ... keep existing
+export const PAID_BREAK_THRESHOLD_HOURS = 2.5;
 const timeToMinutes = (value: string) => {
   const match = /^(\d{2}):(\d{2})$/.exec(value);
   if (!match) return null;
@@ -36,6 +36,13 @@ export const calculatePayableHours = (input: Pick<SaveTimesheetEntryInput, "isPu
   const end = timeToMinutes(input.timeOut);
   if (start === null || end === null || end <= start) return null;
   return roundHours((end - start) / 60 - (input.unpaidBreak ? 0.5 : 0));
+};
+export const derivePaidBreakEntitlement = (input: Pick<SaveTimesheetEntryInput, "isPublicHoliday" | "timeIn" | "timeOut">) => {
+  if (input.isPublicHoliday || !input.timeIn || !input.timeOut) return false;
+  const start = timeToMinutes(input.timeIn);
+  const end = timeToMinutes(input.timeOut);
+  if (start === null || end === null || end <= start) return false;
+  return roundHours((end - start) / 60) >= PAID_BREAK_THRESHOLD_HOURS;
 };
 export const calculateAllocationHours = (input: Pick<SaveTimesheetEntryInput, "isPublicHoliday" | "activities" | "leaveHours" | "paidBreak">) => {
   if (input.isPublicHoliday) return 8;
@@ -79,7 +86,8 @@ export const validateTimesheetEntryInput = (
   if (input.leaveType !== null && !leaveTypes.has(input.leaveType)) throw new Error("A valid leave type is required.");
   if (!Number.isFinite(input.leaveHours) || input.leaveHours < 0 || input.leaveHours > 24) throw new Error("Leave hours must be between 0 and 24.");
   if (input.leaveHours > 0 && input.leaveType === null) throw new Error("Select a leave type when leave hours are entered.");
-  if (input.leaveType !== null && (input.paidBreak || input.unpaidBreak)) throw new Error("Breaks must be unticked when leave is selected.");
+  const derivedPaidBreak = derivePaidBreakEntitlement(input);
+  if (input.paidBreak !== derivedPaidBreak) throw new Error("Paid break must match the derived attendance entitlement.");
   if (input.leaveType && leaveTaskCodes) {
     const hasMappedLeaveCode = leaveTypeToTaskCode[input.leaveType].some((code) => leaveTaskCodes.has(code));
     if (!hasMappedLeaveCode) throw new Error("Selected leave type is unavailable for this profile.");
@@ -101,7 +109,7 @@ export const validateTimesheetEntryInput = (
     if (validTaskIdsByLocation && !validTaskIdsByLocation.get(effectiveLocation)?.has(row.taskId)) throw new Error("Task is not available for the selected work location.");
   }
 
-  const allocationHours = calculateAllocationHours({ ...input, activities });
+  const allocationHours = calculateAllocationHours({ ...input, activities, paidBreak: derivedPaidBreak });
   if (Math.abs(allocationHours - payableHours) > 0.01) throw new Error("Allocation must equal payable total before submitting.");
-  return { workDate, payableHours, allocationHours, activities, leaveType: input.leaveType, leaveHours: roundHours(input.leaveHours) };
+  return { workDate, payableHours, allocationHours, activities, leaveType: input.leaveType, leaveHours: roundHours(input.leaveHours), paidBreak: derivedPaidBreak };
 };

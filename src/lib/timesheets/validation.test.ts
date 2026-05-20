@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateAllocationHours, validateTimesheetEntryInput } from "@/src/lib/timesheets/validation";
+import { calculateAllocationHours, calculatePayableHours, derivePaidBreakEntitlement, validateTimesheetEntryInput } from "@/src/lib/timesheets/validation";
 import type { SaveTimesheetEntryInput, TimesheetActivityMode } from "@/src/lib/timesheets/types";
 
 const baseInput = (): SaveTimesheetEntryInput => ({
@@ -69,28 +69,26 @@ test("normal leave allocation uses leaveHours only with no hidden +8", () => {
   assert.equal(calculateAllocationHours(partialLeave), 4);
 });
 
-test("leave requires break checkboxes to remain unticked", () => {
-  const input = {
-    ...baseInput(),
-    leaveType: "annual" as const,
-    leaveHours: 8,
-    paidBreak: true,
-    unpaidBreak: false,
-    activities: [],
-  };
-  assert.throws(
-    () =>
-      validateTimesheetEntryInput(
-        input,
-        new Set(["p-f"]),
-        new Set(["t-f"]),
-        byLocation(["p-f"], [], []),
-        byLocation(["t-f"], [], []),
-        new Set(["LA"]),
-        true,
-      ),
-    /Breaks must be unticked/,
-  );
+test("paid break is derived from attendance only and canonical payroll examples hold", () => {
+  const fullNormal = baseInput();
+  assert.equal(calculatePayableHours(fullNormal), 8.5);
+  assert.equal(derivePaidBreakEntitlement(fullNormal), true);
+
+  const fullNoUnpaid = { ...baseInput(), unpaidBreak: false, activities: [{ ...baseInput().activities[0], hours: 9 }] };
+  assert.equal(calculatePayableHours(fullNoUnpaid), 9);
+  assert.equal(derivePaidBreakEntitlement(fullNoUnpaid), true);
+
+  const partialWithLeave = { ...baseInput(), timeOut: "12:00", unpaidBreak: false, leaveType: "annual" as const, leaveHours: 3.5, activities: [{ ...baseInput().activities[0], hours: 5 }] };
+  const validatedPartial = validateTimesheetEntryInput(partialWithLeave, new Set(["p-f"]), new Set(["t-f"]), byLocation(["p-f"], [], []), byLocation(["t-f"], [], []), new Set(["LA"]), true);
+  assert.equal(validatedPartial.payableHours, 5);
+  assert.equal(validatedPartial.leaveHours, 3.5);
+  assert.equal(validatedPartial.paidBreak, true);
+  assert.equal(validatedPartial.allocationHours, 8.5);
+
+  const shortWithLeave = { ...baseInput(), timeOut: "09:00", unpaidBreak: false, leaveType: "annual" as const, leaveHours: 6, paidBreak: false, activities: [{ ...baseInput().activities[0], hours: 2 }] };
+  const validatedShort = validateTimesheetEntryInput(shortWithLeave, new Set(["p-f"]), new Set(["t-f"]), byLocation(["p-f"], [], []), byLocation(["t-f"], [], []), new Set(["LA"]), true);
+  assert.equal(validatedShort.allocationHours, 8);
+  assert.equal(validatedShort.paidBreak, false);
 });
 
 test("special costcodes cannot be used as normal activity tasks", () => {

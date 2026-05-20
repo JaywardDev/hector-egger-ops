@@ -14,6 +14,7 @@ import { cn } from "@/src/lib/utils";
 import {
   calculateAllocationHours,
   calculatePayableHours,
+  derivePaidBreakEntitlement,
   getIncompleteActivityRows,
   incompleteActivityMessage,
 } from "@/src/lib/timesheets/validation";
@@ -129,7 +130,6 @@ export function DailyTimesheetForm({
     entry?.is_public_holiday ?? false,
   );
   const [unpaidBreak, setUnpaidBreak] = useState(entry?.unpaid_break ?? true);
-  const [paidBreak, setPaidBreak] = useState(entry?.paid_break ?? true);
   const [activities, setActivities] = useState(() =>
     entryToActivities(entry, lookups, entry?.work_mode ?? preferredWorkMode),
   );
@@ -158,6 +158,11 @@ export function DailyTimesheetForm({
     timeIn,
     timeOut,
     unpaidBreak,
+  });
+  const paidBreak = derivePaidBreakEntitlement({
+    isPublicHoliday,
+    timeIn,
+    timeOut,
   });
   const allocationHours = calculateAllocationHours({
     isPublicHoliday,
@@ -522,7 +527,6 @@ export function DailyTimesheetForm({
                 const nextLeaveType = event.target.value as TimesheetLeaveType | "";
                 setLeaveType(nextLeaveType);
                 if (nextLeaveType !== "") {
-                  setPaidBreak(false);
                   setUnpaidBreak(false);
                   setIsFullDayLeave(true);
                   setLeaveHoursText("8");
@@ -575,13 +579,7 @@ export function DailyTimesheetForm({
             Unpaid break
           </label>
           <label className="flex items-center gap-2 text-sm text-zinc-700">
-            <input
-              type="checkbox"
-              checked={paidBreak}
-              disabled={breakDisabled}
-              onChange={(event) => setPaidBreak(event.target.checked)}
-            />
-            Paid break
+            {paidBreak ? "0.5h paid break included" : "Paid break not applicable"}
           </label>
         </section>
       </div>
