@@ -2,7 +2,7 @@ import "server-only";
 
 import { addNzDays, formatNzDate, getNzWeekEnd, getNzWeekStart, parseNzDate } from "@/src/lib/dateTime";
 import { createServerSupabaseClient } from "@/src/lib/supabase/server";
-import type { SupabaseSession } from "@/src/lib/supabase/shared";
+import type { AuthSession } from "@/src/lib/auth/session";
 import type { TimesheetLeaveType } from "@/src/lib/timesheets/types";
 
 export const PAYROLL_EXPORT_HEADERS = [
@@ -91,7 +91,7 @@ export const aggregatePayrollExport = (args: {
     .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 };
 
-export async function getPayrollExportData(session: SupabaseSession, selectedDate: string) {
+export async function getPayrollExportData(session: AuthSession, selectedDate: string) {
   const parsed = parseNzDate(selectedDate);
   if (!parsed) {
     throw new Error("A valid payroll week ending date is required.");
