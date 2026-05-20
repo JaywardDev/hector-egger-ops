@@ -1,7 +1,7 @@
 import "server-only";
 
-import { formatNzDate, getNzWeekEnd, getNzWeekRangeUtc, parseNzDate } from "@/src/lib/dateTime";
-import { getSupabaseServerClient } from "@/src/lib/supabase/server";
+import { addNzDays, formatNzDate, getNzWeekEnd, getNzWeekStart, parseNzDate } from "@/src/lib/dateTime";
+import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 import type { SupabaseSession } from "@/src/lib/supabase/shared";
 import type { TimesheetLeaveType } from "@/src/lib/timesheets/types";
 
@@ -98,10 +98,11 @@ export async function getPayrollExportData(session: SupabaseSession, selectedDat
   }
 
   const weekEnding = getNzWeekEnd(parsed);
-  const range = getNzWeekRangeUtc(weekEnding);
-  const supabase = getSupabaseServerClient(session.accessToken);
+  const weekStart = getNzWeekStart(weekEnding);
+  const weekEndExclusive = addNzDays(weekStart, 7);
+  const supabase = createServerSupabaseClient(session.accessToken);
   const response = await supabase.request(
-    `/rest/v1/timesheet_entries?select=profile_id,payable_hours,leave_type,leave_hours,profile:profiles!timesheet_entries_profile_id_fkey(full_name,email,account_status)&created_at=gte.${range.startUtc}&created_at=lt.${range.endUtc}&status=in.(${INCLUDED_STATUSES.join(",")})`,
+    `/rest/v1/timesheet_entries?select=profile_id,payable_hours,leave_type,leave_hours,profile:profiles!timesheet_entries_profile_id_fkey(full_name,email,account_status)&work_date=gte.${weekStart}&work_date=lt.${weekEndExclusive}&status=in.(${INCLUDED_STATUSES.join(",")})`,
   );
 
   const scopedEntries = (response as any[])
