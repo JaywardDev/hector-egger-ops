@@ -110,7 +110,13 @@ const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
   </fills>
   <borders count="2">
     <border><left/><right/><top/><bottom/><diagonal/></border>
-    <border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border>
+    <border>
+      <left style="thin"><color rgb="FFD9D9D9"/></left>
+      <right style="thin"><color rgb="FFD9D9D9"/></right>
+      <top style="thin"><color rgb="FFD9D9D9"/></top>
+      <bottom style="thin"><color rgb="FFD9D9D9"/></bottom>
+      <diagonal/>
+    </border>
   </borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
   <cellXfs count="6">
@@ -127,11 +133,15 @@ const buildPayrollRows = (weekEnding: string, rows: PayrollExportEmployeeRow[]) 
   const sheetRows: Cell[][] = [
     PAYROLL_EXPORT_HEADERS.map((header) => ({ value: header, type: "string", styleId: 1 })),
   ];
+  let hasWrittenWeekEnding = false;
 
   for (const employee of rows) {
     const totalHoursStyle = Math.abs(employee.totalHourWorked - 42.5) > 0.001 ? 4 : 3;
+    const employeeWeekEndingValue = hasWrittenWeekEnding ? "" : excelDateSerial(weekEnding);
+    const employeeWeekEndingType: CellType = hasWrittenWeekEnding ? "string" : "date";
+    hasWrittenWeekEnding = true;
     sheetRows.push([
-      { value: excelDateSerial(weekEnding), type: "date", styleId: 2 },
+      { value: employeeWeekEndingValue, type: employeeWeekEndingType, styleId: 2 },
       { value: employee.employeeName, type: "string", styleId: 5 },
       { value: employee.totalHourWorked, type: "number", styleId: totalHoursStyle },
       { value: "", type: "string", styleId: 0 },
@@ -142,7 +152,7 @@ const buildPayrollRows = (weekEnding: string, rows: PayrollExportEmployeeRow[]) 
 
     for (const leave of employee.leaveRows) {
       sheetRows.push([
-        { value: excelDateSerial(weekEnding), type: "date", styleId: 2 },
+        { value: "", type: "string", styleId: 2 },
         { value: employee.employeeName, type: "string", styleId: 5 },
         { value: "", type: "string", styleId: 3 },
         { value: leave.costCode, type: "string", styleId: 5 },
@@ -195,6 +205,7 @@ const buildWorksheetXml = (rows: Cell[][]) => {
 export const buildPayrollExportXlsx = (weekEnding: string, rows: PayrollExportEmployeeRow[]) => {
   const workbookRows = buildPayrollRows(weekEnding, rows);
   const worksheetXml = buildWorksheetXml(workbookRows);
+  const workbookSheetName = `Payroll ${weekEnding.split("-").reverse().join("-")}`.slice(0, 31);
 
   const contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -212,7 +223,7 @@ export const buildPayrollExportXlsx = (weekEnding: string, rows: PayrollExportEm
 
   const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets><sheet name="Payroll Export" sheetId="1" r:id="rId1"/></sheets>
+  <sheets><sheet name="${escapeXml(workbookSheetName)}" sheetId="1" r:id="rId1"/></sheets>
 </workbook>`;
 
   const workbookRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
