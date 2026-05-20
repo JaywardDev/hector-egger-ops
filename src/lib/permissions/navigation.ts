@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { canAccessAdmin } from "@/src/lib/permissions/admin";
 import type { PermissionAuthContext } from "@/src/lib/permissions/roles";
-import { isAdminOrSupervisor, isApprovedUser } from "@/src/lib/permissions/roles";
+import { isAdmin, isApprovedUser } from "@/src/lib/permissions/roles";
 import { canAccessTimesheetApprovals, canViewOwnTimesheets } from "@/src/lib/permissions/timesheets";
 
 export type AppNavPermission = "timesheet" | "timesheetApprovals" | "admin" | "internalTools";
@@ -97,17 +97,20 @@ export const canAccessNavigationPermission = (
     case "admin":
       return canAccessAdmin(authContext);
     case "internalTools":
-      return isApprovedUser(authContext) && isAdminOrSupervisor(authContext);
+      return isApprovedUser(authContext);
   }
 };
 
 const resolveItem = (item: AppNavItem, authContext: PermissionAuthContext): ResolvedAppNavItem => {
-  const allowed = canAccessNavigationPermission(item.permission, authContext);
+  const canView = canAccessNavigationPermission(item.permission, authContext);
+  const isInternalItem = item.permission === "internalTools";
+  const canUseInternalItem = !isInternalItem || isAdmin(authContext);
+  const allowed = canView && canUseInternalItem;
 
   return {
     ...item,
     disabled: !allowed,
-    locked: !allowed,
+    locked: !allowed && !isInternalItem,
   };
 };
 
@@ -116,8 +119,7 @@ export const getNavigationSections = (authContext: PermissionAuthContext): Resol
     resolveItem(item, authContext),
   );
   const internalItems = APP_NAV_ITEMS.filter((item) => item.section === "internal")
-    .map((item) => resolveItem(item, authContext))
-    .filter((item) => !item.disabled);
+    .map((item) => resolveItem(item, authContext));
 
   return [
     { label: "Main", items: mainItems },
