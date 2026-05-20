@@ -100,7 +100,7 @@ export async function getPayrollExportData(session: AuthSession, selectedDate: s
   const weekEnding = getNzWeekEnd(parsed);
   const weekStart = getNzWeekStart(weekEnding);
   const weekEndExclusive = addNzDays(weekStart, 7);
-  const supabase = createServerSupabaseClient(session.accessToken);
+  const supabase = createServerSupabaseClient();
   const response = await supabase.request(
     `/rest/v1/timesheet_entries?select=profile_id,payable_hours,leave_type,leave_hours,profile:profiles!timesheet_entries_profile_id_fkey(full_name,email,account_status)&work_date=gte.${weekStart}&work_date=lt.${weekEndExclusive}&status=in.(${INCLUDED_STATUSES.join(",")})`,
   );
