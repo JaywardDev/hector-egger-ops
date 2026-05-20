@@ -22,9 +22,9 @@ const sortLink = (name: string, currentSort: string, currentDirection: "asc" | "
 };
 
 export default async function TimesheetLookupsPage({ searchParams }: Props) {
-  const { session } = await requireAdminAccess();
+  const { session, profile } = await requireAdminAccess();
   const filters = sanitizeLookupFilters(await searchParams);
-  const result = await listTimesheetLookupsForAdmin({ session }, filters);
+  const result = await listTimesheetLookupsForAdmin({ session, profileId: profile.id }, filters);
 
   const totalPages = Math.max(1, Math.ceil(result.totalCount / filters.pageSize));
   const clampedPage = Math.min(filters.page, totalPages);
