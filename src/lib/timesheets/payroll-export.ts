@@ -1,7 +1,7 @@
 import "server-only";
 
 import { addNzDays, formatNzDate, getNzWeekEnd, getNzWeekStart, parseNzDate } from "@/src/lib/dateTime";
-import { createServerSupabaseClient } from "@/src/lib/supabase/server";
+import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 import type { AuthSession } from "@/src/lib/auth/session";
 import type { TimesheetLeaveType } from "@/src/lib/timesheets/types";
 
@@ -113,7 +113,7 @@ export async function getPayrollExportData(session: AuthSession, selectedDate: s
   const weekEnding = getNzWeekEnd(parsed);
   const weekStart = getNzWeekStart(weekEnding);
   const weekEndExclusive = addNzDays(weekStart, 7);
-  const supabase = createServerSupabaseClient();
+  const supabase = createServiceRoleSupabaseClient();
   console.info("[payroll-export] loading entries", { weekEnding, weekStart, weekEndExclusive });
 
   const response = await supabase.request(
