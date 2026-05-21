@@ -132,16 +132,21 @@ const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 const buildPayrollRows = (weekEnding: string, rows: PayrollExportEmployeeRow[]) => {
   const sheetRows: Cell[][] = [
     PAYROLL_EXPORT_HEADERS.map((header) => ({ value: header, type: "string", styleId: 1 })),
+    [
+      { value: excelDateSerial(weekEnding), type: "date", styleId: 2 },
+      { value: "", type: "string", styleId: 5 },
+      { value: "", type: "string", styleId: 3 },
+      { value: "", type: "string", styleId: 0 },
+      { value: "", type: "string", styleId: 3 },
+      { value: "", type: "string", styleId: 5 },
+      { value: "", type: "string", styleId: 5 },
+    ],
   ];
-  let hasWrittenWeekEnding = false;
 
   for (const employee of rows) {
     const totalHoursStyle = Math.abs(employee.totalHourWorked - 42.5) > 0.001 ? 4 : 3;
-    const employeeWeekEndingValue = hasWrittenWeekEnding ? "" : excelDateSerial(weekEnding);
-    const employeeWeekEndingType: CellType = hasWrittenWeekEnding ? "string" : "date";
-    hasWrittenWeekEnding = true;
     sheetRows.push([
-      { value: employeeWeekEndingValue, type: employeeWeekEndingType, styleId: 2 },
+      { value: "", type: "string", styleId: 2 },
       { value: employee.employeeName, type: "string", styleId: 5 },
       { value: employee.totalHourWorked, type: "number", styleId: totalHoursStyle },
       { value: "", type: "string", styleId: 0 },
@@ -153,7 +158,7 @@ const buildPayrollRows = (weekEnding: string, rows: PayrollExportEmployeeRow[]) 
     for (const leave of employee.leaveRows) {
       sheetRows.push([
         { value: "", type: "string", styleId: 2 },
-        { value: employee.employeeName, type: "string", styleId: 5 },
+        { value: "", type: "string", styleId: 5 },
         { value: "", type: "string", styleId: 3 },
         { value: leave.costCode, type: "string", styleId: 5 },
         { value: leave.leaveHours, type: "number", styleId: 3 },
