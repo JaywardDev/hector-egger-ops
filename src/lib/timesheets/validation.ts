@@ -20,7 +20,7 @@ const leaveTypeToTaskCode: Record<TimesheetLeaveType, string[]> = {
 };
 
 export const roundHours = (value: number) => Math.round(value * 10) / 10;
-export const PAID_BREAK_THRESHOLD_HOURS = 2.5;
+export const PAID_BREAK_THRESHOLD_HOURS = 3.0;
 const timeToMinutes = (value: string) => {
   const match = /^(\d{2}):(\d{2})$/.exec(value);
   if (!match) return null;
@@ -28,6 +28,10 @@ const timeToMinutes = (value: string) => {
   const minutes = Number(match[2]);
   if (hours > 23 || minutes > 59) return null;
   return hours * 60 + minutes;
+};
+const isHalfHourBoundary = (value: string) => {
+  const minutes = timeToMinutes(value);
+  return minutes !== null && minutes % 30 === 0;
 };
 export const calculatePayableHours = (input: Pick<SaveTimesheetEntryInput, "isPublicHoliday" | "timeIn" | "timeOut" | "unpaidBreak">) => {
   if (input.isPublicHoliday) return 8;
@@ -82,6 +86,7 @@ export const validateTimesheetEntryInput = (
   }
 
   const payableHours = calculatePayableHours(input);
+  if (!input.isPublicHoliday && input.timeIn && input.timeOut && (!isHalfHourBoundary(input.timeIn) || !isHalfHourBoundary(input.timeOut))) throw new Error("Time in and time out must be on 30-minute boundaries.");
   if (payableHours === null || payableHours < 0) throw new Error("Time in and time out must form a valid same-day time span.");
   if (input.leaveType !== null && !leaveTypes.has(input.leaveType)) throw new Error("A valid leave type is required.");
   if (!Number.isFinite(input.leaveHours) || input.leaveHours < 0 || input.leaveHours > 24) throw new Error("Leave hours must be between 0 and 24.");

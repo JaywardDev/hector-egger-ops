@@ -350,6 +350,7 @@ export function DailyTimesheetForm({
               value={timeIn}
               disabled={disabled}
               onChange={(event) => setTimeIn(event.target.value)}
+              step={1800}
             />
           </label>
           <label className="space-y-1 text-sm font-medium text-zinc-700">
@@ -359,6 +360,7 @@ export function DailyTimesheetForm({
               value={timeOut}
               disabled={disabled}
               onChange={(event) => setTimeOut(event.target.value)}
+              step={1800}
             />
           </label>
           <label className="space-y-1 text-sm font-medium text-zinc-700">
@@ -579,7 +581,7 @@ export function DailyTimesheetForm({
             Unpaid break
           </label>
           <label className="flex items-center gap-2 text-sm text-zinc-700">
-            {paidBreak ? "0.5h paid break included" : "Paid break not applicable"}
+            {paidBreak ? "0.5h paid break included (applies from 3.0h attendance)" : "Paid break not applicable (2.5h exactly does not qualify; starts from 3.0h attendance)"}
           </label>
         </section>
       </div>

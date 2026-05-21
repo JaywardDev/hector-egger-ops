@@ -144,3 +144,21 @@ test("single work-location rows validate independently of profile staff group", 
     ),
   /Project is not available/);
 });
+
+
+test("derived paid break threshold model: 2.5h attendance is false and 3.0h is true", () => {
+  assert.equal(derivePaidBreakEntitlement({ isPublicHoliday: false, timeIn: "07:00", timeOut: "09:30" }), false);
+  assert.equal(derivePaidBreakEntitlement({ isPublicHoliday: false, timeIn: "07:00", timeOut: "10:00" }), true);
+});
+
+test("validation rejects non-30-minute attendance times", () => {
+  const input = baseInput();
+  assert.throws(
+    () => validateTimesheetEntryInput({ ...input, timeIn: "09:31" }, new Set(["p-f"]), new Set(["t-f"]), byLocation(["p-f"], [], []), byLocation(["t-f"], [], [])),
+    /30-minute boundaries/,
+  );
+  assert.throws(
+    () => validateTimesheetEntryInput({ ...input, timeOut: "10:45" }, new Set(["p-f"]), new Set(["t-f"]), byLocation(["p-f"], [], []), byLocation(["t-f"], [], [])),
+    /30-minute boundaries/,
+  );
+});
