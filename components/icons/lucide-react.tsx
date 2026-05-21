@@ -126,3 +126,4 @@ export const LogOut = createIcon([
 ]);
 
 export const CheckCircle2 = CircleCheck;
+export const Check = createIcon([{ tag: "path", attrs: { d: "M20 6 9 17l-5-5" } }]);

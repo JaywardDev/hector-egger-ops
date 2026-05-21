@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, LogOut } from "lucide-react";
+import { Check, LogOut } from "@/components/icons/lucide-react";
 import { AppSidebar } from "@/components/navigation/app-sidebar";
 import { PendingSubmitButton } from "@/src/components/ui/pending-button";
 import { FullScreenPendingOverlay } from "@/src/components/ui/pending-overlay";
@@ -14,7 +14,7 @@ import type { AppRole } from "@/src/lib/auth/profile-access";
 type AppShellProps = {
   children: React.ReactNode;
   session: AuthSession | null;
-  profile: ProfileRecord | null;
+  profile?: ProfileRecord | null;
   accessState: AccountAccessState;
   roles: AppRole[];
   signOutAction?: string | null;
@@ -111,7 +111,7 @@ export function AppShell({
             </div>
           </div>
 
-          <div className="hidden items-center gap-3 md:flex">
+          <div className="hidden items-center gap-2 md:flex">
             <AccountDisplay profile={profile} session={session} />
             <ShellSignOutControl signOutAction={signOutAction} />
           </div>
@@ -152,9 +152,11 @@ export function AppShell({
               onNavigate={closeMobileNav}
             />
 
-            <div className="shrink-0 space-y-3 border-t border-zinc-200 p-4">
-              <AccountDisplay profile={profile} session={session} />
-              <ShellSignOutControl signOutAction={signOutAction} isMobile />
+            <div className="shrink-0 border-t border-zinc-200 p-4">
+              <div className="flex items-center gap-2">
+                <AccountDisplay profile={profile} session={session} />
+                <ShellSignOutControl signOutAction={signOutAction} isMobile />
+              </div>
             </div>
           </div>
         </div>
@@ -163,14 +165,24 @@ export function AppShell({
   );
 }
 
-function AccountDisplay({ profile, session }: { profile: ProfileRecord | null; session: AuthSession | null }) {
-  const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim();
-  const displayName = fullName || profile?.full_name?.trim() || session?.user.email || "No active account";
+function AccountDisplay({ profile, session }: { profile?: ProfileRecord | null; session: AuthSession | null }) {
+  const firstName = profile?.first_name?.trim() ?? "";
+  const lastName = profile?.last_name?.trim() ?? "";
+  const firstAndLastInitial = firstName && lastName ? `${firstName} ${lastName.charAt(0)}.` : "";
+  const displayName = firstAndLastInitial || profile?.full_name?.trim() || session?.user.email?.trim() || "Account";
 
   return (
-    <div className="inline-flex items-center gap-2 text-sm text-zinc-600" aria-label={`Signed in as ${displayName}`}>
-      <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-zinc-400" />
+    <div
+      className="inline-flex min-w-0 items-center gap-1.5 text-sm text-zinc-600"
+      aria-label={`Signed in as ${displayName}, approved account`}
+    >
       <p className="max-w-48 truncate">{displayName}</p>
+      <span
+        aria-hidden="true"
+        className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#fff200]"
+      >
+        <Check className="h-3 w-3 text-zinc-950" />
+      </span>
     </div>
   );
 }
