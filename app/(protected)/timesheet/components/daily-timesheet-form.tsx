@@ -19,6 +19,7 @@ import {
   incompleteActivityMessage,
 } from "@/src/lib/timesheets/validation";
 import { filterLookupsForLocation, getLeaveTaskOptions, hasPublicHolidayTask, isWorkActivityTask } from "@/src/lib/timesheets/lookup-shared";
+import { calculateShiftCompletionHelper, SHIFT_COMPLETION_CONFIG } from "@/src/lib/timesheets/shift-completion";
 import type {
   SaveTimesheetEntryInput,
   TimesheetActivityInput,
@@ -174,6 +175,11 @@ export function DailyTimesheetForm({
   const requiredAllocationHours = payableHours === null ? null : Number((payableHours - (effectivePaidBreak ? 0.5 : 0)).toFixed(1));
   const allocationMatches =
     requiredAllocationHours !== null && Math.abs(allocationHours - requiredAllocationHours) < 0.01;
+  const shiftCompletion = useMemo(() => calculateShiftCompletionHelper({
+    timeIn: isPublicHoliday ? null : timeIn,
+    timeOut: isPublicHoliday ? null : timeOut,
+  }), [isPublicHoliday, timeIn, timeOut]);
+  const showShiftCompletionHelper = !isPublicHoliday && payableHours !== null && !allocationMatches;
   const incompleteActivityRows = useMemo(
     () =>
       getIncompleteActivityRows({
@@ -575,6 +581,15 @@ export function DailyTimesheetForm({
             </label>
           </label>
         </section>
+
+        {showShiftCompletionHelper ? (
+          <section className="rounded-lg border border-zinc-200 bg-zinc-50/70 p-3">
+            <h3 className="text-sm font-semibold text-zinc-900">Shift completion helper</h3>
+            <p className="mt-1 text-sm text-zinc-600">
+              Based on the standard {SHIFT_COMPLETION_CONFIG.shiftStart}–{SHIFT_COMPLETION_CONFIG.shiftFinish} shift, suggested leave: {shiftCompletion.suggestedLeaveHours.toFixed(1)} h
+            </p>
+          </section>
+        ) : null}
 
         <section className="space-y-2">
           <label className="flex items-center gap-2 text-sm text-zinc-700">
