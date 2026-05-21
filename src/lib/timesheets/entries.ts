@@ -120,7 +120,7 @@ export const saveOwnTimesheetEntry = async (
     leave_type: validated.leaveType,
     leave_hours: validated.leaveHours,
     is_public_holiday: input.isPublicHoliday,
-    unpaid_break: input.isPublicHoliday ? false : input.unpaidBreak,
+    unpaid_break: input.isPublicHoliday ? false : validated.unpaidBreak,
     paid_break: input.isPublicHoliday ? false : validated.paidBreak,
     payable_hours: validated.payableHours,
     allocation_hours: validated.allocationHours,

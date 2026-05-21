@@ -33,8 +33,8 @@ const isHalfHourBoundary = (value: string) => {
   const minutes = timeToMinutes(value);
   return minutes !== null && minutes % 30 === 0;
 };
-export const calculatePayableHours = (input: Pick<SaveTimesheetEntryInput, "isPublicHoliday" | "timeIn" | "timeOut" | "unpaidBreak">) => {
-  if (input.isPublicHoliday) return 8;
+export const calculatePayableHours = (input: Pick<SaveTimesheetEntryInput, "isPublicHoliday" | "fullDayLeave" | "timeIn" | "timeOut" | "unpaidBreak">) => {
+  if (input.isPublicHoliday || input.fullDayLeave) return 8;
   if (!input.timeIn || !input.timeOut) return null;
   const start = timeToMinutes(input.timeIn);
   const end = timeToMinutes(input.timeOut);
@@ -48,8 +48,8 @@ export const derivePaidBreakEntitlement = (input: Pick<SaveTimesheetEntryInput, 
   if (start === null || end === null || end <= start) return false;
   return roundHours((end - start) / 60) >= PAID_BREAK_THRESHOLD_HOURS;
 };
-export const calculateAllocationHours = (input: Pick<SaveTimesheetEntryInput, "isPublicHoliday" | "activities" | "leaveHours">) => {
-  if (input.isPublicHoliday) return 8;
+export const calculateAllocationHours = (input: Pick<SaveTimesheetEntryInput, "isPublicHoliday" | "fullDayLeave" | "activities" | "leaveHours">) => {
+  if (input.isPublicHoliday || input.fullDayLeave) return 8;
   const activityHours = input.activities.reduce((total, row) => total + row.hours, 0);
   return roundHours(activityHours + input.leaveHours);
 };
@@ -89,6 +89,7 @@ export const validateTimesheetEntryInput = (
   if (!input.isPublicHoliday && input.timeIn && input.timeOut && (!isHalfHourBoundary(input.timeIn) || !isHalfHourBoundary(input.timeOut))) throw new Error("Time in and time out must be on 30-minute boundaries.");
   if (payableHours === null || payableHours < 0) throw new Error("Time in and time out must form a valid same-day time span.");
   if (input.leaveType !== null && !leaveTypes.has(input.leaveType)) throw new Error("A valid leave type is required.");
+  if (input.fullDayLeave && input.leaveType === null) throw new Error("Select a leave type when full-day leave is selected.");
   if (!Number.isFinite(input.leaveHours) || input.leaveHours < 0 || input.leaveHours > 24) throw new Error("Leave hours must be between 0 and 24.");
   if (input.leaveHours > 0 && input.leaveType === null) throw new Error("Select a leave type when leave hours are entered.");
   const derivedPaidBreak = derivePaidBreakEntitlement(input);
@@ -114,8 +115,13 @@ export const validateTimesheetEntryInput = (
     if (validTaskIdsByLocation && !validTaskIdsByLocation.get(effectiveLocation)?.has(row.taskId)) throw new Error("Task is not available for the selected work location.");
   }
 
+  if (input.fullDayLeave) {
+    const allocationHours = 8;
+    return { workDate, payableHours: 8, allocationHours, activities: [] as TimesheetActivityInput[], leaveType: input.leaveType, leaveHours: 8, paidBreak: false, unpaidBreak: false, requiredAllocationHours: 8 };
+  }
+
   const allocationHours = calculateAllocationHours({ ...input, activities });
   const requiredAllocationHours = roundHours(payableHours - (input.paidBreak ? 0.5 : 0));
   if (Math.abs(allocationHours - requiredAllocationHours) > 0.01) throw new Error("Allocation must equal attendance span minus claimed paid break and unpaid break before submitting.");
-  return { workDate, payableHours, allocationHours, activities, leaveType: input.leaveType, leaveHours: roundHours(input.leaveHours), paidBreak: input.paidBreak };
+  return { workDate, payableHours, allocationHours, activities, leaveType: input.leaveType, leaveHours: roundHours(input.leaveHours), paidBreak: input.paidBreak, unpaidBreak: input.unpaidBreak, requiredAllocationHours };
 };

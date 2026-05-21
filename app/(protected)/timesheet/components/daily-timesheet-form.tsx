@@ -154,7 +154,7 @@ export function DailyTimesheetForm({
 
   const disabled = !canEdit || isPublicHoliday;
   const leaveSelected = leaveType !== "";
-  const breakDisabled = disabled || leaveSelected;
+  const breakDisabled = !canEdit || isPublicHoliday || isFullDayLeave || leaveSelected;
   const leaveHours = Number(leaveHoursText) || 0;
   const parsedActivities = useMemo(
     () =>
@@ -166,6 +166,7 @@ export function DailyTimesheetForm({
   );
   const payableHours = calculatePayableHours({
     isPublicHoliday,
+    fullDayLeave: isFullDayLeave,
     timeIn,
     timeOut,
     unpaidBreak,
@@ -178,17 +179,18 @@ export function DailyTimesheetForm({
   const effectivePaidBreak = !isPublicHoliday && paidBreakEligible && paidBreak;
   const allocationHours = calculateAllocationHours({
     isPublicHoliday,
+    fullDayLeave: isFullDayLeave,
     activities: parsedActivities.filter((row) => row.hours > 0),
     leaveHours,
   });
-  const requiredAllocationHours = payableHours === null ? null : Number((payableHours - (effectivePaidBreak ? 0.5 : 0)).toFixed(1));
+  const requiredAllocationHours = isFullDayLeave ? 8 : payableHours === null ? null : Number((payableHours - (effectivePaidBreak ? 0.5 : 0)).toFixed(1));
   const allocationMatches =
     requiredAllocationHours !== null && Math.abs(allocationHours - requiredAllocationHours) < 0.01;
   const shiftCompletion = useMemo(() => calculateShiftCompletionHelper({
     timeIn: isPublicHoliday ? null : timeIn,
     timeOut: isPublicHoliday ? null : timeOut,
   }), [isPublicHoliday, timeIn, timeOut]);
-  const showShiftCompletionHelper = !isPublicHoliday && payableHours !== null && !allocationMatches;
+  const showShiftCompletionHelper = !isPublicHoliday && !isFullDayLeave && payableHours !== null && !allocationMatches;
   const incompleteActivityRows = useMemo(
     () =>
       getIncompleteActivityRows({
@@ -224,8 +226,15 @@ export function DailyTimesheetForm({
   }), [lookups]);
 
   useEffect(() => {
-    if (!paidBreakEligible) setPaidBreak(false);
-  }, [paidBreakEligible]);
+    if (!paidBreakEligible || isFullDayLeave) setPaidBreak(false);
+  }, [isFullDayLeave, paidBreakEligible]);
+
+  useEffect(() => {
+    if (!isFullDayLeave) return;
+    setLeaveHoursText("8");
+    setUnpaidBreak(false);
+    setPaidBreak(false);
+  }, [isFullDayLeave]);
 
   useEffect(() => {
     if (!showShiftHelperPopover) return;
@@ -293,9 +302,10 @@ export function DailyTimesheetForm({
       workMode,
       leaveType: isPublicHoliday || leaveType === "" ? null : leaveType,
       leaveHours: isPublicHoliday ? 0 : leaveHours,
+      fullDayLeave: isFullDayLeave,
       isPublicHoliday,
-      unpaidBreak: isPublicHoliday ? false : unpaidBreak,
-      paidBreak: isPublicHoliday ? false : effectivePaidBreak,
+      unpaidBreak: isPublicHoliday || isFullDayLeave ? false : unpaidBreak,
+      paidBreak: isPublicHoliday || isFullDayLeave ? false : effectivePaidBreak,
       activities: isPublicHoliday
         ? []
         : parsedActivities.map((row) => ({
@@ -377,7 +387,7 @@ export function DailyTimesheetForm({
       <div
         className={cn(
           "space-y-6 transition-[filter,opacity] duration-150",
-          isPublicHoliday &&
+          (isPublicHoliday || isFullDayLeave) &&
             "opacity-60 grayscale-[65%] [&_button:disabled]:cursor-not-allowed [&_input:disabled]:cursor-not-allowed [&_select:disabled]:cursor-not-allowed",
         )}
       >
@@ -387,7 +397,7 @@ export function DailyTimesheetForm({
             <Input
               type="time"
               value={timeIn}
-              disabled={disabled}
+              disabled={!canEdit || isPublicHoliday || isFullDayLeave}
               onChange={(event) => setTimeIn(event.target.value)}
               step={1800}
             />
@@ -397,7 +407,7 @@ export function DailyTimesheetForm({
             <Input
               type="time"
               value={timeOut}
-              disabled={disabled}
+              disabled={!canEdit || isPublicHoliday || isFullDayLeave}
               onChange={(event) => setTimeOut(event.target.value)}
               step={1800}
             />
@@ -406,7 +416,7 @@ export function DailyTimesheetForm({
             Work Location
             <Select
               value={workMode}
-              disabled={disabled}
+              disabled={!canEdit || isPublicHoliday || isFullDayLeave}
               onChange={(event) =>
                 updateWorkMode(event.target.value as TimesheetWorkMode)
               }
@@ -444,7 +454,7 @@ export function DailyTimesheetForm({
                           "border-red-300 bg-red-50/40 focus:border-red-400",
                       )}
                       value={activity.projectId}
-                      disabled={disabled}
+                      disabled={!canEdit || isPublicHoliday || isFullDayLeave}
                       onChange={(event) =>
                         updateActivity(activity.clientId, {
                           projectId: event.target.value,
@@ -465,7 +475,7 @@ export function DailyTimesheetForm({
                         type="button"
                         aria-label={`Edit notes for row ${index + 1}`}
                         className="relative rounded p-1 text-zinc-500 transition hover:bg-zinc-200 hover:text-zinc-700 disabled:opacity-40"
-                        disabled={disabled}
+                        disabled={!canEdit || isPublicHoliday || isFullDayLeave}
                         onClick={() => openNotesEditor(activity)}
                       >
                         <StickyNote className="size-4" />
@@ -478,7 +488,7 @@ export function DailyTimesheetForm({
                           "border-red-300 bg-red-50/40 focus:border-red-400",
                       )}
                       value={activity.taskId}
-                      disabled={disabled}
+                      disabled={!canEdit || isPublicHoliday || isFullDayLeave}
                       onChange={(event) =>
                         updateActivity(activity.clientId, {
                           taskId: event.target.value,
@@ -501,7 +511,7 @@ export function DailyTimesheetForm({
                             "border-red-300 bg-red-50/40 focus:border-red-400",
                         )}
                         value={activity.workMode}
-                        disabled={disabled}
+                        disabled={!canEdit || isPublicHoliday || isFullDayLeave}
                         onChange={(event) =>
                           updateActivity(activity.clientId, {
                             workMode: event.target.value as TimesheetActivityMode,
@@ -519,7 +529,7 @@ export function DailyTimesheetForm({
                     <Input
                       inputMode="decimal"
                       value={activity.hoursText}
-                      disabled={disabled}
+                      disabled={!canEdit || isPublicHoliday || isFullDayLeave}
                       onChange={(event) =>
                         updateActivity(activity.clientId, {
                           hoursText: event.target.value,
@@ -539,7 +549,7 @@ export function DailyTimesheetForm({
             <Button
               aria-label="Add activity row"
               className="gap-2 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-              disabled={disabled}
+              disabled={!canEdit || isPublicHoliday || isFullDayLeave}
               onClick={() =>
                 setActivities((current) => [
                   ...current,
@@ -563,7 +573,7 @@ export function DailyTimesheetForm({
             Leave type
             <Select
               value={leaveType}
-              disabled={disabled}
+              disabled={!canEdit || isPublicHoliday || isFullDayLeave}
               onChange={(event) => {
                 const nextLeaveType = event.target.value as TimesheetLeaveType | "";
                 setLeaveType(nextLeaveType);
@@ -590,7 +600,7 @@ export function DailyTimesheetForm({
             <Input
               inputMode="decimal"
               value={leaveHoursText}
-              disabled={disabled || isFullDayLeave}
+              disabled={!canEdit || isPublicHoliday || isFullDayLeave}
               onChange={(event) => setLeaveHoursText(event.target.value)}
             />
             <label className="flex items-center gap-2 pt-2 text-xs font-medium text-zinc-600">

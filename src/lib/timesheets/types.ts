@@ -94,6 +94,7 @@ export type SaveTimesheetEntryInput = {
   workMode: TimesheetWorkMode;
   leaveType: TimesheetLeaveType | null;
   leaveHours: number;
+  fullDayLeave: boolean;
   isPublicHoliday: boolean;
   unpaidBreak: boolean;
   paidBreak: boolean;

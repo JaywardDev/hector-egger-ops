@@ -11,6 +11,7 @@ const baseInput = (): SaveTimesheetEntryInput => ({
   leaveType: null,
   leaveHours: 0,
   isPublicHoliday: false,
+  fullDayLeave: false,
   unpaidBreak: true,
   paidBreak: true,
   activities: [{ projectId: "p-f", taskId: "t-f", workMode: "factory", hours: 8, clientDescription: null, internalNote: null }],
@@ -182,4 +183,17 @@ test("phase 3 paid break claimed validation scenarios", () => {
   assert.equal(full.allocationHours, 8.0);
 
   assert.throws(() => validateTimesheetEntryInput({ ...baseInput(), paidBreak: false, activities: [{ ...baseInput().activities[0], hours: 8 }] }, validProjectIds, validTaskIds, projectsByLoc, tasksByLoc), /Allocation must equal attendance span minus claimed paid break and unpaid break/);
+});
+
+
+test("full-day leave enforces fixed 8h and clears breaks", () => {
+  const input = { ...baseInput(), fullDayLeave: true, leaveType: "annual" as const, leaveHours: 2, paidBreak: true, unpaidBreak: true, activities: [{ ...baseInput().activities[0], hours: 1 }] };
+  const validated = validateTimesheetEntryInput(input, new Set(["p-f"]), new Set(["t-f"]), byLocation(["p-f"], [], []), byLocation(["t-f"], [], []), new Set(["LA"]), true);
+  assert.equal(validated.payableHours, 8);
+  assert.equal(validated.allocationHours, 8);
+  assert.equal(validated.requiredAllocationHours, 8);
+  assert.equal(validated.leaveHours, 8);
+  assert.equal(validated.paidBreak, false);
+  assert.equal(validated.unpaidBreak, false);
+  assert.equal(validated.activities.length, 0);
 });
