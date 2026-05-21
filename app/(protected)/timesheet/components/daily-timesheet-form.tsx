@@ -189,6 +189,26 @@ export function DailyTimesheetForm({
     timeIn,
     timeOut,
   });
+  const applyPaidBreakRules = useCallback((next: {
+    isPublicHoliday?: boolean;
+    timeIn?: string;
+    timeOut?: string;
+    isFullDayLeave?: boolean;
+  }) => {
+    const nextIsPublicHoliday = next.isPublicHoliday ?? isPublicHoliday;
+    const nextTimeIn = next.timeIn ?? timeIn;
+    const nextTimeOut = next.timeOut ?? timeOut;
+    const nextIsFullDayLeave = next.isFullDayLeave ?? isFullDayLeave;
+
+    const eligible = derivePaidBreakEntitlement({
+      isPublicHoliday: nextIsPublicHoliday,
+      timeIn: nextTimeIn,
+      timeOut: nextTimeOut,
+    });
+
+    if (!eligible || nextIsFullDayLeave) setPaidBreak(false);
+  }, [isFullDayLeave, isPublicHoliday, timeIn, timeOut]);
+
   const effectivePaidBreak = !isPublicHoliday && paidBreakEligible && paidBreak;
   const allocationHours = calculateAllocationHours({
     isPublicHoliday,
@@ -238,16 +258,6 @@ export function DailyTimesheetForm({
     },
   }), [lookups]);
 
-  useEffect(() => {
-    if (!paidBreakEligible || isFullDayLeave) setPaidBreak(false);
-  }, [isFullDayLeave, paidBreakEligible]);
-
-  useEffect(() => {
-    if (!isFullDayLeave) return;
-    setLeaveHoursText("8");
-    setUnpaidBreak(false);
-    setPaidBreak(false);
-  }, [isFullDayLeave]);
 
   useEffect(() => {
     if (!showShiftHelperPopover) return;
@@ -390,7 +400,11 @@ export function DailyTimesheetForm({
             type="checkbox"
             checked={isPublicHoliday}
             disabled={!canEdit || !publicHolidayAvailable}
-            onChange={(event) => setIsPublicHoliday(event.target.checked)}
+            onChange={(event) => {
+                const checked = event.target.checked;
+                setIsPublicHoliday(checked);
+                applyPaidBreakRules({ isPublicHoliday: checked });
+              }}
           />
           Public holiday
         </label>
@@ -410,7 +424,11 @@ export function DailyTimesheetForm({
               type="time"
               value={timeIn}
               disabled={disableAttendanceFields}
-              onChange={(event) => setTimeIn(event.target.value)}
+              onChange={(event) => {
+                const nextTimeIn = event.target.value;
+                setTimeIn(nextTimeIn);
+                applyPaidBreakRules({ timeIn: nextTimeIn });
+              }}
               step={1800}
             />
           </label>
@@ -420,7 +438,11 @@ export function DailyTimesheetForm({
               type="time"
               value={timeOut}
               disabled={disableAttendanceFields}
-              onChange={(event) => setTimeOut(event.target.value)}
+              onChange={(event) => {
+                const nextTimeOut = event.target.value;
+                setTimeOut(nextTimeOut);
+                applyPaidBreakRules({ timeOut: nextTimeOut });
+              }}
               step={1800}
             />
           </label>
@@ -595,10 +617,12 @@ export function DailyTimesheetForm({
                   setUnpaidBreak(false);
                   setIsFullDayLeave(true);
                   setLeaveHoursText("8");
+                  applyPaidBreakRules({ isFullDayLeave: true });
                   return;
                 }
                 setIsFullDayLeave(false);
                 setLeaveHoursText("0");
+                applyPaidBreakRules({ isFullDayLeave: false });
               }}
             >
               <option value="">No leave</option>
@@ -625,7 +649,11 @@ export function DailyTimesheetForm({
                 onChange={(event) => {
                   const checked = event.target.checked;
                   setIsFullDayLeave(checked);
-                  if (checked) setLeaveHoursText("8");
+                  if (checked) {
+                    setLeaveHoursText("8");
+                    setUnpaidBreak(false);
+                  }
+                  applyPaidBreakRules({ isFullDayLeave: checked });
                 }}
               />
               Full day leave

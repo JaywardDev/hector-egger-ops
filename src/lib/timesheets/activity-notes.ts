@@ -3,7 +3,8 @@ import type { TimesheetActivityRecord } from "@/src/lib/timesheets/types";
 export type ClientSafeTimesheetActivity = Omit<TimesheetActivityRecord, "internal_note">;
 
 export const toClientSafeTimesheetActivity = (activity: TimesheetActivityRecord): ClientSafeTimesheetActivity => {
-  const { internal_note: _internalNote, ...clientSafe } = activity;
+  const clientSafe = { ...activity };
+  delete clientSafe.internal_note;
   return clientSafe;
 };
 
