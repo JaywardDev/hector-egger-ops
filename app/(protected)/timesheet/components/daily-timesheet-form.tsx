@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { StickyNote } from "lucide-react";
 import { saveTimesheetEntryAction } from "@/app/(protected)/timesheet/actions";
 import { Alert } from "@/src/components/ui/alert";
@@ -131,7 +131,16 @@ export function DailyTimesheetForm({
     entry?.is_public_holiday ?? false,
   );
   const [unpaidBreak, setUnpaidBreak] = useState(entry?.unpaid_break ?? true);
-  const [paidBreak, setPaidBreak] = useState(entry?.paid_break ?? false);
+  const [paidBreak, setPaidBreak] = useState(() => {
+    if (entry) return entry.paid_break ?? false;
+    return derivePaidBreakEntitlement({
+      isPublicHoliday: false,
+      timeIn: "07:00",
+      timeOut: "16:00",
+    });
+  });
+  const [showShiftHelperPopover, setShowShiftHelperPopover] = useState(false);
+  const shiftHelperPopoverRef = useRef<HTMLDivElement | null>(null);
   const [activities, setActivities] = useState(() =>
     entryToActivities(entry, lookups, entry?.work_mode ?? preferredWorkMode),
   );
@@ -217,6 +226,24 @@ export function DailyTimesheetForm({
   useEffect(() => {
     if (!paidBreakEligible) setPaidBreak(false);
   }, [paidBreakEligible]);
+
+  useEffect(() => {
+    if (!showShiftHelperPopover) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!shiftHelperPopoverRef.current?.contains(event.target as Node)) {
+        setShowShiftHelperPopover(false);
+      }
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowShiftHelperPopover(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [showShiftHelperPopover]);
 
   const formattedWorkDate = displayDate || formatNzDate(workDate, {
     weekday: "long",
@@ -578,18 +605,30 @@ export function DailyTimesheetForm({
                 }}
               />
               Full day leave
+              {showShiftCompletionHelper ? (
+                <span className="relative inline-flex" ref={shiftHelperPopoverRef}>
+                  <button
+                    type="button"
+                    aria-label="Show shift completion helper"
+                    aria-expanded={showShiftHelperPopover}
+                    className="rounded-full p-0.5 text-zinc-500 transition hover:bg-zinc-200 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
+                    onClick={() => setShowShiftHelperPopover((current) => !current)}
+                  >
+                    <span aria-hidden="true" className="text-[11px] font-semibold leading-none">?</span>
+                  </button>
+                  {showShiftHelperPopover ? (
+                    <span
+                      role="tooltip"
+                      className="absolute left-0 top-6 z-20 w-64 rounded-md border border-zinc-200 bg-white p-2 text-[11px] font-normal text-zinc-600 shadow-sm"
+                    >
+                      Based on the standard {SHIFT_COMPLETION_CONFIG.shiftStart}–{SHIFT_COMPLETION_CONFIG.shiftFinish} shift, suggested leave: {shiftCompletion.suggestedLeaveHours.toFixed(1)} h
+                    </span>
+                  ) : null}
+                </span>
+              ) : null}
             </label>
           </label>
         </section>
-
-        {showShiftCompletionHelper ? (
-          <section className="rounded-lg border border-zinc-200 bg-zinc-50/70 p-3">
-            <h3 className="text-sm font-semibold text-zinc-900">Shift completion helper</h3>
-            <p className="mt-1 text-sm text-zinc-600">
-              Based on the standard {SHIFT_COMPLETION_CONFIG.shiftStart}–{SHIFT_COMPLETION_CONFIG.shiftFinish} shift, suggested leave: {shiftCompletion.suggestedLeaveHours.toFixed(1)} h
-            </p>
-          </section>
-        ) : null}
 
         <section className="space-y-2">
           <label className="flex items-center gap-2 text-sm text-zinc-700">
@@ -624,10 +663,7 @@ export function DailyTimesheetForm({
           <span>Allocation</span>
           <strong>{allocationHours} h</strong>
         </div>
-        <div className="flex justify-between text-sm">
-          <span>Required allocation</span>
-          <strong>{requiredAllocationHours ?? "Invalid"} h</strong>
-        </div>
+        <p className="text-xs text-zinc-500">Required allocation: {requiredAllocationHours ?? "Invalid"} h</p>
         {!allocationMatches ? (
           <Alert variant="error">
             Allocation must equal attendance span minus claimed paid break and unpaid break before saving.
