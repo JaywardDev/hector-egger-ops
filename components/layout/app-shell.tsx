@@ -165,7 +165,7 @@ export function AppShell({
 
 function AccountDisplay({ profile, session }: { profile: ProfileRecord | null; session: AuthSession | null }) {
   const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim();
-  const displayName = fullName || profile?.full_name?.trim() || session?.user.email ?? "No active user";
+  const displayName = fullName || profile?.full_name?.trim() || session?.user.email || "No active account";
 
   return (
     <div className="inline-flex items-center gap-2 text-sm text-zinc-600" aria-label={`Signed in as ${displayName}`}>
