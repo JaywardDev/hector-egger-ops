@@ -152,9 +152,12 @@ export function DailyTimesheetForm({
   const [activeNotesRowId, setActiveNotesRowId] = useState<string | null>(null);
   const [draftNotes, setDraftNotes] = useState<{ clientDescription: string; internalNote: string }>({ clientDescription: "", internalNote: "" });
 
-  const disabled = !canEdit || isPublicHoliday;
-  const leaveSelected = leaveType !== "";
-  const breakDisabled = !canEdit || isPublicHoliday || isFullDayLeave || leaveSelected;
+  const isPublicHolidayMode = isPublicHoliday;
+  const isFullDayLeaveMode = isFullDayLeave;
+  const disableAttendanceFields = !canEdit || isPublicHolidayMode || isFullDayLeaveMode;
+  const disableActivityFields = !canEdit || isPublicHolidayMode || isFullDayLeaveMode;
+  const disableBreakFields = !canEdit || isPublicHolidayMode || isFullDayLeaveMode || leaveType !== "";
+  const disableLeaveFields = !canEdit || isPublicHolidayMode;
   const leaveHours = Number(leaveHoursText) || 0;
   const parsedActivities = useMemo(
     () =>
@@ -387,7 +390,7 @@ export function DailyTimesheetForm({
       <div
         className={cn(
           "space-y-6 transition-[filter,opacity] duration-150",
-          (isPublicHoliday || isFullDayLeave) &&
+          isPublicHolidayMode &&
             "opacity-60 grayscale-[65%] [&_button:disabled]:cursor-not-allowed [&_input:disabled]:cursor-not-allowed [&_select:disabled]:cursor-not-allowed",
         )}
       >
@@ -397,7 +400,7 @@ export function DailyTimesheetForm({
             <Input
               type="time"
               value={timeIn}
-              disabled={!canEdit || isPublicHoliday || isFullDayLeave}
+              disabled={disableAttendanceFields}
               onChange={(event) => setTimeIn(event.target.value)}
               step={1800}
             />
@@ -407,7 +410,7 @@ export function DailyTimesheetForm({
             <Input
               type="time"
               value={timeOut}
-              disabled={!canEdit || isPublicHoliday || isFullDayLeave}
+              disabled={disableAttendanceFields}
               onChange={(event) => setTimeOut(event.target.value)}
               step={1800}
             />
@@ -416,7 +419,7 @@ export function DailyTimesheetForm({
             Work Location
             <Select
               value={workMode}
-              disabled={!canEdit || isPublicHoliday || isFullDayLeave}
+              disabled={disableAttendanceFields}
               onChange={(event) =>
                 updateWorkMode(event.target.value as TimesheetWorkMode)
               }
@@ -454,7 +457,7 @@ export function DailyTimesheetForm({
                           "border-red-300 bg-red-50/40 focus:border-red-400",
                       )}
                       value={activity.projectId}
-                      disabled={!canEdit || isPublicHoliday || isFullDayLeave}
+                      disabled={disableActivityFields}
                       onChange={(event) =>
                         updateActivity(activity.clientId, {
                           projectId: event.target.value,
@@ -475,7 +478,7 @@ export function DailyTimesheetForm({
                         type="button"
                         aria-label={`Edit notes for row ${index + 1}`}
                         className="relative rounded p-1 text-zinc-500 transition hover:bg-zinc-200 hover:text-zinc-700 disabled:opacity-40"
-                        disabled={!canEdit || isPublicHoliday || isFullDayLeave}
+                        disabled={disableActivityFields}
                         onClick={() => openNotesEditor(activity)}
                       >
                         <StickyNote className="size-4" />
@@ -488,7 +491,7 @@ export function DailyTimesheetForm({
                           "border-red-300 bg-red-50/40 focus:border-red-400",
                       )}
                       value={activity.taskId}
-                      disabled={!canEdit || isPublicHoliday || isFullDayLeave}
+                      disabled={disableActivityFields}
                       onChange={(event) =>
                         updateActivity(activity.clientId, {
                           taskId: event.target.value,
@@ -511,7 +514,7 @@ export function DailyTimesheetForm({
                             "border-red-300 bg-red-50/40 focus:border-red-400",
                         )}
                         value={activity.workMode}
-                        disabled={!canEdit || isPublicHoliday || isFullDayLeave}
+                        disabled={disableActivityFields}
                         onChange={(event) =>
                           updateActivity(activity.clientId, {
                             workMode: event.target.value as TimesheetActivityMode,
@@ -529,7 +532,7 @@ export function DailyTimesheetForm({
                     <Input
                       inputMode="decimal"
                       value={activity.hoursText}
-                      disabled={!canEdit || isPublicHoliday || isFullDayLeave}
+                      disabled={disableActivityFields}
                       onChange={(event) =>
                         updateActivity(activity.clientId, {
                           hoursText: event.target.value,
@@ -549,7 +552,7 @@ export function DailyTimesheetForm({
             <Button
               aria-label="Add activity row"
               className="gap-2 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-              disabled={!canEdit || isPublicHoliday || isFullDayLeave}
+              disabled={disableActivityFields}
               onClick={() =>
                 setActivities((current) => [
                   ...current,
@@ -573,7 +576,7 @@ export function DailyTimesheetForm({
             Leave type
             <Select
               value={leaveType}
-              disabled={!canEdit || isPublicHoliday || isFullDayLeave}
+              disabled={disableLeaveFields}
               onChange={(event) => {
                 const nextLeaveType = event.target.value as TimesheetLeaveType | "";
                 setLeaveType(nextLeaveType);
@@ -600,14 +603,14 @@ export function DailyTimesheetForm({
             <Input
               inputMode="decimal"
               value={leaveHoursText}
-              disabled={!canEdit || isPublicHoliday || isFullDayLeave}
+              disabled={disableLeaveFields}
               onChange={(event) => setLeaveHoursText(event.target.value)}
             />
             <label className="flex items-center gap-2 pt-2 text-xs font-medium text-zinc-600">
               <input
                 type="checkbox"
                 checked={isFullDayLeave}
-                disabled={disabled || leaveType === ""}
+                disabled={disableLeaveFields || leaveType === ""}
                 onChange={(event) => {
                   const checked = event.target.checked;
                   setIsFullDayLeave(checked);
@@ -645,7 +648,7 @@ export function DailyTimesheetForm({
             <input
               type="checkbox"
               checked={unpaidBreak}
-              disabled={breakDisabled}
+              disabled={disableBreakFields}
               onChange={(event) => setUnpaidBreak(event.target.checked)}
             />
             Unpaid break
@@ -654,7 +657,7 @@ export function DailyTimesheetForm({
             <input
               type="checkbox"
               checked={effectivePaidBreak}
-              disabled={breakDisabled || !paidBreakEligible}
+              disabled={disableBreakFields || !paidBreakEligible}
               onChange={(event) => setPaidBreak(event.target.checked)}
             />
             Paid break taken/claimed (0.5h)
