@@ -48,10 +48,10 @@ export const derivePaidBreakEntitlement = (input: Pick<SaveTimesheetEntryInput, 
   if (start === null || end === null || end <= start) return false;
   return roundHours((end - start) / 60) >= PAID_BREAK_THRESHOLD_HOURS;
 };
-export const calculateAllocationHours = (input: Pick<SaveTimesheetEntryInput, "isPublicHoliday" | "activities" | "leaveHours" | "paidBreak">) => {
+export const calculateAllocationHours = (input: Pick<SaveTimesheetEntryInput, "isPublicHoliday" | "activities" | "leaveHours">) => {
   if (input.isPublicHoliday) return 8;
   const activityHours = input.activities.reduce((total, row) => total + row.hours, 0);
-  return roundHours(activityHours + input.leaveHours + (input.paidBreak ? 0.5 : 0));
+  return roundHours(activityHours + input.leaveHours);
 };
 
 type IncompleteActivityRow = { index: number; missingProject: boolean; missingTask: boolean; missingLocation: boolean };
@@ -92,7 +92,7 @@ export const validateTimesheetEntryInput = (
   if (!Number.isFinite(input.leaveHours) || input.leaveHours < 0 || input.leaveHours > 24) throw new Error("Leave hours must be between 0 and 24.");
   if (input.leaveHours > 0 && input.leaveType === null) throw new Error("Select a leave type when leave hours are entered.");
   const derivedPaidBreak = derivePaidBreakEntitlement(input);
-  if (input.paidBreak !== derivedPaidBreak) throw new Error("Paid break must match the derived attendance entitlement.");
+  if (input.paidBreak && !derivedPaidBreak) throw new Error("Paid break is available from 3.0h attendance.");
   if (input.leaveType && leaveTaskCodes) {
     const hasMappedLeaveCode = leaveTypeToTaskCode[input.leaveType].some((code) => leaveTaskCodes.has(code));
     if (!hasMappedLeaveCode) throw new Error("Selected leave type is unavailable for this profile.");
@@ -114,7 +114,8 @@ export const validateTimesheetEntryInput = (
     if (validTaskIdsByLocation && !validTaskIdsByLocation.get(effectiveLocation)?.has(row.taskId)) throw new Error("Task is not available for the selected work location.");
   }
 
-  const allocationHours = calculateAllocationHours({ ...input, activities, paidBreak: derivedPaidBreak });
-  if (Math.abs(allocationHours - payableHours) > 0.01) throw new Error("Allocation must equal payable total before submitting.");
-  return { workDate, payableHours, allocationHours, activities, leaveType: input.leaveType, leaveHours: roundHours(input.leaveHours), paidBreak: derivedPaidBreak };
+  const allocationHours = calculateAllocationHours({ ...input, activities });
+  const requiredAllocationHours = roundHours(payableHours - (input.paidBreak ? 0.5 : 0));
+  if (Math.abs(allocationHours - requiredAllocationHours) > 0.01) throw new Error("Allocation must equal attendance span minus claimed paid break and unpaid break before submitting.");
+  return { workDate, payableHours, allocationHours, activities, leaveType: input.leaveType, leaveHours: roundHours(input.leaveHours), paidBreak: input.paidBreak };
 };

@@ -69,21 +69,22 @@ test("normal leave allocation uses leaveHours only with no hidden +8", () => {
   assert.equal(calculateAllocationHours(partialLeave), 4);
 });
 
-test("paid break is derived from attendance only and canonical payroll examples hold", () => {
+test("inside-attendance paid break math examples hold", () => {
   const fullNormal = baseInput();
   assert.equal(calculatePayableHours(fullNormal), 8.5);
   assert.equal(derivePaidBreakEntitlement(fullNormal), true);
+  assert.equal(calculateAllocationHours(fullNormal), 8);
 
   const fullNoUnpaid = { ...baseInput(), unpaidBreak: false, activities: [{ ...baseInput().activities[0], hours: 9 }] };
   assert.equal(calculatePayableHours(fullNoUnpaid), 9);
   assert.equal(derivePaidBreakEntitlement(fullNoUnpaid), true);
 
-  const partialWithLeave = { ...baseInput(), timeOut: "12:00", unpaidBreak: false, leaveType: "annual" as const, leaveHours: 3.5, activities: [{ ...baseInput().activities[0], hours: 5 }] };
+  const partialWithLeave = { ...baseInput(), timeOut: "12:00", unpaidBreak: false, leaveType: "annual" as const, leaveHours: 3.5, paidBreak: true, activities: [{ ...baseInput().activities[0], hours: 1 }] };
   const validatedPartial = validateTimesheetEntryInput(partialWithLeave, new Set(["p-f"]), new Set(["t-f"]), byLocation(["p-f"], [], []), byLocation(["t-f"], [], []), new Set(["LA"]), true);
   assert.equal(validatedPartial.payableHours, 5);
   assert.equal(validatedPartial.leaveHours, 3.5);
   assert.equal(validatedPartial.paidBreak, true);
-  assert.equal(validatedPartial.allocationHours, 8.5);
+  assert.equal(validatedPartial.allocationHours, 4.5);
 
   const shortWithLeave = { ...baseInput(), timeOut: "09:00", unpaidBreak: false, leaveType: "annual" as const, leaveHours: 6, paidBreak: false, activities: [{ ...baseInput().activities[0], hours: 2 }] };
   const validatedShort = validateTimesheetEntryInput(shortWithLeave, new Set(["p-f"]), new Set(["t-f"]), byLocation(["p-f"], [], []), byLocation(["t-f"], [], []), new Set(["LA"]), true);
@@ -161,4 +162,24 @@ test("validation rejects non-30-minute attendance times", () => {
     () => validateTimesheetEntryInput({ ...input, timeOut: "10:45" }, new Set(["p-f"]), new Set(["t-f"]), byLocation(["p-f"], [], []), byLocation(["t-f"], [], [])),
     /30-minute boundaries/,
   );
+});
+
+
+test("phase 3 paid break claimed validation scenarios", () => {
+  const validProjectIds = new Set(["p-f"]);
+  const validTaskIds = new Set(["t-f"]);
+  const projectsByLoc = byLocation(["p-f"], [], []);
+  const tasksByLoc = byLocation(["t-f"], [], []);
+
+  assert.doesNotThrow(() => validateTimesheetEntryInput({ ...baseInput(), timeOut: "09:30", paidBreak: false, unpaidBreak: false, activities: [{ ...baseInput().activities[0], hours: 2.5 }] }, validProjectIds, validTaskIds, projectsByLoc, tasksByLoc));
+  assert.throws(() => validateTimesheetEntryInput({ ...baseInput(), timeOut: "09:30", paidBreak: true, unpaidBreak: false, activities: [{ ...baseInput().activities[0], hours: 2.5 }] }, validProjectIds, validTaskIds, projectsByLoc, tasksByLoc), /3.0h attendance/);
+  assert.doesNotThrow(() => validateTimesheetEntryInput({ ...baseInput(), timeOut: "10:00", paidBreak: false, unpaidBreak: false, activities: [{ ...baseInput().activities[0], hours: 3 }] }, validProjectIds, validTaskIds, projectsByLoc, tasksByLoc));
+  assert.doesNotThrow(() => validateTimesheetEntryInput({ ...baseInput(), timeOut: "10:00", paidBreak: true, unpaidBreak: false, activities: [{ ...baseInput().activities[0], hours: 2.5 }] }, validProjectIds, validTaskIds, projectsByLoc, tasksByLoc));
+  assert.doesNotThrow(() => validateTimesheetEntryInput({ ...baseInput(), timeOut: "10:30", paidBreak: true, unpaidBreak: false, activities: [{ ...baseInput().activities[0], hours: 3.0 }] }, validProjectIds, validTaskIds, projectsByLoc, tasksByLoc));
+
+  const full = validateTimesheetEntryInput(baseInput(), validProjectIds, validTaskIds, projectsByLoc, tasksByLoc);
+  assert.equal(full.payableHours, 8.5);
+  assert.equal(full.allocationHours, 8.0);
+
+  assert.throws(() => validateTimesheetEntryInput({ ...baseInput(), paidBreak: false, activities: [{ ...baseInput().activities[0], hours: 8 }] }, validProjectIds, validTaskIds, projectsByLoc, tasksByLoc), /Allocation must equal attendance span minus claimed paid break and unpaid break/);
 });

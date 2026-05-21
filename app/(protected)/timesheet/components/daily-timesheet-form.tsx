@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { StickyNote } from "lucide-react";
 import { saveTimesheetEntryAction } from "@/app/(protected)/timesheet/actions";
 import { Alert } from "@/src/components/ui/alert";
@@ -130,6 +130,7 @@ export function DailyTimesheetForm({
     entry?.is_public_holiday ?? false,
   );
   const [unpaidBreak, setUnpaidBreak] = useState(entry?.unpaid_break ?? true);
+  const [paidBreak, setPaidBreak] = useState(entry?.paid_break ?? false);
   const [activities, setActivities] = useState(() =>
     entryToActivities(entry, lookups, entry?.work_mode ?? preferredWorkMode),
   );
@@ -159,19 +160,20 @@ export function DailyTimesheetForm({
     timeOut,
     unpaidBreak,
   });
-  const paidBreak = derivePaidBreakEntitlement({
+  const paidBreakEligible = derivePaidBreakEntitlement({
     isPublicHoliday,
     timeIn,
     timeOut,
   });
+  const effectivePaidBreak = !isPublicHoliday && paidBreakEligible && paidBreak;
   const allocationHours = calculateAllocationHours({
     isPublicHoliday,
     activities: parsedActivities.filter((row) => row.hours > 0),
     leaveHours,
-    paidBreak,
   });
+  const requiredAllocationHours = payableHours === null ? null : Number((payableHours - (effectivePaidBreak ? 0.5 : 0)).toFixed(1));
   const allocationMatches =
-    payableHours !== null && Math.abs(allocationHours - payableHours) < 0.01;
+    requiredAllocationHours !== null && Math.abs(allocationHours - requiredAllocationHours) < 0.01;
   const incompleteActivityRows = useMemo(
     () =>
       getIncompleteActivityRows({
@@ -205,6 +207,10 @@ export function DailyTimesheetForm({
       tasks: filterLookupsForLocation(lookups, "office").tasks.filter(isWorkActivityTask),
     },
   }), [lookups]);
+
+  useEffect(() => {
+    if (!paidBreakEligible) setPaidBreak(false);
+  }, [paidBreakEligible]);
 
   const formattedWorkDate = displayDate || formatNzDate(workDate, {
     weekday: "long",
@@ -256,7 +262,7 @@ export function DailyTimesheetForm({
       leaveHours: isPublicHoliday ? 0 : leaveHours,
       isPublicHoliday,
       unpaidBreak: isPublicHoliday ? false : unpaidBreak,
-      paidBreak: isPublicHoliday ? false : paidBreak,
+      paidBreak: isPublicHoliday ? false : effectivePaidBreak,
       activities: isPublicHoliday
         ? []
         : parsedActivities.map((row) => ({
@@ -581,8 +587,16 @@ export function DailyTimesheetForm({
             Unpaid break
           </label>
           <label className="flex items-center gap-2 text-sm text-zinc-700">
-            {paidBreak ? "0.5h paid break included (applies from 3.0h attendance)" : "Paid break not applicable (2.5h exactly does not qualify; starts from 3.0h attendance)"}
+            <input
+              type="checkbox"
+              checked={effectivePaidBreak}
+              disabled={breakDisabled || !paidBreakEligible}
+              onChange={(event) => setPaidBreak(event.target.checked)}
+            />
+            Paid break taken/claimed (0.5h)
           </label>
+          <p className="text-xs text-zinc-500">Paid break is available from 3.0h attendance and must be included inside the time in/out span.</p>
+          {!paidBreakEligible && !isPublicHoliday ? <p className="text-xs text-zinc-500">Paid break cannot be claimed below 3.0h attendance.</p> : null}
         </section>
       </div>
 
@@ -595,9 +609,13 @@ export function DailyTimesheetForm({
           <span>Allocation</span>
           <strong>{allocationHours} h</strong>
         </div>
+        <div className="flex justify-between text-sm">
+          <span>Required allocation</span>
+          <strong>{requiredAllocationHours ?? "Invalid"} h</strong>
+        </div>
         {!allocationMatches ? (
           <Alert variant="error">
-            Allocation must equal total payable hours before saving.
+            Allocation must equal attendance span minus claimed paid break and unpaid break before saving.
           </Alert>
         ) : null}
         {incompleteActivityError ? (

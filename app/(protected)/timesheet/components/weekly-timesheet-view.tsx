@@ -83,7 +83,7 @@ function ActivitySummary({ day, lookups }: { day: TimesheetDaySummary; lookups: 
         );
       })}
       {hasLeave ? <li className="leading-6">{leaveLabels[entry.leave_type as TimesheetLeaveType]} · {formatTimesheetHours(entry.leave_hours)}</li> : null}
-      {entry.paid_break ? <li className="leading-6">Paid break · 0.5 h</li> : null}
+      {entry.paid_break ? <li className="leading-6">Paid break claimed · 0.5 h</li> : null}
     </ul>
   );
 }
