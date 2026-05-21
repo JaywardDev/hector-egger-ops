@@ -38,6 +38,18 @@ type DraftActivity = TimesheetActivityInput & {
 };
 const hasNoteContent = (value: string | null | undefined) => Boolean(value?.trim());
 
+const formatGreetingName = (fullName: string) => {
+  const trimmed = fullName.trim();
+  if (!trimmed) return "Kia ora";
+
+  const nameParts = trimmed.split(/\s+/).filter(Boolean);
+  if (nameParts.length === 0) return "Kia ora";
+
+  const firstName = nameParts[0];
+  const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+  return lastName ? `Kia ora, ${firstName} ${lastName.charAt(0)}.` : `Kia ora, ${firstName}`;
+};
+
 const leaveCodeToType: Record<string, TimesheetLeaveType> = { LA: "annual", LB: "bereavement", LS: "sick", LSACC: "sick", LSACCNW: "sick", LW: "unpaid", TIL: "other" };
 
 const defaultActivity = (
@@ -46,8 +58,8 @@ const defaultActivity = (
   hoursText = "",
 ): DraftActivity => ({
   clientId: crypto.randomUUID(),
-  projectId: lookups.projects[0]?.id ?? "",
-  taskId: lookups.tasks.find(isWorkActivityTask)?.id ?? "",
+  projectId: "",
+  taskId: "",
   workMode: workMode === "mixed" ? "factory" : workMode,
   hours: Number(hoursText) || 0,
   clientDescription: null,
@@ -72,10 +84,7 @@ const entryToActivities = (
       hoursText: String(activity.hours),
     }));
   }
-  return [
-    defaultActivity(lookups, workMode, "8"),
-    defaultActivity(lookups, workMode),
-  ];
+  return [defaultActivity(lookups, workMode)];
 };
 
 export function DailyTimesheetForm({
@@ -338,7 +347,7 @@ export function DailyTimesheetForm({
       <section className="space-y-3">
         <div>
           <h2 className="text-2xl font-semibold tracking-tight text-zinc-950">
-            {headingText ?? `Kia ora, ${userName}`}
+            {headingText ?? formatGreetingName(userName)}
           </h2>
           <p className="mt-1 text-sm font-normal text-zinc-500">
             {formattedWorkDate}
@@ -445,8 +454,8 @@ export function DailyTimesheetForm({
                   key={activity.clientId}
                   className={
                     workMode === "mixed"
-                      ? "grid gap-3 rounded-lg bg-zinc-50 p-3 sm:grid-cols-[1fr_1fr_120px_100px]"
-                      : "grid gap-3 rounded-lg bg-zinc-50 p-3 sm:grid-cols-[1fr_1fr_100px]"
+                      ? "grid gap-3 rounded-lg bg-zinc-50 p-3 sm:grid-cols-[1fr_1fr_120px_100px_40px]"
+                      : "grid gap-3 rounded-lg bg-zinc-50 p-3 sm:grid-cols-[1fr_1fr_100px_40px]"
                   }
                 >
                   <label className="space-y-1 text-xs font-medium text-zinc-600">
@@ -464,6 +473,7 @@ export function DailyTimesheetForm({
                         })
                       }
                     >
+                      <option value="">Select project</option>
                       {rowLookups.projects.map((project) => (
                         <option key={project.id} value={project.id}>
                           {project.code} — {project.label}
@@ -472,19 +482,7 @@ export function DailyTimesheetForm({
                     </Select>
                   </label>
                   <label className="space-y-1 text-xs font-medium text-zinc-600">
-                    <span className="flex items-center justify-between">
-                      <span>Task</span>
-                      <button
-                        type="button"
-                        aria-label={`Edit notes for row ${index + 1}`}
-                        className="relative rounded p-1 text-zinc-500 transition hover:bg-zinc-200 hover:text-zinc-700 disabled:opacity-40"
-                        disabled={disableActivityFields}
-                        onClick={() => openNotesEditor(activity)}
-                      >
-                        <StickyNote className="size-4" />
-                        {hasNoteContent(activity.clientDescription) || hasNoteContent(activity.internalNote) ? <span className="absolute right-0 top-0 size-2 rounded-full bg-amber-400" /> : null}
-                      </button>
-                    </span>
+                    Task
                     <Select
                       className={cn(
                         incompleteRow?.missingTask &&
@@ -498,6 +496,7 @@ export function DailyTimesheetForm({
                         })
                       }
                     >
+                      <option value="">Select task</option>
                       {rowLookups.tasks.map((task) => (
                         <option key={task.id} value={task.id}>
                           {task.label}
@@ -538,9 +537,21 @@ export function DailyTimesheetForm({
                           hoursText: event.target.value,
                         })
                       }
-                      placeholder={index === 0 ? "8" : "0"}
+                      placeholder="Hours"
                     />
                   </label>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      aria-label={`Edit notes for row ${index + 1}`}
+                      className="relative mb-0.5 rounded p-2 text-zinc-500 transition hover:bg-zinc-200 hover:text-zinc-700 disabled:opacity-40"
+                      disabled={disableActivityFields}
+                      onClick={() => openNotesEditor(activity)}
+                    >
+                      <StickyNote className="size-4" />
+                      {hasNoteContent(activity.clientDescription) || hasNoteContent(activity.internalNote) ? <span className="absolute right-1 top-1 size-2 rounded-full bg-amber-400" /> : null}
+                    </button>
+                  </div>
                 </div>
               );
             })}
