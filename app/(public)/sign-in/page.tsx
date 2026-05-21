@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getAuthContext } from "@/src/lib/auth/guards";
+import { hasActiveSessionCookie } from "@/src/lib/auth/public-session";
 import { AppQrCodeModalTrigger } from "@/components/share/app-qr-code-card";
 import { SignInForm } from "@/app/(public)/sign-in/sign-in-form";
 
@@ -11,18 +11,10 @@ type SignInPageProps = {
 };
 
 export default async function SignInPage({ searchParams }: SignInPageProps) {
-  const { accessState } = await getAuthContext();
+  const hasActiveSession = await hasActiveSessionCookie();
 
-  if (accessState === "approved") {
+  if (hasActiveSession) {
     redirect("/timesheet");
-  }
-
-  if (accessState === "incomplete_profile") {
-    redirect("/complete-profile");
-  }
-
-  if (accessState === "pending_approval" || accessState === "disabled") {
-    redirect("/pending");
   }
 
   const params = await searchParams;
