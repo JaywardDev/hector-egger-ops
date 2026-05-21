@@ -154,6 +154,7 @@ export function DailyTimesheetForm({
 
   const isPublicHolidayMode = isPublicHoliday;
   const isFullDayLeaveMode = isFullDayLeave;
+  const publicHolidayMutedClasses = "opacity-60 grayscale-[65%] [&_button:disabled]:cursor-not-allowed [&_input:disabled]:cursor-not-allowed [&_select:disabled]:cursor-not-allowed";
   const disableAttendanceFields = !canEdit || isPublicHolidayMode || isFullDayLeaveMode;
   const disableActivityFields = !canEdit || isPublicHolidayMode || isFullDayLeaveMode;
   const disableBreakFields = !canEdit || isPublicHolidayMode || isFullDayLeaveMode || leaveType !== "";
@@ -390,11 +391,10 @@ export function DailyTimesheetForm({
       <div
         className={cn(
           "space-y-6 transition-[filter,opacity] duration-150",
-          isPublicHolidayMode &&
-            "opacity-60 grayscale-[65%] [&_button:disabled]:cursor-not-allowed [&_input:disabled]:cursor-not-allowed [&_select:disabled]:cursor-not-allowed",
+          isPublicHolidayMode && publicHolidayMutedClasses,
         )}
       >
-        <section className="grid gap-4 sm:grid-cols-3">
+        <section className={cn("grid gap-4 sm:grid-cols-3", isFullDayLeaveMode && publicHolidayMutedClasses)}>
           <label className="space-y-1 text-sm font-medium text-zinc-700">
             Time in
             <Input
@@ -432,7 +432,7 @@ export function DailyTimesheetForm({
           </label>
         </section>
 
-        <section className="space-y-3">
+        <section className={cn("space-y-3", isFullDayLeaveMode && publicHolidayMutedClasses)}>
           <h3 className="text-base font-semibold text-zinc-900">Activity</h3>
           <div className="space-y-3">
             {activities.map((activity, index) => {
@@ -643,7 +643,7 @@ export function DailyTimesheetForm({
           </label>
         </section>
 
-        <section className="space-y-2">
+        <section className={cn("space-y-2", isFullDayLeaveMode && publicHolidayMutedClasses)}>
           <label className="flex items-center gap-2 text-sm text-zinc-700">
             <input
               type="checkbox"
