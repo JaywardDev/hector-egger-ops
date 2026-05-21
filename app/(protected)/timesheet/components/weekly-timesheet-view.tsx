@@ -127,7 +127,7 @@ function TimesheetDayRow({
         </Button>
       }
       aria-label={fullDateLabel}
-      className="rounded-xl border border-transparent py-4 sm:py-4"
+      className="rounded-xl border border-transparent py-2.5 sm:py-3"
       density="dense"
       metadata={
         day.entry ? (

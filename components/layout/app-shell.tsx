@@ -1,17 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { CheckCircle2, LogOut } from "lucide-react";
 import { AppSidebar } from "@/components/navigation/app-sidebar";
 import { PendingSubmitButton } from "@/src/components/ui/pending-button";
 import { FullScreenPendingOverlay } from "@/src/components/ui/pending-overlay";
 import { getNavigationSections } from "@/lib/navigation";
 import type { AccountAccessState } from "@/src/lib/auth/access-state";
+import type { ProfileRecord } from "@/src/lib/auth/profile-access";
 import type { AuthSession } from "@/src/lib/auth/session";
 import type { AppRole } from "@/src/lib/auth/profile-access";
 
 type AppShellProps = {
   children: React.ReactNode;
   session: AuthSession | null;
+  profile: ProfileRecord | null;
   accessState: AccountAccessState;
   roles: AppRole[];
   signOutAction?: string | null;
@@ -20,6 +23,7 @@ type AppShellProps = {
 export function AppShell({
   children,
   session,
+  profile,
   accessState,
   roles,
   signOutAction = "/auth/sign-out",
@@ -102,16 +106,13 @@ export function AppShell({
               </span>
             </button>
             <div>
-              <p className="text-xs uppercase tracking-wide text-zinc-500">Hector Egger Ops</p>
+              <p className="text-xs uppercase tracking-wide text-zinc-500">Hector Egger NZ</p>
               <h1 className="text-sm font-semibold">Operations Platform</h1>
             </div>
           </div>
 
           <div className="hidden items-center gap-3 md:flex">
-            <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-sm text-zinc-600">
-              <p>{session?.user.email ?? "No active user"}</p>
-              <p className="text-xs text-zinc-500">{accessState}</p>
-            </div>
+            <AccountDisplay profile={profile} session={session} />
             <ShellSignOutControl signOutAction={signOutAction} />
           </div>
         </header>
@@ -152,15 +153,24 @@ export function AppShell({
             />
 
             <div className="shrink-0 space-y-3 border-t border-zinc-200 p-4">
-              <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-600">
-                <p className="break-all">{session?.user.email ?? "No active user"}</p>
-                <p className="text-xs text-zinc-500">{accessState}</p>
-              </div>
+              <AccountDisplay profile={profile} session={session} />
               <ShellSignOutControl signOutAction={signOutAction} isMobile />
             </div>
           </div>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function AccountDisplay({ profile, session }: { profile: ProfileRecord | null; session: AuthSession | null }) {
+  const fullName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim();
+  const displayName = fullName || profile?.full_name?.trim() || session?.user.email ?? "No active user";
+
+  return (
+    <div className="inline-flex items-center gap-2 text-sm text-zinc-600" aria-label={`Signed in as ${displayName}`}>
+      <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-zinc-400" />
+      <p className="max-w-48 truncate">{displayName}</p>
     </div>
   );
 }
@@ -172,21 +182,21 @@ type ShellSignOutControlProps = {
 
 function ShellSignOutControl({ isMobile = false, signOutAction }: ShellSignOutControlProps) {
   const className = isMobile
-    ? "w-full rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700"
-    : "rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700";
+    ? "inline-flex h-10 w-10 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)]"
+    : "inline-flex h-9 w-9 items-center justify-center rounded-md text-zinc-700 transition-colors hover:bg-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)]";
 
   if (!signOutAction) {
     return (
-      <button type="button" disabled className={className}>
-        Preview mode
+      <button type="button" disabled className={className} aria-label="Preview mode">
+        <LogOut aria-hidden="true" className="h-4 w-4" />
       </button>
     );
   }
 
   return (
     <form action={signOutAction} method="post">
-      <PendingSubmitButton type="submit" className={className} pendingLabel="Signing out…">
-        Sign out
+      <PendingSubmitButton type="submit" aria-label="Sign out" className={className} pendingLabel="Signing out…">
+        <LogOut aria-hidden="true" className="h-4 w-4" />
       </PendingSubmitButton>
       <FullScreenPendingOverlay
         message="Signing out…"

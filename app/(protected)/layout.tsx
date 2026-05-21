@@ -6,7 +6,7 @@ export default async function ProtectedLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { session, accessState, roles } = await requireProtectedAccess();
+  const { session, accessState, roles, profile } = await requireProtectedAccess();
 
-  return <AppShell session={session} accessState={accessState} roles={roles}>{children}</AppShell>;
+  return <AppShell session={session} accessState={accessState} roles={roles} profile={profile}>{children}</AppShell>;
 }
