@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { aggregatePayrollExport, formatWeekEndingForPayroll, PAYROLL_EXPORT_HEADERS } from "@/src/lib/timesheets/payroll-export";
+import { aggregatePayrollExport, formatWeekEndingForPayroll, PAYROLL_EXPORT_HEADERS, PAYROLL_EXPORT_INCLUDED_STATUSES } from "@/src/lib/timesheets/payroll-export";
 
 const baseEntry = {
   profile_id: "p1",
@@ -11,6 +11,14 @@ const baseEntry = {
   profile: { full_name: "Ada Lovelace", email: "ada@example.com" },
 } as const;
 
+
+
+test("payroll export eligibility only includes final approved timesheets", () => {
+  assert.deepEqual(PAYROLL_EXPORT_INCLUDED_STATUSES, ["approved"]);
+  assert.equal(PAYROLL_EXPORT_INCLUDED_STATUSES.includes("supervisor_approved" as never), false);
+  assert.equal(PAYROLL_EXPORT_INCLUDED_STATUSES.includes("submitted" as never), false);
+  assert.equal(PAYROLL_EXPORT_INCLUDED_STATUSES.includes("returned" as never), false);
+});
 test("header order is exact", () => {
   assert.deepEqual(PAYROLL_EXPORT_HEADERS, ["WEEK_ENDING", "EMPLOYEE_NAME", "TOTAL_HOUR_WORKED", "COSTCODE", "TOTAL_WORKED_ON_LEAVE", "DESCRIPTION_CHARGEUP", "COMMENT_OTHER"]);
 });

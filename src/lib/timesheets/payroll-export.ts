@@ -15,7 +15,7 @@ export const PAYROLL_EXPORT_HEADERS = [
   "COMMENT_OTHER",
 ] as const;
 
-const INCLUDED_STATUSES = ["submitted", "supervisor_approved", "approved"] as const;
+export const PAYROLL_EXPORT_INCLUDED_STATUSES = ["approved"] as const;
 const leaveMappings: Record<TimesheetLeaveType, { costCode: string; comment: string }> = {
   annual: { costCode: "LA - Leave Annual", comment: "Leave Annual" },
   sick: { costCode: "LS - Leave Sick", comment: "Leave Sick" },
@@ -136,7 +136,7 @@ export async function getPayrollExportData(session: AuthSession, selectedDate: s
   console.info("[payroll-export] loading entries", { weekEnding, weekStart, weekEndExclusive });
 
   const response = await supabase.request(
-    `/rest/v1/timesheet_entries?select=profile_id,payable_hours,is_public_holiday,leave_type,leave_hours,status,profile:profiles!timesheet_entries_profile_id_fkey(full_name,email,account_status)&work_date=gte.${weekStart}&work_date=lt.${weekEndExclusive}&status=in.(${INCLUDED_STATUSES.join(",")})`,
+    `/rest/v1/timesheet_entries?select=profile_id,payable_hours,is_public_holiday,leave_type,leave_hours,status,profile:profiles!timesheet_entries_profile_id_fkey(full_name,email,account_status)&work_date=gte.${weekStart}&work_date=lt.${weekEndExclusive}&status=in.(${PAYROLL_EXPORT_INCLUDED_STATUSES.join(",")})`,
   );
 
   if (!response.ok) {
