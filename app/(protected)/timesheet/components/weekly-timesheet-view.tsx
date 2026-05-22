@@ -51,14 +51,6 @@ function getFullDateLabel(date: string) {
   });
 }
 
-function truncateProjectLabel(label: string, maxLength = 24) {
-  const normalizedLabel = label.trim();
-  if (normalizedLabel.length <= maxLength) {
-    return normalizedLabel;
-  }
-  return `${normalizedLabel.slice(0, maxLength - 1).trimEnd()}…`;
-}
-
 function getMobileActivityProjectDisplay(
   activity: NonNullable<TimesheetDaySummary["entry"]>["activities"][number],
   projectById: Map<string, TimesheetLookups["projects"][number]>,
@@ -71,14 +63,11 @@ function getMobileActivityProjectDisplay(
   const code = snapshotCode || lookupCode;
   const label = snapshotLabel || lookupLabel;
 
-  if (code && label) {
-    return `${code} — ${truncateProjectLabel(label)}`;
-  }
   if (code) {
     return code;
   }
   if (label) {
-    return truncateProjectLabel(label);
+    return label;
   }
   return "Unknown project";
 }
