@@ -152,7 +152,7 @@ function TimesheetDayRow({
         </Button>
       }
       aria-label={fullDateLabel}
-      className="grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 rounded-xl border border-transparent py-2 sm:py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-3"
+      className="grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 rounded-xl border border-transparent border-b border-zinc-100/80 py-2 last:border-b-0 sm:border-b-0 sm:py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-3"
       density="dense"
       titleBlockClassName="row-span-2 sm:row-span-1"
       metadataClassName="col-start-2 row-start-1 justify-end whitespace-nowrap"
@@ -215,7 +215,7 @@ export function WeeklyTimesheetView({
           value={mode}
         />
       </div>
-      <div className="mt-2 divide-y divide-zinc-100/80">
+      <div className="mt-2">
         {days.map((day) => (
           <TimesheetDayRow
             key={day.date}
