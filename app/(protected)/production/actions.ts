@@ -953,8 +953,18 @@ export async function listProductionInterruptionReasonsAction() {
 
 export async function prepareProductionImportAction(file: File) {
   await requireOperationalWriteAccess();
-  const buffer = Buffer.from(await file.arrayBuffer());
-  return prepareProductionImport(buffer);
+  if (!file) throw new Error("No file was provided.");
+  if (!file.name) throw new Error("File name is required.");
+  if (file.size <= 0) throw new Error("File is empty.");
+  const maxFileSizeBytes = 5 * 1024 * 1024;
+  if (file.size > maxFileSizeBytes) throw new Error("File is too large. Maximum size is 5MB.");
+  if (!file.name.toLowerCase().endsWith(".csv")) throw new Error("Only CSV foundation import files are currently supported.");
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    return prepareProductionImport(buffer);
+  } catch {
+    throw new Error("Could not read file contents.");
+  }
 }
 
 export async function applyProductionImportAction(input: {
@@ -962,15 +972,14 @@ export async function applyProductionImportAction(input: {
   actorProfileId: string;
 }) {
   await requireOperationalWriteAccess();
-  const prepared = await prepareProductionImport(Buffer.from(await input.file.arrayBuffer()));
+  const prepared = await prepareProductionImportAction(input.file);
   if (prepared.validationErrors.length > 0) {
-    throw new Error("Validation errors must be resolved before apply.");
+    throw new Error(`Validation errors must be resolved before apply: ${JSON.stringify(prepared.validationErrors.slice(0, 10))}`);
   }
-  const result = await applyProductionImport({
-    actorProfileId: input.actorProfileId,
-    fileName: input.file.name,
-    prepared,
-  });
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.actorProfileId)) {
+    throw new Error("Invalid actorProfileId.");
+  }
+  const result = await applyProductionImport({ actorProfileId: input.actorProfileId, fileName: input.file.name, prepared });
   revalidatePath("/production");
   revalidatePath("/production/import");
   return result;

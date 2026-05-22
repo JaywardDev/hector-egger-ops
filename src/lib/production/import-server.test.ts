@@ -27,3 +27,30 @@ test("downtime and interruption remain separate fields", async () => {
   assert.equal(prepared.normalizedRows[0].downtime_reason_label, "Maintenance");
   assert.equal(prepared.normalizedRows[0].interruption_reason_label, "Wrong Project");
 });
+
+test("csv parser supports commas and escaped quotes inside quoted fields", async () => {
+  const csv = Buffer.from(
+    'Date,Operator,Start Time,Finish Time,Project File,Project Sequence,Project Name,Time Remaining Start,Time Remaining End,Actual Volume Cut m3,Downtime Hours,Downtime Reason,Interruption Hours,Interruption Reason\n2026-01-01,Op One,06:00,14:00,PF,1,Project A,02:00:00,01:30:00,1.2,1,"Maintenance, line 1 ""urgent""",2,"Wrong Project, staging"'
+  );
+  const prepared = await prepareProductionImport(csv);
+  assert.equal(prepared.normalizedRows[0].downtime_reason_label, 'Maintenance, line 1 "urgent"');
+  assert.equal(prepared.normalizedRows[0].interruption_reason_label, "Wrong Project, staging");
+});
+
+test("duplicate source rows in one payload produce row-scoped errors", async () => {
+  const csv = Buffer.from(
+    "Date,Operator,Start Time,Finish Time,Project File,Project Sequence,Project Name,Time Remaining Start,Time Remaining End,Actual Volume Cut m3,Downtime Hours,Downtime Reason,Interruption Hours,Interruption Reason\n2026-01-01,Op One,06:00,14:00,PF,1,Project A,02:00:00,01:30:00,1.2,0,,0,\n2026-01-01,Op One,06:00,14:00,PF,1,Project A,02:00:00,01:30:00,1.2,0,,0,"
+  );
+  const prepared = await prepareProductionImport(csv);
+  assert.equal(prepared.validationErrors.some((error) => error.code === "duplicate_source_row"), true);
+});
+
+test("prepare validates invalid date and number fields before RPC", async () => {
+  const csv = Buffer.from(
+    "Date,Operator,Start Time,Finish Time,Project File,Project Sequence,Project Name,Time Remaining Start,Time Remaining End,Actual Volume Cut m3,Downtime Hours,Downtime Reason,Interruption Hours,Interruption Reason\nbad-date,Op One,06:00,14:00,PF,abc,Project A,02:00:00,bad,not-a-number,-1,,x,"
+  );
+  const prepared = await prepareProductionImport(csv);
+  assert.equal(prepared.validationErrors.some((error) => error.field === "Date" && error.code === "required"), true);
+  assert.equal(prepared.validationErrors.some((error) => error.field === "Project Sequence"), true);
+  assert.equal(prepared.validationErrors.some((error) => error.field === "Actual Volume Cut m3"), true);
+});
