@@ -8,6 +8,8 @@
   --he-charcoal: #1f2933;
   --he-muted: #6b7280;
   --he-border: #e4e4e7;
+  --font-geist-sans: Arial, Helvetica, system-ui, sans-serif;
+  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
 @theme inline {
