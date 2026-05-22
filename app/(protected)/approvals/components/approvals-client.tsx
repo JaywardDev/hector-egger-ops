@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { approveEmployeeTimesheetWeekAction, returnEmployeeTimesheetWeekAction } from "@/app/(protected)/approvals/actions";
+import { approveEmployeeTimesheetWeekAction, finalApproveEmployeeTimesheetWeekAction, returnEmployeeTimesheetWeekAction } from "@/app/(protected)/approvals/actions";
 import { DailyTimesheetReview } from "@/app/(protected)/approvals/components/daily-timesheet-review";
 import { DailyTimesheetSheet } from "@/app/(protected)/timesheet/components/daily-timesheet-sheet";
 import { WeeklyTimesheetView } from "@/app/(protected)/timesheet/components/weekly-timesheet-view";
@@ -27,6 +27,7 @@ type StaffWithWeek = ApprovalStaffProfile & {
   submittedCount: number;
   returnedCount: number;
   supervisorApprovedCount: number;
+  finalApprovedCount: number;
   missingCount: number;
 };
 
@@ -40,12 +41,14 @@ export function ApprovalsClient({
   lookupsByGroup,
   weekStart,
   weekRangeLabel,
+  canFinalApprove,
 }: {
   groups: GroupData;
   visibleGroups: StaffGroup[];
   lookupsByGroup: TimesheetLookupsByStaffGroup;
   weekStart: string;
   weekRangeLabel: string;
+  canFinalApprove: boolean;
 }) {
   const router = useRouter();
   const [selectedGroup, setSelectedGroup] = useState<StaffGroup | null>(visibleGroups[0] ?? null);
@@ -90,6 +93,16 @@ export function ApprovalsClient({
         setReturnComment("");
         router.refresh();
       }
+    });
+  };
+
+  const runFinalApproval = () => {
+    if (!selectedStaff || !canFinalApprove) return;
+    setFeedback(null);
+    startTransition(async () => {
+      const result = await finalApproveEmployeeTimesheetWeekAction(selectedStaff.id, weekStart);
+      setFeedback({ type: result.ok ? "success" : "error", message: result.message });
+      if (result.ok) router.refresh();
     });
   };
 
@@ -147,6 +160,7 @@ export function ApprovalsClient({
                   <Badge variant="info">{person.submittedCount} submitted</Badge>
                   <Badge variant="warning">{person.returnedCount} returned</Badge>
                   <Badge variant="success">{person.supervisorApprovedCount} reviewed</Badge>
+                  <Badge variant="neutral">{person.finalApprovedCount} approved</Badge>
                   <Badge variant={person.missingCount > 0 ? "warning" : "neutral"}>{person.missingCount} missing</Badge>
                 </div>
               </button>
@@ -165,6 +179,18 @@ export function ApprovalsClient({
               </div>
               <div className="flex flex-wrap gap-2">
                 <PendingActionButton type="button" onClick={runApproval} isPending={isPending} disabled={selectedStaff.submittedCount === 0} pendingLabel="Reviewing…">Review Week</PendingActionButton>
+                {canFinalApprove ? (
+                  <PendingActionButton
+                    type="button"
+                    variant="secondary"
+                    onClick={runFinalApproval}
+                    isPending={isPending}
+                    disabled={selectedStaff.supervisorApprovedCount === 0}
+                    pendingLabel="Final approving…"
+                  >
+                    Final Approve Week
+                  </PendingActionButton>
+                ) : null}
                 <Button type="button" variant="secondary" onClick={closeWeekly}>Close</Button>
               </div>
             </div>

@@ -19,6 +19,7 @@ import type {
   TimesheetEntryWithActivities,
 } from "@/src/lib/timesheets/types";
 import { validateTimesheetEntryInput } from "@/src/lib/timesheets/validation";
+import { isFinalApprovableStatus } from "@/src/lib/timesheets/final-approval-rules";
 
 export type ApprovalStaffProfile = {
   id: string;
@@ -125,6 +126,13 @@ const assertCanManageTargetProfile = async (actor: TimesheetActor, targetProfile
   if (scope.isSupervisor && scope.staffGroup && scope.staffGroup === target.staff_group) return target;
 
   throw new Error("You are not assigned to this employee's approval group.");
+};
+
+const assertCanFinalApproveTargetProfile = async (actor: TimesheetActor, targetProfileId: string) => {
+  await assertTimesheetApprovalAccess(actor);
+  const [scope, target] = await Promise.all([getActorApprovalScope(actor), getTargetApprovedProfile(targetProfileId)]);
+  if (!scope.isAdmin) throw new Error("Only admins can final approve reviewed entries.");
+  return target;
 };
 
 export const listApprovedStaffByGroup = async (
@@ -306,6 +314,52 @@ export const returnEmployeeTimesheetWeek = async (
   if (!eventResponse.ok) throw new Error("Failed to record return event");
 
   return { affectedEntryIds };
+};
+
+export const finalApproveEmployeeTimesheetWeek = async (
+  actor: TimesheetActor,
+  targetProfileId: string,
+  weekStart: string,
+) => {
+  if (!targetProfileId || targetProfileId === actor.profileId) throw new Error("Select an employee timesheet to final approve.");
+  const target = await assertCanFinalApproveTargetProfile(actor, targetProfileId);
+  const weekDates = getApprovalWeekDates(weekStart);
+  const entries = await getSubmittedEntriesForWeek(targetProfileId, weekDates);
+  const affectedEntryIds = entries.filter((entry) => isFinalApprovableStatus(entry.status)).map((entry) => entry.id);
+  if (affectedEntryIds.length === 0) throw new Error("No supervisor reviewed entries are available to final approve for this week.");
+
+  const supabase = createServiceRoleSupabaseClient();
+  const now = nowUtcIso();
+  const updateResponse = await supabase.request(
+    `/rest/v1/timesheet_entries?id=in.(${inList(affectedEntryIds)})&profile_id=eq.${targetProfileId}&work_date=in.(${inList(weekDates)})`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({
+        status: "approved",
+        approved_at: now,
+        approved_by_profile_id: actor.profileId,
+      }),
+    },
+  );
+  if (!updateResponse.ok) throw new Error("Failed to final approve reviewed entries");
+
+  const eventResponse = await supabase.request("/rest/v1/timesheet_approval_events", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({
+      profile_id: targetProfileId,
+      actor_profile_id: actor.profileId,
+      week_start: weekDates[0],
+      week_end: weekDates[6],
+      action: "approved",
+      comment: `Final approved reviewed entries for ${target.full_name ?? target.email}`,
+      affected_entry_ids: affectedEntryIds,
+    }),
+  });
+  if (!eventResponse.ok) throw new Error("Failed to record final approval event");
+
+  return { affectedEntryIds, employeeName: target.full_name ?? target.email };
 };
 
 

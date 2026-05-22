@@ -3,6 +3,7 @@ import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { Alert } from "@/src/components/ui/alert";
 import { requireTimesheetApprovalAccess } from "@/src/lib/auth/guards";
+import { canFinalApproveTimesheets } from "@/src/lib/permissions/timesheets";
 import {
   getApprovalWeekDates,
   listApprovedStaffByGroup,
@@ -19,6 +20,7 @@ type StaffWithWeek = ApprovalStaffProfile & {
   submittedCount: number;
   returnedCount: number;
   supervisorApprovedCount: number;
+  finalApprovedCount: number;
   missingCount: number;
 };
 
@@ -51,7 +53,8 @@ const withWeekSummaries = async (
       totalHours: Number(entries.reduce((sum, entry) => sum + entry.payable_hours, 0).toFixed(2)),
       submittedCount: entries.filter((entry) => entry.status === "submitted").length,
       returnedCount: entries.filter((entry) => entry.status === "returned").length,
-      supervisorApprovedCount: entries.filter((entry) => entry.status === "supervisor_approved" || entry.status === "approved").length,
+      supervisorApprovedCount: entries.filter((entry) => entry.status === "supervisor_approved").length,
+      finalApprovedCount: entries.filter((entry) => entry.status === "approved").length,
       missingCount: days.filter((day) => !day.entry).length,
     };
   });
@@ -81,6 +84,8 @@ export default async function ApprovalsPage() {
       ? [profile.staff_group]
       : [];
 
+  const canFinalApprove = canFinalApproveTimesheets({ accountStatus: "approved", roles });
+
   const weekDates = getApprovalWeekDates();
   const lookupsByGroup = Object.fromEntries(
     await Promise.all(
@@ -108,6 +113,7 @@ export default async function ApprovalsPage() {
         lookupsByGroup={lookupsByGroup}
         weekStart={weekDates[0]}
         weekRangeLabel={weekRangeLabel}
+        canFinalApprove={canFinalApprove}
       />
     </PageContainer>
   );

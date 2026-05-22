@@ -13,5 +13,8 @@ export const canAccessTimesheetApprovals = (authContext: PermissionAuthContext |
 export const canApproveTimesheets = (authContext: PermissionAuthContext | null | undefined) =>
   canAccessTimesheetApprovals(authContext);
 
+export const canFinalApproveTimesheets = (authContext: PermissionAuthContext | null | undefined) =>
+  isApprovedUser(authContext) && isAdmin(authContext);
+
 export const canExportTimesheets = (authContext: PermissionAuthContext | null | undefined) =>
   isApprovedUser(authContext) && isAdmin(authContext);

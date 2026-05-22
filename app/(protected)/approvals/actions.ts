@@ -5,6 +5,7 @@ import { requireTimesheetApprovalAccess } from "@/src/lib/auth/guards";
 import { getNzWeekStart, parseNzDate } from "@/src/lib/dateTime";
 import {
   approveEmployeeTimesheetWeek,
+  finalApproveEmployeeTimesheetWeek,
   returnEmployeeTimesheetWeek,
   saveEmployeeTimesheetCorrectionAtomic,
 } from "@/src/lib/timesheets/approvals";
@@ -64,6 +65,25 @@ export async function returnEmployeeTimesheetWeekAction(
     return { ok: true, message: `Returned ${result.affectedEntryIds.length} entr${result.affectedEntryIds.length === 1 ? "y" : "ies"} for correction.` };
   } catch (error) {
     return { ok: false, message: error instanceof Error ? error.message : "Could not return timesheet week." };
+  }
+}
+
+export async function finalApproveEmployeeTimesheetWeekAction(
+  targetProfileId: string,
+  weekStart: string,
+): Promise<ApprovalActionResult> {
+  try {
+    const parsedWeekStart = parseApprovalWeekStart(weekStart);
+    const actor = await actorFromContext();
+    const result = await finalApproveEmployeeTimesheetWeek(actor, targetProfileId, parsedWeekStart);
+    revalidatePath("/approvals");
+    revalidatePath("/timesheet");
+    return {
+      ok: true,
+      message: `Final approved ${result.affectedEntryIds.length} reviewed entr${result.affectedEntryIds.length === 1 ? "y" : "ies"} for ${result.employeeName}.`,
+    };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Could not final approve timesheet week." };
   }
 }
 
