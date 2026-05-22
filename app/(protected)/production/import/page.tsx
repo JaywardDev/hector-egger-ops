@@ -2,9 +2,13 @@ import { ProductionImportClient } from "@/app/(protected)/production/import/prod
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { requireOperationalWriteAccess } from "@/src/lib/auth/guards";
+import { notFound } from "next/navigation";
 
 export default async function ProductionImportPage() {
   const { profile } = await requireOperationalWriteAccess();
+  if (!profile) {
+    notFound();
+  }
 
   return (
     <PageContainer>
