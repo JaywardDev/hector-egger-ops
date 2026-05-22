@@ -8,6 +8,9 @@ type OperationalListRowBaseProps = {
   subtitle?: ReactNode;
   metadata?: ReactNode;
   actions?: ReactNode;
+  titleBlockClassName?: string;
+  metadataClassName?: string;
+  actionsClassName?: string;
   accent?: boolean;
   density?: OperationalListRowDensity;
   className?: string;
@@ -42,6 +45,9 @@ function omitOperationalListRowProps(props: OperationalListRowProps) {
   delete nativeProps.subtitle;
   delete nativeProps.metadata;
   delete nativeProps.actions;
+  delete nativeProps.titleBlockClassName;
+  delete nativeProps.metadataClassName;
+  delete nativeProps.actionsClassName;
   delete nativeProps.accent;
   delete nativeProps.density;
   delete nativeProps.className;
@@ -55,7 +61,10 @@ function OperationalListRowContent({
   metadata,
   actions,
   accent,
-}: Pick<OperationalListRowBaseProps, "title" | "subtitle" | "metadata" | "actions" | "accent">) {
+  titleBlockClassName,
+  metadataClassName,
+  actionsClassName,
+}: Pick<OperationalListRowBaseProps, "title" | "subtitle" | "metadata" | "actions" | "accent" | "titleBlockClassName" | "metadataClassName" | "actionsClassName">) {
   return (
     <>
       {accent ? (
@@ -64,18 +73,18 @@ function OperationalListRowContent({
           className="absolute left-0 top-3 h-[calc(100%-1.5rem)] w-1 rounded-r-full bg-[var(--he-yellow)]"
         />
       ) : null}
-      <div className="min-w-0">
+      <div className={cn("min-w-0", titleBlockClassName)}>
         <div className="font-medium text-zinc-950">{title}</div>
         {subtitle ? <div className="mt-1 text-sm text-zinc-500">{subtitle}</div> : null}
       </div>
-      {metadata ? <div className="flex flex-wrap items-center gap-2 text-sm text-zinc-700 sm:justify-end">{metadata}</div> : null}
-      {actions ? <div className="flex flex-wrap items-center gap-2 sm:justify-end">{actions}</div> : null}
+      {metadata ? <div className={cn("flex flex-wrap items-center gap-2 text-sm text-zinc-700 sm:justify-end", metadataClassName)}>{metadata}</div> : null}
+      {actions ? <div className={cn("flex flex-wrap items-center gap-2 sm:justify-end", actionsClassName)}>{actions}</div> : null}
     </>
   );
 }
 
 export function OperationalListRow(props: OperationalListRowProps) {
-  const { title, subtitle, metadata, actions, accent = false, density = "spacious", className } = props;
+  const { title, subtitle, metadata, actions, titleBlockClassName, metadataClassName, actionsClassName, accent = false, density = "spacious", className } = props;
   const rowClassName = cn(
     baseClassName,
     densityClassNames[density],
@@ -90,7 +99,7 @@ export function OperationalListRow(props: OperationalListRowProps) {
 
     return (
       <button className={rowClassName} disabled={disabled} onClick={onClick} type={type} {...buttonProps}>
-        <OperationalListRowContent title={title} subtitle={subtitle} metadata={metadata} actions={actions} accent={accent} />
+        <OperationalListRowContent title={title} subtitle={subtitle} metadata={metadata} actions={actions} titleBlockClassName={titleBlockClassName} metadataClassName={metadataClassName} actionsClassName={actionsClassName} accent={accent} />
       </button>
     );
   }
@@ -99,7 +108,7 @@ export function OperationalListRow(props: OperationalListRowProps) {
 
   return (
     <div className={rowClassName} {...divProps}>
-      <OperationalListRowContent title={title} subtitle={subtitle} metadata={metadata} actions={actions} accent={accent} />
+      <OperationalListRowContent title={title} subtitle={subtitle} metadata={metadata} actions={actions} titleBlockClassName={titleBlockClassName} metadataClassName={metadataClassName} actionsClassName={actionsClassName} accent={accent} />
     </div>
   );
 }

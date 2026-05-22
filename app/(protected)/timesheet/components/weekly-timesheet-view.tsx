@@ -118,7 +118,7 @@ function TimesheetDayRow({
       actions={
         <Button
           aria-label={`${actionLabel} timesheet for ${fullDateLabel}`}
-          className="min-h-10 w-auto px-3 sm:w-24"
+          className="min-h-9 w-auto px-2.5 text-xs sm:min-h-10 sm:px-3 sm:text-sm sm:w-24"
           disabled={disabled}
           onClick={() => onSelectDay(day.date)}
           variant={day.entry ? "quiet" : "secondary"}
@@ -127,8 +127,11 @@ function TimesheetDayRow({
         </Button>
       }
       aria-label={fullDateLabel}
-      className="grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-xl border border-transparent py-2 sm:py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:gap-3"
+      className="grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-1 rounded-xl border border-transparent py-2 sm:py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center sm:gap-3"
       density="dense"
+      titleBlockClassName="row-span-2 sm:row-span-1"
+      metadataClassName="col-start-2 row-start-1 justify-end whitespace-nowrap"
+      actionsClassName="col-start-2 row-start-2 justify-end"
       metadata={
         day.entry ? (
           <>
@@ -142,7 +145,11 @@ function TimesheetDayRow({
       title={
         <span className="flex items-center gap-2">
           <span>{day.weekdayLabel}</span>
-          {isToday ? <span className="rounded-full bg-[var(--he-yellow)]/25 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-900">Today</span> : null}
+          {isToday ? (
+            <span className="shrink-0 rounded-full bg-[var(--he-yellow)]/25 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-900">
+              Today
+            </span>
+          ) : null}
         </span>
       }
       subtitle={
@@ -171,13 +178,13 @@ export function WeeklyTimesheetView({
   return (
     <section className="rounded-[1.35rem] border border-zinc-200/80 bg-white px-3 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.04)] sm:px-4 sm:py-4" aria-labelledby="weekly-timesheet-heading">
       <div className="flex items-start justify-between gap-2 border-b border-zinc-100 px-1 pb-3 sm:items-end sm:gap-3 sm:pb-4">
-        <div className="min-w-0">
+        <div className="min-w-0 shrink">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--he-muted)]">Timesheet</p>
-          <h2 id="weekly-timesheet-heading" className="mt-1 text-lg font-semibold text-zinc-950">{heading}</h2>
+          <h2 id="weekly-timesheet-heading" className="mt-1 whitespace-nowrap text-[15px] font-semibold text-zinc-950 sm:text-lg">{heading}</h2>
         </div>
         <SegmentedControl
           aria-label="Weekly timesheet view"
-          className="shrink-0 scale-95 self-center sm:scale-100 sm:self-auto"
+          className="shrink-0 origin-right scale-[0.88] self-center text-xs sm:scale-100 sm:self-auto sm:text-sm"
           onChange={onModeChange}
           options={WEEKDAY_MODE_OPTIONS}
           value={mode}
