@@ -216,19 +216,6 @@ export function WeeklyTimesheetView({
         />
       </div>
       <div className="mt-2">
-<<<<<<< ours
-        {days.map((day) => (
-          <TimesheetDayRow
-            key={day.date}
-            day={day}
-            lookups={lookups}
-            mode={mode}
-            onSelectDay={onSelectDay}
-            todayDate={todayDate}
-            entryActionLabel={entryActionLabel}
-            missingActionLabel={missingActionLabel}
-          />
-=======
         {days.map((day, index) => (
           <div key={day.date}>
             <TimesheetDayRow
@@ -242,7 +229,6 @@ export function WeeklyTimesheetView({
             />
             {index < days.length - 1 ? <div aria-hidden className="mx-1 border-b border-zinc-100/80 sm:hidden" /> : null}
           </div>
->>>>>>> theirs
         ))}
       </div>
     </section>
