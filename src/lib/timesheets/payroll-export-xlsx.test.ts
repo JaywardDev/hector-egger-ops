@@ -31,12 +31,14 @@ const readStoredZipEntry = (buffer: Buffer, targetName: string) => {
 const buildSheetXml = () => {
   const workbook = buildPayrollExportXlsx("2026-05-24", [
     {
+      weekEnding: "2026-05-24",
       employeeName: "Ada Lovelace",
       totalHourWorked: 42.5,
       descriptionChargeup: "ORDINARY HOURS",
       leaveRows: [{ costCode: "SL", leaveHours: 2, leaveType: "sick", commentOther: "SICK" }],
     },
     {
+      weekEnding: "2026-05-24",
       employeeName: "Bob",
       totalHourWorked: 40,
       descriptionChargeup: "ORDINARY HOURS",
@@ -65,6 +67,7 @@ test("xlsx layout uses dedicated week ending row and leaves employee name blank 
 test("xlsx includes annual, bereavement, other, sick, and unpaid leave rows", () => {
   const workbook = buildPayrollExportXlsx("2026-05-24", [
     {
+      weekEnding: "2026-05-24",
       employeeName: "Ada Lovelace",
       totalHourWorked: 42.5,
       descriptionChargeup: "ORDINARY HOURS",
@@ -89,4 +92,22 @@ test("xlsx includes annual, bereavement, other, sick, and unpaid leave rows", ()
   assert.match(sheetXml, /Time In Lieu/);
   assert.match(sheetXml, /Leave Sick/);
   assert.match(sheetXml, /Leave Without Pay/);
+});
+
+
+test("xlsx places PUHO row in costcode/leave/comment columns with blank employee", () => {
+  const workbook = buildPayrollExportXlsx("2026-05-24", [
+    {
+      weekEnding: "2026-05-24",
+      employeeName: "Ada Lovelace",
+      totalHourWorked: 42.5,
+      descriptionChargeup: "ORDINARY HOURS",
+      leaveRows: [
+        { costCode: "PUHO - Public Holiday", leaveHours: 16, leaveType: "public_holiday", commentOther: "Public Holiday" },
+      ],
+    },
+  ]);
+
+  const sheetXml = readStoredZipEntry(workbook.content, "xl/worksheets/sheet1.xml");
+  assert.match(sheetXml, /<row r="4">\s*<c r="A4" s="2"\/>\s*<c r="B4" s="5"\/>\s*<c r="C4" s="3"\/>\s*<c r="D4" t="inlineStr" s="5"><is><t xml:space="preserve">PUHO - Public Holiday<\/t><\/is><\/c>\s*<c r="E4" s="3"><v>16<\/v><\/c>\s*<c r="F4" s="5"\/>\s*<c r="G4" t="inlineStr" s="5"><is><t xml:space="preserve">Public Holiday<\/t><\/is><\/c>/);
 });

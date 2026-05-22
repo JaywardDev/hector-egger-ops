@@ -5,6 +5,7 @@ import { aggregatePayrollExport, formatWeekEndingForPayroll, PAYROLL_EXPORT_HEAD
 const baseEntry = {
   profile_id: "p1",
   payable_hours: 8.5,
+  is_public_holiday: false,
   leave_type: null,
   leave_hours: 0,
   profile: { full_name: "Ada Lovelace", email: "ada@example.com" },
@@ -69,6 +70,21 @@ test("40 and 48 hour totals", () => {
   ] });
   assert.equal(rows[0]?.totalHourWorked, 40);
   assert.equal(rows[1]?.totalHourWorked, 48);
+});
+
+
+test("public holiday creates a dedicated PUHO detail row aggregated by payable hours", () => {
+  const rows = aggregatePayrollExport({ weekEnding: "2026-05-24", entries: [
+    { ...baseEntry, is_public_holiday: true, payable_hours: 8 },
+    { ...baseEntry, is_public_holiday: true, payable_hours: 8 },
+    { ...baseEntry, is_public_holiday: false, payable_hours: 8.5 },
+  ] });
+
+  const puho = rows[0]?.leaveRows.find((row) => row.leaveType === "public_holiday");
+  assert.equal(puho?.costCode, "PUHO - Public Holiday");
+  assert.equal(puho?.leaveHours, 16);
+  assert.equal(puho?.commentOther, "Public Holiday");
+  assert.equal(rows[0]?.totalHourWorked, 24.5);
 });
 
 test("formats NZ week ending dd/mm/yyyy", () => {

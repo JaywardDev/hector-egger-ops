@@ -25,7 +25,7 @@ const leaveMappings: Record<TimesheetLeaveType, { costCode: string; comment: str
 };
 
 export type PayrollExportLeaveRow = {
-  leaveType: TimesheetLeaveType;
+  leaveType: TimesheetLeaveType | "public_holiday";
   costCode: string;
   leaveHours: number;
   commentOther: string;
@@ -42,6 +42,7 @@ export type PayrollExportEmployeeRow = {
 type PayrollExportEntryRow = {
   profile_id: string;
   payable_hours: number | null;
+  is_public_holiday: boolean | null;
   leave_type: TimesheetLeaveType | null;
   leave_hours: number | null;
   status: string | null;
@@ -57,9 +58,10 @@ export const formatWeekEndingForPayroll = (weekEndingIso: string) =>
 
 export const aggregatePayrollExport = (args: {
   weekEnding: string;
-  entries: Array<{
+    entries: Array<{
     profile_id: string;
     payable_hours: number;
+    is_public_holiday: boolean;
     leave_type: TimesheetLeaveType | null;
     leave_hours: number;
     profile: { full_name: string | null; email: string | null } | null;
@@ -83,6 +85,21 @@ export const aggregatePayrollExport = (args: {
 
     const row = byEmployee.get(entry.profile_id)!;
     row.totalHourWorked = Number((row.totalHourWorked + Number(entry.payable_hours)).toFixed(2));
+
+    if (entry.is_public_holiday && entry.payable_hours > 0) {
+      const existingPuho = row.leaveRows.find((leaveRow) => leaveRow.leaveType === "public_holiday");
+      if (existingPuho) {
+        existingPuho.leaveHours = Number((existingPuho.leaveHours + Number(entry.payable_hours)).toFixed(2));
+      } else {
+        row.leaveRows.push({
+          leaveType: "public_holiday",
+          costCode: "PUHO - Public Holiday",
+          leaveHours: Number(entry.payable_hours),
+          commentOther: "Public Holiday",
+        });
+      }
+      continue;
+    }
 
     if (entry.leave_type && entry.leave_hours > 0) {
       const mapping = leaveMappings[entry.leave_type];
@@ -119,7 +136,7 @@ export async function getPayrollExportData(session: AuthSession, selectedDate: s
   console.info("[payroll-export] loading entries", { weekEnding, weekStart, weekEndExclusive });
 
   const response = await supabase.request(
-    `/rest/v1/timesheet_entries?select=profile_id,payable_hours,leave_type,leave_hours,status,profile:profiles!timesheet_entries_profile_id_fkey(full_name,email,account_status)&work_date=gte.${weekStart}&work_date=lt.${weekEndExclusive}&status=in.(${INCLUDED_STATUSES.join(",")})`,
+    `/rest/v1/timesheet_entries?select=profile_id,payable_hours,is_public_holiday,leave_type,leave_hours,status,profile:profiles!timesheet_entries_profile_id_fkey(full_name,email,account_status)&work_date=gte.${weekStart}&work_date=lt.${weekEndExclusive}&status=in.(${INCLUDED_STATUSES.join(",")})`,
   );
 
   if (!response.ok) {
@@ -139,6 +156,7 @@ export async function getPayrollExportData(session: AuthSession, selectedDate: s
     .map((entry) => ({
       profile_id: entry.profile_id,
       payable_hours: Number(entry.payable_hours),
+      is_public_holiday: Boolean(entry.is_public_holiday),
       leave_type: entry.leave_type,
       leave_hours: Number(entry.leave_hours),
       profile: entry.profile ? { full_name: entry.profile.full_name, email: entry.profile.email } : null,
