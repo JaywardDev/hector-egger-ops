@@ -16,9 +16,12 @@ export const PAYROLL_EXPORT_HEADERS = [
 ] as const;
 
 const INCLUDED_STATUSES = ["submitted", "supervisor_approved", "approved"] as const;
-const leaveMappings: Partial<Record<TimesheetLeaveType, { costCode: string; comment: string }>> = {
+const leaveMappings: Record<TimesheetLeaveType, { costCode: string; comment: string }> = {
+  annual: { costCode: "LA - Leave Annual", comment: "Leave Annual" },
   sick: { costCode: "LS - Leave Sick", comment: "Leave Sick" },
+  bereavement: { costCode: "LB - Leave Bereavement", comment: "Leave Bereavement" },
   unpaid: { costCode: "LW - Leave Without Pay", comment: "Leave Without Pay" },
+  other: { costCode: "TIL - Time In Lieu", comment: "Time In Lieu" },
 };
 
 export type PayrollExportLeaveRow = {
@@ -83,7 +86,6 @@ export const aggregatePayrollExport = (args: {
 
     if (entry.leave_type && entry.leave_hours > 0) {
       const mapping = leaveMappings[entry.leave_type];
-      if (!mapping) continue;
 
       const existingLeave = row.leaveRows.find((leaveRow) => leaveRow.leaveType === entry.leave_type);
       if (existingLeave) {

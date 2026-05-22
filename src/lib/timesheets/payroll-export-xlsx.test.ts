@@ -61,3 +61,32 @@ test("xlsx layout uses dedicated week ending row and leaves employee name blank 
   assert.match(sheetXml, /<c r="C3" s="3"><v>42.5<\/v><\/c>/);
   assert.match(sheetXml, /<c r="C5" s="4"><v>40<\/v><\/c>/);
 });
+
+test("xlsx includes annual, bereavement, other, sick, and unpaid leave rows", () => {
+  const workbook = buildPayrollExportXlsx("2026-05-24", [
+    {
+      employeeName: "Ada Lovelace",
+      totalHourWorked: 42.5,
+      descriptionChargeup: "ORDINARY HOURS",
+      leaveRows: [
+        { costCode: "LA - Leave Annual", leaveHours: 8, leaveType: "annual", commentOther: "Leave Annual" },
+        { costCode: "LB - Leave Bereavement", leaveHours: 8, leaveType: "bereavement", commentOther: "Leave Bereavement" },
+        { costCode: "TIL - Time In Lieu", leaveHours: 8, leaveType: "other", commentOther: "Time In Lieu" },
+        { costCode: "LS - Leave Sick", leaveHours: 8, leaveType: "sick", commentOther: "Leave Sick" },
+        { costCode: "LW - Leave Without Pay", leaveHours: 8, leaveType: "unpaid", commentOther: "Leave Without Pay" },
+      ],
+    },
+  ]);
+
+  const sheetXml = readStoredZipEntry(workbook.content, "xl/worksheets/sheet1.xml");
+  assert.match(sheetXml, /LA - Leave Annual/);
+  assert.match(sheetXml, /LB - Leave Bereavement/);
+  assert.match(sheetXml, /TIL - Time In Lieu/);
+  assert.match(sheetXml, /LS - Leave Sick/);
+  assert.match(sheetXml, /LW - Leave Without Pay/);
+  assert.match(sheetXml, /Leave Annual/);
+  assert.match(sheetXml, /Leave Bereavement/);
+  assert.match(sheetXml, /Time In Lieu/);
+  assert.match(sheetXml, /Leave Sick/);
+  assert.match(sheetXml, /Leave Without Pay/);
+});
