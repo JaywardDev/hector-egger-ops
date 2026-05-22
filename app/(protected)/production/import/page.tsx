@@ -4,15 +4,15 @@ import { PageHeader } from "@/src/components/layout/page-header";
 import { requireOperationalWriteAccess } from "@/src/lib/auth/guards";
 
 export default async function ProductionImportPage() {
-  await requireOperationalWriteAccess();
+  const { profile } = await requireOperationalWriteAccess();
 
   return (
     <PageContainer>
       <PageHeader
-        title="Production import"
-        description="Two-stage operational import: Project Registry first, Daily Registry second."
+        title="Legacy Production Import"
+        description="One-time historical CSV import for legacy production records."
       />
-      <ProductionImportClient />
+      <ProductionImportClient actorProfileId={profile.id} />
     </PageContainer>
   );
 }
