@@ -118,7 +118,7 @@ function TimesheetDayRow({
       actions={
         <Button
           aria-label={`${actionLabel} timesheet for ${fullDateLabel}`}
-          className="min-h-10 w-full sm:w-24"
+          className="min-h-10 w-auto px-3 sm:w-24"
           disabled={disabled}
           onClick={() => onSelectDay(day.date)}
           variant={day.entry ? "quiet" : "secondary"}
@@ -127,7 +127,7 @@ function TimesheetDayRow({
         </Button>
       }
       aria-label={fullDateLabel}
-      className="rounded-xl border border-transparent py-2.5 sm:py-3"
+      className="grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-xl border border-transparent py-2 sm:py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:gap-3"
       density="dense"
       metadata={
         day.entry ? (
@@ -140,7 +140,7 @@ function TimesheetDayRow({
         )
       }
       title={
-        <span className="flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-2">
           <span>{day.weekdayLabel}</span>
           {isToday ? <span className="rounded-full bg-[var(--he-yellow)]/25 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-900">Today</span> : null}
         </span>
@@ -170,12 +170,18 @@ export function WeeklyTimesheetView({
 
   return (
     <section className="rounded-[1.35rem] border border-zinc-200/80 bg-white px-3 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.04)] sm:px-4 sm:py-4" aria-labelledby="weekly-timesheet-heading">
-      <div className="flex flex-col gap-3 border-b border-zinc-100 px-1 pb-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex items-start justify-between gap-2 border-b border-zinc-100 px-1 pb-3 sm:items-end sm:gap-3 sm:pb-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--he-muted)]">Timesheet</p>
           <h2 id="weekly-timesheet-heading" className="mt-1 text-lg font-semibold text-zinc-950">{heading}</h2>
         </div>
-        <SegmentedControl aria-label="Weekly timesheet view" className="self-start sm:self-auto" onChange={onModeChange} options={WEEKDAY_MODE_OPTIONS} value={mode} />
+        <SegmentedControl
+          aria-label="Weekly timesheet view"
+          className="shrink-0 scale-95 self-center sm:scale-100 sm:self-auto"
+          onChange={onModeChange}
+          options={WEEKDAY_MODE_OPTIONS}
+          value={mode}
+        />
       </div>
       <div className="mt-2 divide-y divide-zinc-100/80">
         {days.map((day) => (

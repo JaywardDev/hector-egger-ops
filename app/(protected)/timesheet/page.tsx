@@ -52,7 +52,11 @@ export default async function TimesheetPage() {
         accent
         title="Weekly Timesheet"
         eyebrow="Personal timesheet"
-        description={<span className="text-sm text-zinc-500">Track and manage your weekly work records here. Submit your timesheet for approval at the end of each week to keep your records up to date.</span>}
+        description={
+          <span className="hidden text-sm text-zinc-500 sm:block">
+            Track and manage your weekly work records here. Submit your timesheet for approval at the end of each week to keep your records up to date.
+          </span>
+        }
         metadata={
           <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>{weekRangeLabel}</span>
