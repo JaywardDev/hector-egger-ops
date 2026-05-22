@@ -51,6 +51,38 @@ function getFullDateLabel(date: string) {
   });
 }
 
+function truncateProjectLabel(label: string, maxLength = 24) {
+  const normalizedLabel = label.trim();
+  if (normalizedLabel.length <= maxLength) {
+    return normalizedLabel;
+  }
+  return `${normalizedLabel.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+function getMobileActivityProjectDisplay(
+  activity: NonNullable<TimesheetDaySummary["entry"]>["activities"][number],
+  projectById: Map<string, TimesheetLookups["projects"][number]>,
+) {
+  const snapshotCode = activity.project_code_snapshot?.trim() ?? "";
+  const snapshotLabel = activity.project_label_snapshot?.trim() ?? "";
+  const lookupProject = activity.project_id ? projectById.get(activity.project_id) : undefined;
+  const lookupCode = lookupProject?.code?.trim() ?? "";
+  const lookupLabel = lookupProject?.label?.trim() ?? "";
+  const code = snapshotCode || lookupCode;
+  const label = snapshotLabel || lookupLabel;
+
+  if (code && label) {
+    return `${code} — ${truncateProjectLabel(label)}`;
+  }
+  if (code) {
+    return code;
+  }
+  if (label) {
+    return truncateProjectLabel(label);
+  }
+  return "Unknown project";
+}
+
 function ActivitySummary({ day, lookups }: { day: TimesheetDaySummary; lookups: TimesheetLookups }) {
   const entry = day.entry;
 
@@ -75,10 +107,14 @@ function ActivitySummary({ day, lookups }: { day: TimesheetDaySummary; lookups: 
     <ul className="mt-3 space-y-1.5 text-sm text-zinc-600" aria-label={`${day.weekdayLabel} activity summary`}>
       {visibleActivities.map((activity) => {
         const projectLabel = getActivityProjectDisplay(activity, projectById);
+        const mobileProjectLabel = getMobileActivityProjectDisplay(activity, projectById);
         const taskLabel = getActivityTaskDisplay(activity, taskById);
         return (
           <li key={activity.id} className="leading-6">
-            <span className="text-zinc-800">{projectLabel}</span> · {taskLabel} · {workModeLabels[activity.work_mode]} · {formatTimesheetHours(activity.hours)}
+            <span className="text-zinc-800 sm:hidden" title={projectLabel}>
+              {mobileProjectLabel}
+            </span>
+            <span className="hidden text-zinc-800 sm:inline">{projectLabel}</span> · {taskLabel} · {workModeLabels[activity.work_mode]} · {formatTimesheetHours(activity.hours)}
           </li>
         );
       })}
