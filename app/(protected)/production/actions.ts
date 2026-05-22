@@ -44,6 +44,7 @@ import {
   parseDurationHoursMinutesSecondsToMinutes,
   toReasonCode,
 } from "@/src/lib/production/import";
+import { applyProductionImport, prepareProductionImport } from "@/src/lib/production/import-server";
 
 const toMessage = (
   path: string,
@@ -947,4 +948,30 @@ export async function listProductionInterruptionReasonsAction() {
     },
     route: "/production",
   });
+}
+
+
+export async function prepareProductionImportAction(file: File) {
+  await requireOperationalWriteAccess();
+  const buffer = Buffer.from(await file.arrayBuffer());
+  return prepareProductionImport(buffer);
+}
+
+export async function applyProductionImportAction(input: {
+  file: File;
+  actorProfileId: string;
+}) {
+  await requireOperationalWriteAccess();
+  const prepared = await prepareProductionImport(Buffer.from(await input.file.arrayBuffer()));
+  if (prepared.validationErrors.length > 0) {
+    throw new Error("Validation errors must be resolved before apply.");
+  }
+  const result = await applyProductionImport({
+    actorProfileId: input.actorProfileId,
+    fileName: input.file.name,
+    prepared,
+  });
+  revalidatePath("/production");
+  revalidatePath("/production/import");
+  return result;
 }

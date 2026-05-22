@@ -1,0 +1,20 @@
+export const PRODUCTION_IMPORT_CONTRACT = {
+  sourceSystem: "daily_registry",
+  sheetName: "Daily Registry",
+  headers: [
+    "Date",
+    "Operator",
+    "Start Time",
+    "Finish Time",
+    "Project File",
+    "Project Sequence",
+    "Project Name",
+    "Time Remaining Start",
+    "Time Remaining End",
+    "Actual Volume Cut m3",
+    "Downtime Hours",
+    "Downtime Reason",
+    "Interruption Hours",
+    "Interruption Reason",
+  ],
+} as const;
