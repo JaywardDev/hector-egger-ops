@@ -20,6 +20,7 @@ import {
 } from "@/src/lib/timesheets/validation";
 import { filterLookupsForLocation, getLeaveTaskOptions, hasPublicHolidayTask, isWorkActivityTask } from "@/src/lib/timesheets/lookup-shared";
 import { calculateShiftCompletionHelper, SHIFT_COMPLETION_CONFIG } from "@/src/lib/timesheets/shift-completion";
+import { shouldDisableBreakFields, shouldDisablePaidBreakControl } from "@/src/lib/timesheets/daily-timesheet-ui-rules";
 import type {
   SaveTimesheetEntryInput,
   TimesheetActivityInput,
@@ -166,7 +167,7 @@ export function DailyTimesheetForm({
   const publicHolidayMutedClasses = "opacity-60 grayscale-[65%] [&_button:disabled]:cursor-not-allowed [&_input:disabled]:cursor-not-allowed [&_select:disabled]:cursor-not-allowed";
   const disableAttendanceFields = !canEdit || isPublicHolidayMode || isFullDayLeaveMode;
   const disableActivityFields = !canEdit || isPublicHolidayMode || isFullDayLeaveMode;
-  const disableBreakFields = !canEdit || isPublicHolidayMode || isFullDayLeaveMode || leaveType !== "";
+  const disableBreakFields = shouldDisableBreakFields({ canEdit, isPublicHolidayMode, isFullDayLeaveMode });
   const disableLeaveFields = !canEdit || isPublicHolidayMode;
   const leaveHours = Number(leaveHoursText) || 0;
   const parsedActivities = useMemo(
@@ -696,7 +697,7 @@ export function DailyTimesheetForm({
             <input
               type="checkbox"
               checked={effectivePaidBreak}
-              disabled={disableBreakFields || !paidBreakEligible}
+              disabled={shouldDisablePaidBreakControl({ disableBreakFields, paidBreakEligible })}
               onChange={(event) => setPaidBreak(event.target.checked)}
             />
             Paid break taken/claimed (0.5h)
