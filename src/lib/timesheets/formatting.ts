@@ -4,7 +4,7 @@ import type { StatusBadgeConfig } from "@/src/components/ui/status-badge";
 export const TIMESHEET_STATUS_LABELS: Record<TimesheetStatus, string> = {
   submitted: "Submitted",
   returned: "Returned",
-  supervisor_approved: "Supervisor approved",
+  supervisor_approved: "Supervisor reviewed",
   approved: "Approved",
 };
 

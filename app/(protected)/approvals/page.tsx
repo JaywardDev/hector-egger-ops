@@ -100,7 +100,7 @@ export default async function ApprovalsPage() {
     <PageContainer>
       <PageHeader
         title="Timesheet Approvals"
-        description="Review submitted weekly timesheets by staff group. Open a daily entry to review or correct submitted and returned days before approval."
+        description="Review submitted weekly timesheets by staff group. Open a daily entry to review or correct submitted and returned days before supervisor review."
       />
       <ApprovalsClient
         groups={groups}

@@ -146,7 +146,7 @@ export function ApprovalsClient({
                   <Badge variant="neutral">{person.totalHours} h</Badge>
                   <Badge variant="info">{person.submittedCount} submitted</Badge>
                   <Badge variant="warning">{person.returnedCount} returned</Badge>
-                  <Badge variant="success">{person.supervisorApprovedCount} approved</Badge>
+                  <Badge variant="success">{person.supervisorApprovedCount} reviewed</Badge>
                   <Badge variant={person.missingCount > 0 ? "warning" : "neutral"}>{person.missingCount} missing</Badge>
                 </div>
               </button>
@@ -164,7 +164,7 @@ export function ApprovalsClient({
                 <p className="text-sm text-zinc-500">Timesheet review · {weekRangeLabel}</p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <PendingActionButton type="button" onClick={runApproval} isPending={isPending} disabled={selectedStaff.submittedCount === 0} pendingLabel="Approving…">Approve Week</PendingActionButton>
+                <PendingActionButton type="button" onClick={runApproval} isPending={isPending} disabled={selectedStaff.submittedCount === 0} pendingLabel="Reviewing…">Review Week</PendingActionButton>
                 <Button type="button" variant="secondary" onClick={closeWeekly}>Close</Button>
               </div>
             </div>

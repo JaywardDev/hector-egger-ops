@@ -44,9 +44,9 @@ export async function approveEmployeeTimesheetWeekAction(
     const result = await approveEmployeeTimesheetWeek(actor, targetProfileId, parsedWeekStart);
     revalidatePath("/approvals");
     revalidatePath("/timesheet");
-    return { ok: true, message: `Approved ${result.affectedEntryIds.length} submitted entr${result.affectedEntryIds.length === 1 ? "y" : "ies"}.` };
+    return { ok: true, message: `Reviewed ${result.affectedEntryIds.length} submitted entr${result.affectedEntryIds.length === 1 ? "y" : "ies"}.` };
   } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : "Could not approve timesheet week." };
+    return { ok: false, message: error instanceof Error ? error.message : "Could not review timesheet week." };
   }
 }
 

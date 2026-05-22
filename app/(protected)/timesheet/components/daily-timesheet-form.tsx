@@ -371,7 +371,7 @@ export function DailyTimesheetForm({
         ) : null}
         {entry?.status === "supervisor_approved" || entry?.status === "approved" ? (
           <Alert variant="warning">
-            This entry is supervisor approved and locked. Contact a supervisor if it needs to be returned for correction.
+            This entry is supervisor reviewed and locked. Contact a supervisor if it needs to be returned for correction.
           </Alert>
         ) : null}
         {correctionComment !== undefined && onCorrectionCommentChange ? (
