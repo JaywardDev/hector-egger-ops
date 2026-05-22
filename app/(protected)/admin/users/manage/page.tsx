@@ -24,6 +24,8 @@ export default async function AdminManageUsersPage({ searchParams }: AdminManage
   return (
     <PageContainer>
       <PageHeader
+        accent
+        eyebrow="USER MANAGEMENT"
         title="Manage users"
         description="Update roles and staff groups, disable approved users, and reactivate disabled users."
       />

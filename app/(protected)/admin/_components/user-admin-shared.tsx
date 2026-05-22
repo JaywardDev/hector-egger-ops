@@ -117,7 +117,7 @@ export function UserHeader({ user }: { user: AdminUserRecord }) {
 export function UserSection({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold text-zinc-950">{title}</h2>
+      <h2 className="text-xs font-semibold uppercase tracking-[0.1em] text-zinc-500">{title}</h2>
       {children}
     </section>
   );
