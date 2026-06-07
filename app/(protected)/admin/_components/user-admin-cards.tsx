@@ -9,6 +9,7 @@ import {
 import { PendingSubmitButton } from "@/src/components/ui/pending-button";
 import { Card } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
+import { ConfirmActionForm } from "@/app/(protected)/admin/_components/confirm-action-form";
 import type { AdminUserRecord } from "@/src/lib/admin/user-approvals";
 import {
   RoleSelect,
@@ -106,10 +107,17 @@ export function PendingUserCard({ user }: { user: AdminUserRecord }) {
           <PendingSubmitButton type="submit" disabled={!approvalProfileComplete} pendingLabel="Approving…">Approve</PendingSubmitButton>
         </form>
 
-        <form action={disablePendingUserAction}>
-          <input type="hidden" name="profileId" value={user.id} />
-          <PendingSubmitButton type="submit" variant="danger" pendingLabel="Disabling…">Disable</PendingSubmitButton>
-        </form>
+        <ConfirmActionForm
+          action={disablePendingUserAction}
+          profileId={user.id}
+          submitLabel="Disable"
+          pendingLabel="Disabling…"
+          variant="danger"
+          danger
+          confirmTitle="Disable this pending user?"
+          confirmDescription={`This rejects ${user.full_name ?? user.email}'s access request. They will not be able to sign in until an admin reactivates the account.`}
+          confirmLabel="Disable user"
+        />
       </div>
     </Card>
   );
@@ -134,10 +142,18 @@ export function ApprovedUserCard({ user }: { user: AdminUserRecord }) {
               <PendingSubmitButton type="submit" variant="secondary" size="sm" pendingLabel="Updating group…">Update group</PendingSubmitButton>
             </form>
 
-            <form action={disableApprovedUserAction}>
-              <input type="hidden" name="profileId" value={user.id} />
-              <PendingSubmitButton type="submit" variant="danger" size="sm" pendingLabel="Disabling…">Disable</PendingSubmitButton>
-            </form>
+            <ConfirmActionForm
+              action={disableApprovedUserAction}
+              profileId={user.id}
+              submitLabel="Disable"
+              pendingLabel="Disabling…"
+              variant="danger"
+              size="sm"
+              danger
+              confirmTitle="Disable this user?"
+              confirmDescription={`${user.full_name ?? user.email} will immediately lose access to the app until an admin reactivates the account.`}
+              confirmLabel="Disable user"
+            />
           </div>
         </div>
       </details>
@@ -158,10 +174,17 @@ export function DisabledUserCard({ user }: { user: AdminUserRecord }) {
               <PendingSubmitButton type="submit" variant="secondary" size="sm" pendingLabel="Updating group…">Update group</PendingSubmitButton>
             </form>
 
-            <form action={reactivateUserAction}>
-              <input type="hidden" name="profileId" value={user.id} />
-              <PendingSubmitButton type="submit" variant="secondary" size="sm" pendingLabel="Reactivating…">Reactivate</PendingSubmitButton>
-            </form>
+            <ConfirmActionForm
+              action={reactivateUserAction}
+              profileId={user.id}
+              submitLabel="Reactivate"
+              pendingLabel="Reactivating…"
+              variant="secondary"
+              size="sm"
+              confirmTitle="Reactivate this user?"
+              confirmDescription={`${user.full_name ?? user.email} will regain access to the app with their previous role and staff group.`}
+              confirmLabel="Reactivate user"
+            />
           </div>
         </div>
       </details>

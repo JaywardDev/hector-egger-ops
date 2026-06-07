@@ -129,9 +129,17 @@ export default async function TimesheetLookupsPage({ searchParams }: Props) {
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-3 text-sm">
           <p className="text-zinc-600">{result.totalCount} total rows</p>
           <div className="flex items-center gap-2">
-            <Link className="rounded border border-zinc-300 px-2 py-1 disabled:pointer-events-none" href={paramsWith({ page: String(Math.max(1, clampedPage - 1)) })}>Previous</Link>
+            {clampedPage <= 1 ? (
+              <span aria-disabled="true" className="rounded border border-zinc-200 px-2 py-1 text-zinc-400">Previous</span>
+            ) : (
+              <Link className="rounded border border-zinc-300 px-2 py-1" href={paramsWith({ page: String(clampedPage - 1) })}>Previous</Link>
+            )}
             <span>Page {clampedPage} of {totalPages}</span>
-            <Link className="rounded border border-zinc-300 px-2 py-1" href={paramsWith({ page: String(Math.min(totalPages, clampedPage + 1)) })}>Next</Link>
+            {clampedPage >= totalPages ? (
+              <span aria-disabled="true" className="rounded border border-zinc-200 px-2 py-1 text-zinc-400">Next</span>
+            ) : (
+              <Link className="rounded border border-zinc-300 px-2 py-1" href={paramsWith({ page: String(clampedPage + 1) })}>Next</Link>
+            )}
             <form>
               <input type="hidden" name="tab" value={filters.table} />
               <input type="hidden" name="q" value={filters.search} />

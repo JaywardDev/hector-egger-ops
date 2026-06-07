@@ -8,7 +8,8 @@ import { DailyTimesheetSheet } from "@/app/(protected)/timesheet/components/dail
 import { WeeklyTimesheetView } from "@/app/(protected)/timesheet/components/weekly-timesheet-view";
 import { Alert } from "@/src/components/ui/alert";
 import { Badge } from "@/src/components/ui/badge";
-import { Button } from "@/src/components/ui/button";
+import { ConfirmDialog } from "@/src/components/ui/confirm-dialog";
+import { FullScreenDialog } from "@/src/components/ui/full-screen-dialog";
 import { PendingActionButton } from "@/src/components/ui/pending-button";
 import { StatusBadge } from "@/src/components/ui/status-badge";
 import { formatRoleLabel } from "@/src/lib/auth/role-labels";
@@ -56,6 +57,7 @@ export function ApprovalsClient({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [mode, setMode] = useState<WeeklyTimesheetMode>("summary");
   const [returnComment, setReturnComment] = useState("");
+  const [showFinalApproveConfirm, setShowFinalApproveConfirm] = useState(false);
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -170,20 +172,21 @@ export function ApprovalsClient({
       </Card>
 
       {selectedStaff ? (
-        <div className="fixed inset-0 z-40 overflow-y-auto bg-zinc-50" role="dialog" aria-modal="true">
-          <div className="sticky top-0 z-10 border-b border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
-            <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-zinc-950">{selectedStaff.full_name ?? selectedStaff.email}</h2>
-                <p className="text-sm text-zinc-500">Timesheet review · {weekRangeLabel}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
+        <>
+          <FullScreenDialog
+            open
+            eyebrow="Timesheet review"
+            title={selectedStaff.full_name ?? selectedStaff.email}
+            subtitle={weekRangeLabel}
+            onClose={closeWeekly}
+            actionSlot={
+              <>
                 <PendingActionButton type="button" onClick={runApproval} isPending={isPending} disabled={selectedStaff.submittedCount === 0} pendingLabel="Reviewing…">Review Week</PendingActionButton>
                 {canFinalApprove ? (
                   <PendingActionButton
                     type="button"
                     variant="secondary"
-                    onClick={runFinalApproval}
+                    onClick={() => setShowFinalApproveConfirm(true)}
                     isPending={isPending}
                     disabled={selectedStaff.supervisorApprovedCount === 0}
                     pendingLabel="Final approving…"
@@ -191,35 +194,48 @@ export function ApprovalsClient({
                     Final Approve Week
                   </PendingActionButton>
                 ) : null}
-                <Button type="button" variant="secondary" onClick={closeWeekly}>Close</Button>
-              </div>
-            </div>
-          </div>
-          <main className="mx-auto max-w-6xl space-y-4 px-4 py-5 sm:px-6">
-            {feedback ? <Alert variant={feedback.type}>{feedback.message}</Alert> : null}
-            <WeeklyTimesheetView
-              days={selectedStaff.days}
-              lookups={selectedLookups}
-              mode={mode}
-              onModeChange={setMode}
-              onSelectDay={setSelectedDate}
-              entryActionLabel="Review"
-              missingActionLabel="View"
-              context="approval"
-            />
-            <Card className="space-y-3">
-              <h3 className="font-semibold text-zinc-950">Return for correction</h3>
-              <Textarea
-                value={returnComment}
-                onChange={(event) => setReturnComment(event.target.value)}
-                placeholder="Explain what the employee needs to fix before resubmitting."
-                rows={3}
+              </>
+            }
+          >
+            <div className="space-y-4 px-4 py-5 sm:p-0">
+              {feedback ? <Alert variant={feedback.type}>{feedback.message}</Alert> : null}
+              <WeeklyTimesheetView
+                days={selectedStaff.days}
+                lookups={selectedLookups}
+                mode={mode}
+                onModeChange={setMode}
+                onSelectDay={setSelectedDate}
+                entryActionLabel="Review"
+                missingActionLabel="View"
+                context="approval"
               />
-              <PendingActionButton type="button" variant="danger" onClick={runReturn} isPending={isPending} disabled={returnComment.trim().length === 0} pendingLabel="Returning…">
-                Return for Correction
-              </PendingActionButton>
-            </Card>
-          </main>
+              <Card className="space-y-3">
+                <h3 className="font-semibold text-zinc-950">Return for correction</h3>
+                <Textarea
+                  value={returnComment}
+                  onChange={(event) => setReturnComment(event.target.value)}
+                  placeholder="Explain what the employee needs to fix before resubmitting."
+                  rows={3}
+                />
+                <PendingActionButton type="button" variant="danger" onClick={runReturn} isPending={isPending} disabled={returnComment.trim().length === 0} pendingLabel="Returning…">
+                  Return for Correction
+                </PendingActionButton>
+              </Card>
+            </div>
+          </FullScreenDialog>
+
+          <ConfirmDialog
+            open={showFinalApproveConfirm}
+            title="Final approve this week?"
+            description={`Final approval marks ${selectedStaff.full_name ?? selectedStaff.email}'s supervisor-reviewed entries as payroll-ready. Only final-approved timesheets are included in payroll exports.`}
+            confirmLabel="Final Approve Week"
+            cancelLabel="Cancel"
+            onCancel={() => setShowFinalApproveConfirm(false)}
+            onConfirm={() => {
+              setShowFinalApproveConfirm(false);
+              runFinalApproval();
+            }}
+          />
 
           <DailyTimesheetSheet
             open={selectedDay !== null}
@@ -241,7 +257,7 @@ export function ApprovalsClient({
               />
             ) : null}
           </DailyTimesheetSheet>
-        </div>
+        </>
       ) : null}
     </>
   );
