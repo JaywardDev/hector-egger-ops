@@ -47,7 +47,7 @@ export function BottomSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-3 sm:hidden">
+    <div className="fixed inset-0 z-50 flex items-end justify-center p-3 md:hidden">
       <button
         type="button"
         aria-label="Close editor"

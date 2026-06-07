@@ -1,4 +1,6 @@
-import { SectionHeader } from "@/src/components/layout/section-header";
+"use client";
+
+import { useState } from "react";
 import { Button } from "@/src/components/ui/button";
 import { FormField } from "@/src/components/ui/form-field";
 import { Input } from "@/src/components/ui/input";
@@ -38,8 +40,6 @@ type StockTakeAddNewMaterialFormProps = {
   onLevelChange: (value: string) => void;
   onNotesChange: (value: string) => void;
   onSubmit: () => void;
-  showHeader?: boolean;
-  headerClassName?: string;
 };
 
 export function StockTakeAddNewMaterialForm({
@@ -70,15 +70,11 @@ export function StockTakeAddNewMaterialForm({
   onLevelChange,
   onNotesChange,
   onSubmit,
-  showHeader = true,
-  headerClassName,
 }: StockTakeAddNewMaterialFormProps) {
+  const [showTimberSpec, setShowTimberSpec] = useState(false);
+
   return (
     <div className="space-y-2">
-      {showHeader ? (
-        <SectionHeader title="Add row (new material)" className={headerClassName} />
-      ) : null}
-
       <FormField label="Material group">
         <Select
           value={newMaterialGroupId}
@@ -97,45 +93,6 @@ export function StockTakeAddNewMaterialForm({
           value={newMaterialDescription}
           onChange={(event) => onDescriptionChange(event.target.value)}
           placeholder="Description"
-        />
-      </FormField>
-
-      <div className="grid grid-cols-2 gap-2">
-        <FormField label="Thickness (mm)">
-          <Input
-            value={newMaterialThicknessMm}
-            onChange={(event) => onThicknessMmChange(event.target.value)}
-            placeholder="Thickness (mm)"
-          />
-        </FormField>
-        <FormField label="Width (mm)">
-          <Input
-            value={newMaterialWidthMm}
-            onChange={(event) => onWidthMmChange(event.target.value)}
-            placeholder="Width (mm)"
-          />
-        </FormField>
-        <FormField label="Length (mm)">
-          <Input
-            value={newMaterialLengthMm}
-            onChange={(event) => onLengthMmChange(event.target.value)}
-            placeholder="Length (mm)"
-          />
-        </FormField>
-        <FormField label="Grade">
-          <Input
-            value={newMaterialGrade}
-            onChange={(event) => onGradeChange(event.target.value)}
-            placeholder="Grade"
-          />
-        </FormField>
-      </div>
-
-      <FormField label="Treatment">
-        <Input
-          value={newMaterialTreatment}
-          onChange={(event) => onTreatmentChange(event.target.value)}
-          placeholder="Treatment"
         />
       </FormField>
 
@@ -181,6 +138,58 @@ export function StockTakeAddNewMaterialForm({
           placeholder="Notes"
         />
       </FormField>
+
+      {/* Timber spec accordion */}
+      <button
+        type="button"
+        onClick={() => setShowTimberSpec((v) => !v)}
+        className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-700"
+      >
+        <span className="select-none">{showTimberSpec ? "▼" : "▶"}</span>
+        {showTimberSpec ? "Hide timber spec" : "Add timber spec (thickness, width, grade…)"}
+      </button>
+
+      {showTimberSpec ? (
+        <div className="space-y-2 rounded-md border border-zinc-100 bg-zinc-50 p-2">
+          <div className="grid grid-cols-2 gap-2">
+            <FormField label="Thickness (mm)">
+              <Input
+                value={newMaterialThicknessMm}
+                onChange={(event) => onThicknessMmChange(event.target.value)}
+                placeholder="e.g. 45"
+              />
+            </FormField>
+            <FormField label="Width (mm)">
+              <Input
+                value={newMaterialWidthMm}
+                onChange={(event) => onWidthMmChange(event.target.value)}
+                placeholder="e.g. 90"
+              />
+            </FormField>
+            <FormField label="Length (mm)">
+              <Input
+                value={newMaterialLengthMm}
+                onChange={(event) => onLengthMmChange(event.target.value)}
+                placeholder="e.g. 4200"
+              />
+            </FormField>
+            <FormField label="Grade">
+              <Input
+                value={newMaterialGrade}
+                onChange={(event) => onGradeChange(event.target.value)}
+                placeholder="e.g. MSG8"
+              />
+            </FormField>
+          </div>
+          <FormField label="Treatment">
+            <Input
+              value={newMaterialTreatment}
+              onChange={(event) => onTreatmentChange(event.target.value)}
+              placeholder="e.g. H3.2"
+            />
+          </FormField>
+        </div>
+      ) : null}
 
       <Button onClick={onSubmit}>Add new-material draft row</Button>
     </div>

@@ -10,9 +10,9 @@ import { resolveInventoryItemNameCandidate } from "@/src/lib/inventory/item-labe
 import { Alert } from "@/src/components/ui/alert";
 import { Button } from "@/src/components/ui/button";
 import { Card } from "@/src/components/ui/card";
+import { Input } from "@/src/components/ui/input";
 import { SectionHeader } from "@/src/components/layout/section-header";
 import { Stack } from "@/src/components/layout/stack";
-import { cn } from "@/src/lib/utils";
 import { StockTakeAddExistingForm } from "@/app/(protected)/stock-take/[sessionId]/components/stock-take-add-existing-form";
 import { StockTakeAddNewMaterialForm } from "@/app/(protected)/stock-take/[sessionId]/components/stock-take-add-new-material-form";
 import { StockTakeDraftActions } from "@/app/(protected)/stock-take/[sessionId]/components/stock-take-draft-actions";
@@ -51,7 +51,7 @@ type Props = {
 };
 
 export function StockTakeSessionDetailClient(props: Props) {
-  const [mobileAddRowMode, setMobileAddRowMode] = useState<"existing" | "new">("existing");
+  const [showNewMaterialForm, setShowNewMaterialForm] = useState(false);
   const [inventoryItems, setInventoryItems] = useState(props.inventoryItems);
   const [baselineRows, setBaselineRows] = useState<DraftRow[]>(() =>
     toDraftRows(props.stockTakeEntries),
@@ -59,24 +59,18 @@ export function StockTakeSessionDetailClient(props: Props) {
   const [draftRows, setDraftRows] = useState<DraftRow[]>(() =>
     toDraftRows(props.stockTakeEntries),
   );
-  const [selectedInventoryItemId, setSelectedInventoryItemId] = useState<
-    string | null
-  >(props.initialSelectedInventoryItemId);
-  const [countedQuantity, setCountedQuantity] = useState("0");
-  const [stockLocationId, setStockLocationId] = useState(
-    props.defaultStockLocationId ?? "",
+  const [selectedInventoryItemId, setSelectedInventoryItemId] = useState<string | null>(
+    props.initialSelectedInventoryItemId,
   );
+  const [countedQuantity, setCountedQuantity] = useState("0");
+  const [stockLocationId, setStockLocationId] = useState(props.defaultStockLocationId ?? "");
   const [bay, setBay] = useState("");
   const [level, setLevel] = useState("");
   const [notes, setNotes] = useState("");
-  const [newMaterialGroupId, setNewMaterialGroupId] = useState(
-    props.materialGroups[0]?.id ?? "",
-  );
+  const [newMaterialGroupId, setNewMaterialGroupId] = useState(props.materialGroups[0]?.id ?? "");
   const [newMaterialDescription, setNewMaterialDescription] = useState("");
   const [newMaterialQty, setNewMaterialQty] = useState("0");
-  const [newMaterialLocationId, setNewMaterialLocationId] = useState(
-    props.defaultStockLocationId ?? "",
-  );
+  const [newMaterialLocationId, setNewMaterialLocationId] = useState(props.defaultStockLocationId ?? "");
   const [newMaterialBay, setNewMaterialBay] = useState("");
   const [newMaterialLevel, setNewMaterialLevel] = useState("");
   const [newMaterialNotes, setNewMaterialNotes] = useState("");
@@ -85,15 +79,12 @@ export function StockTakeSessionDetailClient(props: Props) {
   const [newMaterialLengthMm, setNewMaterialLengthMm] = useState("");
   const [newMaterialGrade, setNewMaterialGrade] = useState("");
   const [newMaterialTreatment, setNewMaterialTreatment] = useState("");
-  const [feedback, setFeedback] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [editingRowClientId, setEditingRowClientId] = useState<string | null>(
-    null,
-  );
+  const [editingRowClientId, setEditingRowClientId] = useState<string | null>(null);
   const [rowEditBuffer, setRowEditBuffer] = useState<RowEditBuffer | null>(null);
+  const [entrySearch, setEntrySearch] = useState("");
+  const [flashRowClientId, setFlashRowClientId] = useState<string | null>(null);
 
   const baselineSnapshot = useMemo(
     () => JSON.stringify(toComparableRows(baselineRows)),
@@ -119,34 +110,42 @@ export function StockTakeSessionDetailClient(props: Props) {
     () => new Map(inventoryItems.map((item) => [item.id, item] as const)),
     [inventoryItems],
   );
-  const rowBeingEdited = useMemo(
-    () =>
-      editingRowClientId
-        ? draftRows.find((row) => row.clientId === editingRowClientId) ?? null
-        : null,
-    [draftRows, editingRowClientId],
-  );
-  const editingRowLabel = useMemo(
-    () =>
-      rowBeingEdited
-        ? describeEditingRowLabel(rowBeingEdited, inventoryItemById, props.materialGroups)
-        : null,
-    [inventoryItemById, props.materialGroups, rowBeingEdited],
-  );
+
+  const filteredDraftRows = useMemo(() => {
+    const q = entrySearch.trim().toLowerCase();
+    if (!q) return draftRows;
+    return draftRows.filter((row) => {
+      if (row.inventoryItemId) {
+        const item = inventoryItemById.get(row.inventoryItemId);
+        return (
+          item?.name?.toLowerCase().includes(q) ||
+          item?.item_code?.toLowerCase().includes(q) ||
+          false
+        );
+      }
+      if (row.newMaterial) {
+        return row.newMaterial.description?.toLowerCase().includes(q) ?? false;
+      }
+      return false;
+    });
+  }, [draftRows, entrySearch, inventoryItemById]);
+
+  const flashRow = (clientId: string) => {
+    setFlashRowClientId(clientId);
+    setTimeout(() => setFlashRowClientId(null), 1600);
+  };
 
   const addExistingRow = () => {
     const qty = Number(countedQuantity);
     if (!selectedInventoryItemId || !Number.isFinite(qty) || qty < 0) {
-      setFeedback({
-        type: "error",
-        message: "Select a material and provide a valid quantity.",
-      });
+      setFeedback({ type: "error", message: "Select a material and provide a valid quantity." });
       return;
     }
 
+    const newClientId = `local-${crypto.randomUUID()}`;
     setDraftRows((current) => [
       {
-        clientId: `local-${crypto.randomUUID()}`,
+        clientId: newClientId,
         entryId: null,
         inventoryItemId: selectedInventoryItemId,
         countedQuantity: qty,
@@ -165,6 +164,7 @@ export function StockTakeSessionDetailClient(props: Props) {
     setLevel("");
     setNotes("");
     setFeedback(null);
+    flashRow(newClientId);
   };
 
   const addNewMaterialRow = () => {
@@ -184,9 +184,10 @@ export function StockTakeSessionDetailClient(props: Props) {
       return Number.isFinite(parsed) ? parsed : null;
     };
 
+    const newClientId = `local-${crypto.randomUUID()}`;
     setDraftRows((current) => [
       {
-        clientId: `local-${crypto.randomUUID()}`,
+        clientId: newClientId,
         entryId: null,
         inventoryItemId: null,
         countedQuantity: qty,
@@ -224,6 +225,7 @@ export function StockTakeSessionDetailClient(props: Props) {
     setNewMaterialGrade("");
     setNewMaterialTreatment("");
     setFeedback(null);
+    flashRow(newClientId);
   };
 
   const saveChanges = async () => {
@@ -369,10 +371,7 @@ export function StockTakeSessionDetailClient(props: Props) {
     if (!editingRowClientId || !rowEditBuffer) return;
     const qty = Number(rowEditBuffer.countedQuantity);
     if (!Number.isFinite(qty) || qty < 0) {
-      setFeedback({
-        type: "error",
-        message: "Provide a valid quantity before confirming row edits.",
-      });
+      setFeedback({ type: "error", message: "Provide a valid quantity before confirming row edits." });
       return;
     }
 
@@ -383,10 +382,7 @@ export function StockTakeSessionDetailClient(props: Props) {
     }
 
     if (!rowBeingEdited.newMaterial && !rowEditBuffer.inventoryItemId) {
-      setFeedback({
-        type: "error",
-        message: "Select a material before confirming row edits.",
-      });
+      setFeedback({ type: "error", message: "Select a material before confirming row edits." });
       return;
     }
 
@@ -405,6 +401,21 @@ export function StockTakeSessionDetailClient(props: Props) {
     setFeedback(null);
   };
 
+  const rowBeingEdited = useMemo(
+    () =>
+      editingRowClientId
+        ? draftRows.find((row) => row.clientId === editingRowClientId) ?? null
+        : null,
+    [draftRows, editingRowClientId],
+  );
+  const editingRowLabel = useMemo(
+    () =>
+      rowBeingEdited
+        ? describeEditingRowLabel(rowBeingEdited, inventoryItemById, props.materialGroups)
+        : null,
+    [inventoryItemById, props.materialGroups, rowBeingEdited],
+  );
+
   return (
     <Card>
       <Stack gap="md">
@@ -417,60 +428,43 @@ export function StockTakeSessionDetailClient(props: Props) {
           isEntryOpen={props.isEntryOpen}
         />
 
-        <div className="space-y-3 border-t border-zinc-200 pt-3">
-          <div className="space-y-2 md:hidden">
-            <SectionHeader title="Add row" />
-            <div
-              className="inline-flex w-full rounded-md border border-zinc-300 bg-zinc-50 p-1"
-              role="tablist"
-              aria-label="Add row mode"
-            >
-              <Button
-                variant={mobileAddRowMode === "existing" ? "default" : "ghost"}
-                size="md"
-                className={cn("h-9 flex-1", mobileAddRowMode === "existing" && "bg-white")}
-                onClick={() => setMobileAddRowMode("existing")}
-                role="tab"
-                aria-selected={mobileAddRowMode === "existing"}
-              >
-                Existing
-              </Button>
-              <Button
-                variant={mobileAddRowMode === "new" ? "default" : "ghost"}
-                size="md"
-                className={cn("h-9 flex-1", mobileAddRowMode === "new" && "bg-white")}
-                onClick={() => setMobileAddRowMode("new")}
-                role="tab"
-                aria-selected={mobileAddRowMode === "new"}
-              >
-                New material
-              </Button>
-            </div>
-          </div>
+        {/* Add row area */}
+        <div className="space-y-3 border-t border-zinc-200 pt-1">
+          <SectionHeader title="Add row" />
 
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className={cn(mobileAddRowMode === "existing" ? "block" : "hidden", "md:block")}>
-              <StockTakeAddExistingForm
-                inventoryItems={inventoryItems}
-                stockLocations={props.stockLocations}
-                selectedInventoryItemId={selectedInventoryItemId}
-                countedQuantity={countedQuantity}
-                stockLocationId={stockLocationId}
-                bay={bay}
-                level={level}
-                notes={notes}
-                onSelectedInventoryItemIdChange={setSelectedInventoryItemId}
-                onCountedQuantityChange={setCountedQuantity}
-                onStockLocationIdChange={setStockLocationId}
-                onBayChange={setBay}
-                onLevelChange={setLevel}
-                onNotesChange={setNotes}
-                onSubmit={addExistingRow}
-                headerClassName="hidden md:block"
-              />
-            </div>
+          {/* Primary: existing material form (always shown) */}
+          <StockTakeAddExistingForm
+            inventoryItems={inventoryItems}
+            stockLocations={props.stockLocations}
+            selectedInventoryItemId={selectedInventoryItemId}
+            countedQuantity={countedQuantity}
+            stockLocationId={stockLocationId}
+            bay={bay}
+            level={level}
+            notes={notes}
+            onSelectedInventoryItemIdChange={setSelectedInventoryItemId}
+            onCountedQuantityChange={setCountedQuantity}
+            onStockLocationIdChange={setStockLocationId}
+            onBayChange={setBay}
+            onLevelChange={setLevel}
+            onNotesChange={setNotes}
+            onSubmit={addExistingRow}
+            showHeader={false}
+          />
 
-            <div className={cn(mobileAddRowMode === "new" ? "block" : "hidden", "md:block")}>
+          {/* Secondary: new material disclosure */}
+          {showNewMaterialForm ? (
+            <div className="rounded-md border border-zinc-100 bg-zinc-50 p-3">
+              <div className="mb-3 flex items-center justify-between">
+                <SectionHeader title="New material" />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowNewMaterialForm(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
               <StockTakeAddNewMaterialForm
                 materialGroups={props.materialGroups}
                 stockLocations={props.stockLocations}
@@ -499,34 +493,63 @@ export function StockTakeSessionDetailClient(props: Props) {
                 onLevelChange={setNewMaterialLevel}
                 onNotesChange={setNewMaterialNotes}
                 onSubmit={addNewMaterialRow}
-                headerClassName="hidden md:block"
               />
             </div>
-          </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowNewMaterialForm(true)}
+              className="text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-600"
+            >
+              Material not in list? Add new material
+            </button>
+          )}
         </div>
 
         <StockTakeFeedbackAlert feedback={feedback} />
 
-        <StockTakeEntriesTable
-          draftRows={draftRows}
-          inventoryItems={inventoryItems}
-          inventoryItemById={inventoryItemById}
-          materialGroups={props.materialGroups}
-          stockLocations={props.stockLocations}
-          editingRowClientId={editingRowClientId}
-          rowEditBuffer={rowEditBuffer}
-          onRowEditBufferChange={setRowEditBuffer}
-          onStartRowEdit={startRowEdit}
-          onApplyRowEdit={applyRowEditToDraft}
-          onCancelRowEdit={cancelRowEdit}
-          onCopyRow={copyRow}
-          onRemoveRow={removeRow}
-        />
-        {editingRowClientId && editingRowLabel ? (
-          <Alert variant="info">
-            Editing row in progress: <span className="font-medium">{editingRowLabel}</span>
-          </Alert>
-        ) : null}
+        {/* Entries list */}
+        <div className="space-y-2 border-t border-zinc-200 pt-3">
+          <div className="flex items-center justify-between gap-3">
+            <SectionHeader title={`Entries${draftRows.length > 0 ? ` (${draftRows.length})` : ""}`} />
+            {draftRows.length > 3 ? (
+              <Input
+                value={entrySearch}
+                onChange={(e) => setEntrySearch(e.target.value)}
+                placeholder="Search entries…"
+                className="max-w-48 text-xs"
+                aria-label="Filter entries"
+              />
+            ) : null}
+          </div>
+
+          {editingRowClientId && editingRowLabel ? (
+            <Alert variant="info">
+              Editing: <span className="font-medium">{editingRowLabel}</span>
+            </Alert>
+          ) : null}
+
+          <StockTakeEntriesTable
+            draftRows={filteredDraftRows}
+            inventoryItems={inventoryItems}
+            inventoryItemById={inventoryItemById}
+            materialGroups={props.materialGroups}
+            stockLocations={props.stockLocations}
+            editingRowClientId={editingRowClientId}
+            rowEditBuffer={rowEditBuffer}
+            flashRowClientId={flashRowClientId}
+            onRowEditBufferChange={setRowEditBuffer}
+            onStartRowEdit={startRowEdit}
+            onApplyRowEdit={applyRowEditToDraft}
+            onCancelRowEdit={cancelRowEdit}
+            onCopyRow={copyRow}
+            onRemoveRow={removeRow}
+          />
+
+          {entrySearch && filteredDraftRows.length === 0 && draftRows.length > 0 ? (
+            <p className="text-xs text-zinc-400">No entries match "{entrySearch}".</p>
+          ) : null}
+        </div>
 
         {props.canTransitionStatus && props.nextTransition ? (
           <StockTakeSessionTransitionForm
@@ -537,8 +560,7 @@ export function StockTakeSessionDetailClient(props: Props) {
             onUnsavedBlocked={() =>
               setFeedback({
                 type: "error",
-                message:
-                  "Save or reset your draft changes before changing session status.",
+                message: "Save or reset your draft changes before changing session status.",
               })
             }
           />
@@ -554,7 +576,9 @@ function describeEditingRowLabel(
   materialGroups: MaterialGroupOption[],
 ) {
   if (!row.newMaterial) {
-    return row.inventoryItemId ? inventoryItemById.get(row.inventoryItemId)?.name ?? "Material" : "Material";
+    return row.inventoryItemId
+      ? inventoryItemById.get(row.inventoryItemId)?.name ?? "Material"
+      : "Material";
   }
 
   const materialGroup = materialGroups.find((group) => group.id === row.newMaterial?.materialGroupId);

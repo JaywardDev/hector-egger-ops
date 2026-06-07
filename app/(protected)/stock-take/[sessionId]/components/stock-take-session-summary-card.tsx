@@ -1,11 +1,9 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { PageHeader } from "@/src/components/layout/page-header";
-import { Stack } from "@/src/components/layout/stack";
 import { Badge } from "@/src/components/ui/badge";
-import { formatNzDateTime } from "@/src/lib/dateTime";
-import { Card } from "@/src/components/ui/card";
 import { Alert } from "@/src/components/ui/alert";
+import { Card } from "@/src/components/ui/card";
+import { formatNzDateTime } from "@/src/lib/dateTime";
 
 type SessionStatus = "draft" | "in_progress" | "submitted" | "reviewed" | "closed";
 
@@ -17,10 +15,16 @@ const statusBadgeVariantByStatus: Record<SessionStatus, "neutral" | "info" | "wa
   closed: "success",
 };
 
+const statusLabel: Record<SessionStatus, string> = {
+  draft: "Draft",
+  in_progress: "In progress",
+  submitted: "Submitted",
+  reviewed: "Reviewed",
+  closed: "Closed",
+};
+
 const formatLocationLabel = (location: { name: string; code: string | null }) =>
   location.code ? `${location.name} (${location.code})` : location.name;
-
-const formatTimestamp = (value: string | null) => formatNzDateTime(value);
 
 type StockTakeSessionSummaryCardProps = {
   sessionId: string;
@@ -51,48 +55,58 @@ export function StockTakeSessionSummaryCard({
   hasNextTransition,
   deleteAction,
 }: StockTakeSessionSummaryCardProps) {
-  return (
-    <Card>
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <Stack gap="sm">
-          <PageHeader title={title} />
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-zinc-600">Status:</span>
-            <Badge variant={statusBadgeVariantByStatus[status]}>{status}</Badge>
-          </div>
-          <p className="text-zinc-600">
-            Default location: {stockLocation ? formatLocationLabel(stockLocation) : "None"}
-          </p>
-          <p>Notes: {notes ?? "—"}</p>
-          <p>Started at: {formatTimestamp(startedAt)}</p>
-          <p>Submitted at: {formatTimestamp(submittedAt)}</p>
-          <p>Reviewed at: {formatTimestamp(reviewedAt)}</p>
-          <p>Closed at: {formatTimestamp(closedAt)}</p>
-        </Stack>
+  const timestamps = [
+    startedAt ? `Started ${formatNzDateTime(startedAt)}` : null,
+    submittedAt ? `Submitted ${formatNzDateTime(submittedAt)}` : null,
+    reviewedAt ? `Reviewed ${formatNzDateTime(reviewedAt)}` : null,
+    closedAt ? `Closed ${formatNzDateTime(closedAt)}` : null,
+  ].filter(Boolean);
 
-        <Stack gap="sm" className="md:min-w-52">
-          <h3 className="font-medium text-zinc-900">Session actions</h3>
-          {!canTransitionStatus ? (
-            <Alert>Only supervisors and admins can change session status.</Alert>
-          ) : !hasNextTransition ? (
-            <Alert>No further status actions available.</Alert>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
+  return (
+    <Card className="py-3">
+      <div className="space-y-2">
+        {/* Row 1: title + status + action links */}
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-base font-semibold text-zinc-900">{title}</h1>
+            <Badge variant={statusBadgeVariantByStatus[status]}>{statusLabel[status]}</Badge>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/stock-take/${sessionId}/export`}
-              className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
+              className="inline-flex rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 hover:bg-zinc-50"
             >
               Export Excel
             </Link>
             <Link
               href="/stock-take"
-              className="inline-flex rounded-md border border-zinc-300 px-3 py-1.5 text-zinc-800 hover:bg-zinc-100"
+              className="inline-flex rounded-md border border-zinc-300 px-2.5 py-1 text-xs text-zinc-700 hover:bg-zinc-50"
             >
-              Back to sessions
+              All sessions
             </Link>
+            {deleteAction}
           </div>
-          {deleteAction}
-        </Stack>
+        </div>
+
+        {/* Row 2: location + notes */}
+        {(stockLocation || notes) ? (
+          <p className="text-xs text-zinc-500">
+            {stockLocation ? formatLocationLabel(stockLocation) : "No default location"}
+            {notes ? ` · ${notes}` : ""}
+          </p>
+        ) : null}
+
+        {/* Row 3: timestamps (only non-null) */}
+        {timestamps.length > 0 ? (
+          <p className="text-xs text-zinc-400">{timestamps.join(" · ")}</p>
+        ) : null}
+
+        {/* Permission alerts */}
+        {!canTransitionStatus ? (
+          <Alert>Only supervisors and admins can change session status.</Alert>
+        ) : !hasNextTransition ? (
+          <Alert>No further status actions available.</Alert>
+        ) : null}
       </div>
     </Card>
   );
