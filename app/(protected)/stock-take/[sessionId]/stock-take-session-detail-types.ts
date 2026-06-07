@@ -30,7 +30,7 @@ export type EntryRow = {
   counted_quantity: number;
   bay: string | null;
   level: string | null;
-  stock_location: { id?: string; name: string; code: string | null } | null;
+  stock_location: { id: string; name: string; code: string | null } | null;
   notes: string | null;
   updated_at: string | null;
   entered_at: string;

@@ -136,7 +136,7 @@ type SaveStockTakeEntryClientRow = {
   counted_quantity: number;
   bay: string | null;
   level: string | null;
-  stock_location: { name: string; code: string | null } | null;
+  stock_location: { id: string; name: string; code: string | null } | null;
   notes: string | null;
   updated_at: string | null;
   entered_at: string;
@@ -245,6 +245,7 @@ const toClientEntryRow = ({
   level: entry.level,
   stock_location: entry.stock_location
     ? {
+        id: entry.stock_location.id,
         name: entry.stock_location.name,
         code: entry.stock_location.code,
       }
