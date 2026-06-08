@@ -2,10 +2,7 @@ import {
   ChartColumn,
   CircleCheck,
   Clock3,
-  History,
   LayoutDashboard,
-  List,
-  MapPin,
   Settings,
   User,
   type LucideIcon,
@@ -66,23 +63,6 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     internal: true,
     icon: ChartColumn,
   },
-  {
-    label: "Inventory",
-    href: "/inventory",
-    permission: "internalTools",
-    section: "internal",
-    internal: true,
-    icon: List,
-  },
-  {
-    label: "Locations",
-    href: "/locations",
-    permission: "internalTools",
-    section: "internal",
-    internal: true,
-    icon: MapPin,
-  },
-  { label: "History", href: "/history", permission: "internalTools", section: "internal", internal: true, icon: History },
 ];
 
 export const canAccessNavigationPermission = (
