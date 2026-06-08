@@ -1,0 +1,245 @@
+import "server-only";
+
+import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
+import { createServerSupabaseClient } from "@/src/lib/supabase/server";
+import { withServerTiming } from "@/src/lib/server-timing";
+import { createSessionHeaders } from "@/src/lib/production/access";
+import {
+  assertTimberStockReadAccess,
+  assertTimberStockWriteAccess,
+} from "@/src/lib/stock-take/access";
+import type {
+  StockAreaRecord,
+  StockTakeActor,
+  TimberMaterialRecord,
+  TimberStockRowInput,
+  TimberStockRowRecord,
+  TimberStockWorkingRow,
+} from "@/src/lib/stock-take/types";
+import {
+  buildAreaPayload,
+  generateTimberMaterialName,
+  normalizeBayLevelValue,
+  normalizeQuantity,
+  normalizeTimberMaterialInput,
+  type TimberMaterialInput,
+} from "@/src/lib/stock-take/validation";
+
+const areaSelect = "id,name,is_active,created_by_profile_id,created_at,updated_at";
+const materialSelect = "id,height,width,length,grade,treatment,name,is_active,created_at,updated_at";
+const rowSelect = "id,area_id,timber_material_id,bay,level,quantity,updated_by_profile_id,created_at,updated_at";
+
+type TimberStockRowRestRecord = TimberStockRowRecord & {
+  timber_materials?: { name: string } | null;
+};
+
+const encodeEq = (value: string) => `eq.${encodeURIComponent(value)}`;
+
+export const listActiveStockAreas = async (actor: StockTakeActor): Promise<StockAreaRecord[]> =>
+  withServerTiming({
+    name: "listActiveStockAreas",
+    route: actor.route,
+    operation: async () => {
+      await assertTimberStockReadAccess(actor);
+      const searchParams = new URLSearchParams({
+        select: areaSelect,
+        is_active: "eq.true",
+        order: "name.asc",
+      });
+      const response = await createServerSupabaseClient().request(
+        `/rest/v1/stock_areas?${searchParams.toString()}`,
+        { cache: "no-store", headers: createSessionHeaders(actor.session) },
+      );
+      if (!response.ok) {
+        throw new Error("Failed to load areas.");
+      }
+      return (await response.json()) as StockAreaRecord[];
+    },
+  });
+
+export const createStockArea = async (
+  actor: StockTakeActor & { name: string; createdByProfileId?: string },
+): Promise<StockAreaRecord> => {
+  await assertTimberStockWriteAccess(actor);
+  const payload = buildAreaPayload({ name: actor.name }, actor.createdByProfileId);
+  const response = await createServiceRoleSupabaseClient().request(
+    `/rest/v1/stock_areas?select=${areaSelect}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation,resolution=ignore-duplicates",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (!response.ok) {
+    throw new Error("Failed to add area.");
+  }
+  const records = (await response.json()) as StockAreaRecord[];
+  if (records[0]) {
+    return records[0];
+  }
+
+  const existing = await findStockAreaByName(actor, payload.name);
+  if (!existing) {
+    throw new Error("Area already exists, but could not be loaded.");
+  }
+  return existing;
+};
+
+export const findStockAreaByName = async (
+  actor: StockTakeActor,
+  name: string,
+): Promise<StockAreaRecord | null> => {
+  await assertTimberStockReadAccess(actor);
+  const response = await createServerSupabaseClient().request(
+    `/rest/v1/stock_areas?select=${areaSelect}&name=${encodeEq(name)}&limit=1`,
+    { cache: "no-store", headers: createSessionHeaders(actor.session) },
+  );
+  if (!response.ok) {
+    throw new Error("Failed to load area.");
+  }
+  const [record] = (await response.json()) as StockAreaRecord[];
+  return record ?? null;
+};
+
+export const listActiveTimberMaterials = async (
+  actor: StockTakeActor,
+): Promise<TimberMaterialRecord[]> =>
+  withServerTiming({
+    name: "listActiveTimberMaterials",
+    route: actor.route,
+    operation: async () => {
+      await assertTimberStockReadAccess(actor);
+      const searchParams = new URLSearchParams({
+        select: materialSelect,
+        is_active: "eq.true",
+        order: "name.asc",
+      });
+      const response = await createServerSupabaseClient().request(
+        `/rest/v1/timber_materials?${searchParams.toString()}`,
+        { cache: "no-store", headers: createSessionHeaders(actor.session) },
+      );
+      if (!response.ok) {
+        throw new Error("Failed to load timber materials.");
+      }
+      return (await response.json()) as TimberMaterialRecord[];
+    },
+  });
+
+export const createTimberMaterial = async (
+  actor: StockTakeActor & { input: TimberMaterialInput },
+): Promise<TimberMaterialRecord> => {
+  await assertTimberStockWriteAccess(actor);
+  const material = normalizeTimberMaterialInput(actor.input);
+  const name = generateTimberMaterialName(material);
+
+  const existing = await findTimberMaterialByName(actor, name);
+  if (existing) {
+    return existing;
+  }
+
+  const response = await createServiceRoleSupabaseClient().request(
+    `/rest/v1/timber_materials?select=${materialSelect}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+      body: JSON.stringify(material),
+    },
+  );
+  if (!response.ok) {
+    throw new Error("Failed to add timber material.");
+  }
+  const [record] = (await response.json()) as TimberMaterialRecord[];
+  if (!record) {
+    throw new Error("Timber material was not returned.");
+  }
+  return record;
+};
+
+export const findTimberMaterialByName = async (
+  actor: StockTakeActor,
+  name: string,
+): Promise<TimberMaterialRecord | null> => {
+  await assertTimberStockReadAccess(actor);
+  const response = await createServerSupabaseClient().request(
+    `/rest/v1/timber_materials?select=${materialSelect}&name=${encodeEq(name)}&limit=1`,
+    { cache: "no-store", headers: createSessionHeaders(actor.session) },
+  );
+  if (!response.ok) {
+    throw new Error("Failed to load timber material.");
+  }
+  const [record] = (await response.json()) as TimberMaterialRecord[];
+  return record ?? null;
+};
+
+export const listTimberStockRowsForArea = async (
+  actor: StockTakeActor & { areaId: string },
+): Promise<TimberStockWorkingRow[]> =>
+  withServerTiming({
+    name: "listTimberStockRowsForArea",
+    route: actor.route,
+    meta: { areaId: actor.areaId },
+    operation: async () => {
+      await assertTimberStockReadAccess(actor);
+      const searchParams = new URLSearchParams({
+        select: `${rowSelect},timber_materials(name)`,
+        area_id: `eq.${actor.areaId}`,
+        order: "bay.asc,level.asc,created_at.asc",
+      });
+      const response = await createServerSupabaseClient().request(
+        `/rest/v1/timber_stock_rows?${searchParams.toString()}`,
+        { cache: "no-store", headers: createSessionHeaders(actor.session) },
+      );
+      if (!response.ok) {
+        throw new Error("Failed to load working list.");
+      }
+      const rows = (await response.json()) as TimberStockRowRestRecord[];
+      return rows.map((row) => ({
+        ...row,
+        timber_name: row.timber_materials?.name ?? "Timber material",
+      }));
+    },
+  });
+
+export const updateTimberStockRowsForArea = async (
+  actor: StockTakeActor & {
+    areaId: string;
+    rows: TimberStockRowInput[];
+    updatedByProfileId?: string;
+  },
+): Promise<TimberStockRowRecord[]> => {
+  await assertTimberStockWriteAccess(actor);
+
+  const payload = actor.rows.map((row) => ({
+    area_id: actor.areaId,
+    timber_material_id: row.timberMaterialId,
+    bay: normalizeBayLevelValue(row.bay),
+    level: normalizeBayLevelValue(row.level),
+    quantity: normalizeQuantity(row.quantity),
+    updated_by_profile_id: actor.updatedByProfileId,
+  }));
+
+  if (payload.length === 0) {
+    return [];
+  }
+
+  const response = await createServiceRoleSupabaseClient().request(
+    `/rest/v1/timber_stock_rows?on_conflict=area_id,timber_material_id,bay,level&select=${rowSelect}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Prefer: "return=representation,resolution=merge-duplicates",
+      },
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to update stock.");
+  }
+
+  return (await response.json()) as TimberStockRowRecord[];
+};

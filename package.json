@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --test --require ./scripts/register-ts-tests.cjs src/lib/stock-take/*.test.ts"
   },
   "dependencies": {
     "lottie-react": "^2.4.1",
