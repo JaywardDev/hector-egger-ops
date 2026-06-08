@@ -1,21 +1,16 @@
 import Link from "next/link";
 import { CurrentTimberStockTable } from "@/app/(protected)/stock-take/current-timber-stock-table";
-import { TimberStockUpdateForm } from "@/app/(protected)/stock-take/timber-stock-update-form";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { SectionHeader } from "@/src/components/layout/section-header";
 import { Stack } from "@/src/components/layout/stack";
 import { Alert } from "@/src/components/ui/alert";
-import { Card } from "@/src/components/ui/card";
 import {
   hasSupervisorOrAdminRole,
   requireProtectedAccess,
 } from "@/src/lib/auth/guards";
 import { listStockLocations } from "@/src/lib/inventory/locations";
-import {
-  listMaterialGroups,
-  listStockTakeInventoryItems,
-} from "@/src/lib/inventory/items";
+import { listMaterialGroups } from "@/src/lib/inventory/items";
 import { TIMBER_MATERIAL_GROUP_KEY } from "@/src/lib/inventory/item-labels";
 import { withServerTiming } from "@/src/lib/server-timing";
 import {
@@ -52,14 +47,12 @@ export default async function StockTakePage({
       const [
         currentTimberStock,
         stockLocations,
-        inventoryItems,
         materialGroups,
         latestExportSession,
         params,
       ] = await Promise.all([
         listCurrentTimberStockBalances({ session, route }),
         listStockLocations({ session, route }),
-        listStockTakeInventoryItems({ session, route }),
         listMaterialGroups({ session, route }),
         getLatestClosedStockTakeSessionForExport({ session, accessContext, route }),
         searchParams,
@@ -69,12 +62,6 @@ export default async function StockTakePage({
       const timberMaterialGroup = materialGroups.find(
         (group) => group.key === TIMBER_MATERIAL_GROUP_KEY,
       );
-      const timberItems = inventoryItems.filter(
-        (item) => item.material_group?.key === TIMBER_MATERIAL_GROUP_KEY,
-      );
-      const selectedLocationId = params.location === "none"
-        ? ""
-        : params.locationId ?? "";
       const exportHref = buildStockTakeExportHref(latestExportSession);
 
       return (
@@ -84,12 +71,6 @@ export default async function StockTakePage({
             description="View current timber stock, update counts, and export a snapshot for company records."
             actions={(
               <>
-                <Link
-                  className="inline-flex items-center justify-center rounded-md border border-[var(--he-black)] bg-[var(--he-black)] px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:border-[var(--he-charcoal)] hover:bg-[var(--he-charcoal)]"
-                  href="#add-update-timber"
-                >
-                  Add / update timber
-                </Link>
                 {exportHref ? (
                   <Link
                     className="inline-flex items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50"
@@ -120,23 +101,13 @@ export default async function StockTakePage({
               title="Current timber stock"
               description="Search current balances by timber, spec, code, or location."
             />
-            {currentTimberStock.length === 0 ? (
-              <Card>No current timber stock has been finalized yet.</Card>
-            ) : (
-              <CurrentTimberStockTable balances={currentTimberStock} />
-            )}
-          </Stack>
-
-          <Card id="add-update-timber" className="scroll-mt-4">
-            <TimberStockUpdateForm
+            <CurrentTimberStockTable
+              balances={currentTimberStock}
               canUpdateStock={canUpdateStock}
               timberMaterialGroup={timberMaterialGroup}
               stockLocations={stockLocations}
-              timberItems={timberItems}
-              selectedItemId={params.itemId ?? ""}
-              selectedLocationId={selectedLocationId}
             />
-          </Card>
+          </Stack>
 
         </PageContainer>
       );
