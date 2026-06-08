@@ -1,23 +1,50 @@
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
-import { Card } from "@/src/components/ui/card";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
+import {
+  listActiveStockAreas,
+  listActiveTimberMaterials,
+  listTimberStockRowsForArea,
+} from "@/src/lib/stock-take/data";
+import {
+  STOCK_TAKE_PAGE_DESCRIPTION,
+  STOCK_TAKE_PAGE_TITLE,
+} from "@/src/lib/stock-take/ui-contract";
+import { StockTakeClient } from "./components/stock-take-client";
 
-export default async function StockTakePage() {
-  await requireProtectedAccess("/stock-take");
+type StockTakePageProps = {
+  searchParams?: Promise<{ area?: string }>;
+};
+
+export default async function StockTakePage({ searchParams }: StockTakePageProps) {
+  const route = "/stock-take";
+  const { session, roles } = await requireProtectedAccess(route);
+  const params = await searchParams;
+  const actor = { session, accessContext: { accountStatus: "approved" as const, roles }, route };
+
+  const [areas, materials] = await Promise.all([
+    listActiveStockAreas(actor),
+    listActiveTimberMaterials(actor),
+  ]);
+  const selectedAreaId =
+    areas.find((area) => area.id === params?.area)?.id ?? areas[0]?.id ?? "";
+  const workingRows = selectedAreaId
+    ? await listTimberStockRowsForArea({ ...actor, areaId: selectedAreaId })
+    : [];
 
   return (
     <PageContainer>
-      <PageHeader title="Stock take" />
+      <PageHeader
+        title={STOCK_TAKE_PAGE_TITLE}
+        description={STOCK_TAKE_PAGE_DESCRIPTION}
+      />
 
-      <Card className="space-y-3">
-        <p className="text-base text-zinc-800">
-          This area is being rebuilt from a clean stock foundation.
-        </p>
-        <p className="text-sm text-zinc-600">
-          Old stocktake sessions, locations, materials, and history have been removed so the new workflow can be rebuilt without legacy assumptions.
-        </p>
-      </Card>
+      <StockTakeClient
+        areas={areas}
+        materials={materials}
+        initialAreaId={selectedAreaId}
+        initialRows={workingRows}
+      />
     </PageContainer>
   );
 }
