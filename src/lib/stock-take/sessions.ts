@@ -506,6 +506,36 @@ export const listStockTakeSessions = async ({
     },
   });
 
+
+export const getLatestClosedStockTakeSessionForExport = async ({
+  session,
+  accessContext,
+  route,
+}: SessionActor): Promise<StockTakeSessionRecord | null> =>
+  withServerTiming({
+    name: "getLatestClosedStockTakeSessionForExport",
+    route,
+    operation: async () => {
+      await assertApprovedAccount({ session, accessContext, route });
+
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(
+        `/rest/v1/stock_take_sessions?status=eq.closed&select=${stockTakeSessionSelect}&order=closed_at.desc.nullslast,updated_at.desc&limit=1`,
+        {
+          cache: "no-store",
+          headers: createSessionHeaders(session),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to load latest stock snapshot");
+      }
+
+      const [record] = (await response.json()) as StockTakeSessionRecord[];
+      return record ?? null;
+    },
+  });
+
 export const createStockTakeSession = async ({
   session,
   accessContext,

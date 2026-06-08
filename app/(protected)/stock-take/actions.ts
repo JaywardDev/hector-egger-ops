@@ -30,6 +30,8 @@ import {
   type StockTakeInventoryItemRecord,
   type TimberSpecInput,
 } from "@/src/lib/inventory/items";
+import { TIMBER_MATERIAL_GROUP_KEY } from "@/src/lib/inventory/item-labels";
+import { listCurrentStockBalancesForLocationScope } from "@/src/lib/stock-take/timber-stock";
 
 const normalizeOptional = (value: FormDataEntryValue | null) => {
   const normalized = String(value ?? "").trim();
@@ -871,4 +873,141 @@ export async function deleteEmptyDraftStockTakeSessionAction(formData: FormData)
   revalidatePath("/stock-take");
   revalidatePath(`/stock-take/${sessionId}`);
   toStockTakeListMessage("Empty draft session deleted.", "success");
+}
+
+export async function updateTimberStockAndFinalizeAction(formData: FormData) {
+  const route = "/stock-take";
+  const selectedMode = normalizeRequired(formData.get("timberStockMode"));
+  const stockLocationId = normalizeOptional(formData.get("stockLocationId"));
+  const countedQuantity = normalizeNonNegativeNumber(formData.get("countedQuantity"));
+  const notes = normalizeOptional(formData.get("notes"));
+  const timberMaterialGroupId = normalizeRequired(formData.get("timberMaterialGroupId"));
+
+  if (!Number.isFinite(countedQuantity) || countedQuantity < 0) {
+    toStockTakeListMessage("Enter a counted quantity of zero or more.", "error");
+  }
+
+  if (!timberMaterialGroupId) {
+    toStockTakeListMessage("Timber setup is not available yet.", "error");
+  }
+
+  const { session, roles } = await requireOperationalWriteAccess();
+  const accessContext = {
+    accountStatus: "approved" as const,
+    roles,
+  };
+
+  let inventoryItemId = normalizeRequired(formData.get("inventoryItemId"));
+
+  try {
+    if (selectedMode === "missing") {
+      const createdItem = await createInventoryItem({
+        session,
+        accessContext,
+        route,
+        input: {
+          itemCode: normalizeOptional(formData.get("newItemCode")),
+          name: normalizeOptional(formData.get("newItemName")),
+          unit: normalizeRequired(formData.get("newItemUnit")) || "each",
+          description: normalizeOptional(formData.get("newItemDescription")),
+          materialGroupId: timberMaterialGroupId,
+          timberSpec: readTimberSpec(formData),
+          timberLabelMode: "auto",
+        },
+      });
+      inventoryItemId = createdItem.id;
+    } else {
+      if (!inventoryItemId) {
+        throw new Error("Choose timber to update.");
+      }
+
+      const existingItem = await getStockTakeInventoryItemById({
+        session,
+        route,
+        itemId: inventoryItemId,
+      });
+      if (existingItem?.material_group?.key !== TIMBER_MATERIAL_GROUP_KEY) {
+        throw new Error("Choose a timber item to update.");
+      }
+    }
+
+    const sessionNotes = notes
+      ? `Timber stock update. ${notes}`
+      : "Timber stock update.";
+    const stockTakeSession = await createStockTakeSession({
+      session,
+      accessContext,
+      route,
+      input: {
+        stockLocationId,
+        notes: sessionNotes,
+      },
+    });
+
+    const currentScopeBalances = await listCurrentStockBalancesForLocationScope({
+      session,
+      route,
+      stockLocationId,
+    });
+    const rowsByItemId = new Map(
+      currentScopeBalances.map((balance) => [
+        balance.inventoryItemId,
+        {
+          entryId: null,
+          inventoryItemId: balance.inventoryItemId,
+          stockLocationId,
+          countedQuantity: balance.inventoryItemId === inventoryItemId
+            ? countedQuantity
+            : balance.quantity,
+          bay: null,
+          level: null,
+          notes: balance.inventoryItemId === inventoryItemId ? notes : null,
+        },
+      ]),
+    );
+
+    if (!rowsByItemId.has(inventoryItemId)) {
+      rowsByItemId.set(inventoryItemId, {
+        entryId: null,
+        inventoryItemId,
+        stockLocationId,
+        countedQuantity,
+        bay: null,
+        level: null,
+        notes,
+      });
+    }
+
+    await saveStockTakeEntriesBatch({
+      session,
+      accessContext,
+      route,
+      sessionId: stockTakeSession.id,
+      rows: [...rowsByItemId.values()],
+    });
+
+    for (const action of ["start", "submit", "review", "close"] as const) {
+      await transitionStockTakeSession({
+        session,
+        accessContext,
+        route,
+        sessionId: stockTakeSession.id,
+        action,
+      });
+    }
+
+    revalidatePath("/stock-take");
+    revalidatePath("/inventory");
+    revalidatePath(`/stock-take/${stockTakeSession.id}`);
+  } catch (error) {
+    console.error("Failed to update and finalize timber stock", error);
+    toStockTakeListMessage(
+      error instanceof Error
+        ? error.message
+        : "Could not update timber stock.",
+      "error",
+    );
+  }
+
+  toStockTakeListMessage("Stock updated and finalized.", "success");
 }
