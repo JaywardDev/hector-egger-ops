@@ -198,7 +198,7 @@ export function StockTakeClient({
     timberMaterialId: row.timberMaterialId,
     bay: row.bay,
     level: row.level,
-    quantity: Number(row.quantity),
+    quantity: row.quantity,
   }));
 
   const navigateToArea = (areaId: string) => {

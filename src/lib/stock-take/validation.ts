@@ -16,16 +16,16 @@ export type MinimalAreaPayload = {
 };
 
 export type StockTakeFilterableRow = {
-  timberName: string;
-  bay: string;
-  level: string;
+  timberName?: string | null;
+  bay?: string | null;
+  level?: string | null;
 };
 
 export type StockTakeComparableRow = {
   timberMaterialId: string;
-  bay: string;
-  level: string;
-  quantity: string | number;
+  bay: string | null | undefined;
+  level: string | null | undefined;
+  quantity: string | number | null | undefined;
 };
 
 const trimRequired = (value: string | null | undefined, label: string) => {
@@ -80,6 +80,10 @@ export const generateTimberMaterialName = (input: TimberMaterialInput) => {
 export const normalizeBayLevelValue = (value: string | null | undefined) => value?.trim() ?? "";
 
 export const normalizeQuantity = (quantity: string | number) => {
+  if (typeof quantity === "string" && !quantity.trim()) {
+    throw new Error("Quantity must be a number.");
+  }
+
   const value = typeof quantity === "number" ? quantity : Number(quantity);
   if (!Number.isFinite(value)) {
     throw new Error("Quantity must be a number.");
@@ -90,14 +94,30 @@ export const normalizeQuantity = (quantity: string | number) => {
   return value;
 };
 
-export const normalizeQuantityForComparison = (quantity: string | number) => String(normalizeQuantity(quantity));
+type QuantityComparisonValue =
+  | { valid: true; value: string }
+  | { valid: false };
+
+export const normalizeQuantityForComparison = (quantity: string | number | null | undefined): QuantityComparisonValue => {
+  if (quantity === null || quantity === undefined) {
+    return { valid: false };
+  }
+
+  try {
+    return { valid: true, value: String(normalizeQuantity(quantity)) };
+  } catch {
+    return { valid: false };
+  }
+};
+
+const normalizeSearchValue = (value: string | null | undefined) => (value ?? "").toLowerCase();
 
 export const rowMatchesStockTakeSearch = (row: StockTakeFilterableRow, search: string) => {
   const term = search.trim().toLowerCase();
   if (!term) {
     return true;
   }
-  return [row.timberName, row.bay, row.level].some((value) => value.toLowerCase().includes(term));
+  return [row.timberName, row.bay, row.level].some((value) => normalizeSearchValue(value).includes(term));
 };
 
 export const normalizeRowsForChangeComparison = (rows: StockTakeComparableRow[]) =>
@@ -118,7 +138,15 @@ export const countChangedStockTakeRows = (
   let changed = 0;
 
   for (let index = 0; index < maxLength; index += 1) {
-    if (JSON.stringify(loaded[index] ?? null) !== JSON.stringify(draft[index] ?? null)) {
+    const loadedRow = loaded[index];
+    const draftRow = draft[index];
+
+    if (loadedRow?.quantity.valid === false || draftRow?.quantity.valid === false) {
+      changed += 1;
+      continue;
+    }
+
+    if (JSON.stringify(loadedRow ?? null) !== JSON.stringify(draftRow ?? null)) {
       changed += 1;
     }
   }

@@ -53,5 +53,5 @@ export type TimberStockRowInput = {
   timberMaterialId: string;
   bay: string;
   level: string;
-  quantity: number;
+  quantity: string | number;
 };
