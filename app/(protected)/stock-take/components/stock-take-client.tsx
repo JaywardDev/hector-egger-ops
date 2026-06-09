@@ -48,6 +48,50 @@ type StockTakeClientProps = {
 
 const initialActionState: StockTakeActionState = { ok: false, message: "" };
 
+type StockTakeChangeEvent = {
+  currentTarget?: EventTarget | null;
+  target?: EventTarget | null;
+};
+
+type StockTakeValueElement = {
+  value: string;
+};
+
+const hasStringValue = (element: EventTarget | null | undefined): element is EventTarget & StockTakeValueElement => {
+  if (!element || typeof element !== "object" || !("value" in element)) {
+    return false;
+  }
+
+  if (typeof HTMLInputElement !== "undefined" && element instanceof HTMLInputElement) {
+    return true;
+  }
+  if (typeof HTMLSelectElement !== "undefined" && element instanceof HTMLSelectElement) {
+    return true;
+  }
+  if (typeof HTMLTextAreaElement !== "undefined" && element instanceof HTMLTextAreaElement) {
+    return true;
+  }
+
+  return typeof (element as { value?: unknown }).value === "string";
+};
+
+export const readStockTakeChangeValue = (event: StockTakeChangeEvent): string => {
+  const element = event.currentTarget ?? event.target;
+
+  return hasStringValue(element) ? element.value : "";
+};
+
+export const focusStockTakeBayInput = (rowKey: string, root: ParentNode = document): boolean => {
+  const input = root.querySelector(`[data-stock-row-key="${rowKey}"][data-stock-field="bay"]`);
+
+  if (typeof HTMLInputElement !== "undefined" && input instanceof HTMLInputElement) {
+    input.focus();
+    return true;
+  }
+
+  return false;
+};
+
 const toDraftRows = (rows: TimberStockWorkingRow[]): DraftRow[] =>
   rows.map((row) => ({
     key: row.id,
@@ -157,9 +201,7 @@ export function StockTakeClient({
       return;
     }
 
-    const input = document.querySelector<HTMLInputElement>(`[data-stock-row-key="${focusRowKey}"][data-stock-field="bay"]`);
-    input?.focus();
-    if (input) {
+    if (focusStockTakeBayInput(focusRowKey)) {
       focusedRowKeys.current.add(focusRowKey);
     }
   }, [focusRowKey, rows]);
@@ -235,7 +277,7 @@ export function StockTakeClient({
             id="area_selector"
             value={selectedAreaId}
             onChange={(event) => {
-              navigateToArea(event.currentTarget.value);
+              navigateToArea(readStockTakeChangeValue(event));
             }}
           >
             {areas.length === 0 ? <option value="">No areas yet</option> : null}
@@ -289,7 +331,7 @@ export function StockTakeClient({
               <Input
                 id="stock_take_search"
                 value={search}
-                onChange={(event) => setSearch(event.currentTarget.value)}
+                onChange={(event) => setSearch(readStockTakeChangeValue(event))}
                 placeholder="Search timber, bay, or level..."
               />
             </FormField>
@@ -330,7 +372,7 @@ export function StockTakeClient({
                         ) : (
                           <Select
                             value={row.timberMaterialId}
-                            onChange={(event) => updateRow(row.key, "timberMaterialId", event.currentTarget.value)}
+                            onChange={(event) => updateRow(row.key, "timberMaterialId", readStockTakeChangeValue(event))}
                             required
                           >
                             {localMaterials.map((material) => (
@@ -346,7 +388,7 @@ export function StockTakeClient({
                           data-stock-row-key={row.key}
                           data-stock-field="bay"
                           value={row.bay}
-                          onChange={(event) => updateRow(row.key, "bay", event.currentTarget.value)}
+                          onChange={(event) => updateRow(row.key, "bay", readStockTakeChangeValue(event))}
                         />
                       </td>
                       <td className="px-2 py-2 align-top">
@@ -354,7 +396,7 @@ export function StockTakeClient({
                           data-stock-row-key={row.key}
                           data-stock-field="level"
                           value={row.level}
-                          onChange={(event) => updateRow(row.key, "level", event.currentTarget.value)}
+                          onChange={(event) => updateRow(row.key, "level", readStockTakeChangeValue(event))}
                         />
                       </td>
                       <td className="px-2 py-2 align-top">
@@ -365,7 +407,7 @@ export function StockTakeClient({
                           data-stock-row-key={row.key}
                           data-stock-field="quantity"
                           value={row.quantity}
-                          onChange={(event) => updateRow(row.key, "quantity", event.currentTarget.value)}
+                          onChange={(event) => updateRow(row.key, "quantity", readStockTakeChangeValue(event))}
                           required
                         />
                       </td>
@@ -399,12 +441,14 @@ export function StockTakeClient({
                   id={key}
                   name={key}
                   value={materialPreviewInput[key]}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    const nextValue = readStockTakeChangeValue(event);
+
                     setMaterialPreviewInput((current) => ({
                       ...current,
-                      [key]: event.currentTarget.value,
-                    }))
-                  }
+                      [key]: nextValue,
+                    }));
+                  }}
                   required
                 />
               </FormField>
