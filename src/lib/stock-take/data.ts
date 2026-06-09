@@ -19,8 +19,11 @@ import type {
 import {
   buildAreaPayload,
   generateTimberMaterialName,
+  normalizeAreaNameForLookup,
   normalizeBayLevelValue,
+  normalizeDuplicateLookupValue,
   normalizeQuantity,
+  normalizeTimberMaterialForLookup,
   normalizeTimberMaterialInput,
   type TimberMaterialInput,
 } from "@/src/lib/stock-take/validation";
@@ -33,7 +36,7 @@ type TimberStockRowRestRecord = TimberStockRowRecord & {
   timber_materials?: { name: string } | null;
 };
 
-const encodeEq = (value: string) => `eq.${encodeURIComponent(value)}`;
+const encodeIlike = (value: string) => `ilike.${encodeURIComponent(value)}`;
 
 export const listActiveStockAreas = async (actor: StockTakeActor): Promise<StockAreaRecord[]> =>
   withServerTiming({
@@ -62,6 +65,11 @@ export const createStockArea = async (
 ): Promise<StockAreaRecord> => {
   await assertTimberStockWriteAccess(actor);
   const payload = buildAreaPayload({ name: actor.name }, actor.createdByProfileId);
+  const existing = await findStockAreaByName(actor, payload.name);
+  if (existing) {
+    return existing;
+  }
+
   const response = await createServiceRoleSupabaseClient().request(
     `/rest/v1/stock_areas?select=${areaSelect}`,
     {
@@ -74,6 +82,10 @@ export const createStockArea = async (
     },
   );
   if (!response.ok) {
+    const duplicate = await findStockAreaByName(actor, payload.name);
+    if (duplicate) {
+      return duplicate;
+    }
     throw new Error("Failed to add area.");
   }
   const records = (await response.json()) as StockAreaRecord[];
@@ -81,11 +93,11 @@ export const createStockArea = async (
     return records[0];
   }
 
-  const existing = await findStockAreaByName(actor, payload.name);
-  if (!existing) {
+  const insertedExisting = await findStockAreaByName(actor, payload.name);
+  if (!insertedExisting) {
     throw new Error("Area already exists, but could not be loaded.");
   }
-  return existing;
+  return insertedExisting;
 };
 
 export const findStockAreaByName = async (
@@ -93,15 +105,16 @@ export const findStockAreaByName = async (
   name: string,
 ): Promise<StockAreaRecord | null> => {
   await assertTimberStockReadAccess(actor);
+  const normalizedName = normalizeAreaNameForLookup(name);
   const response = await createServerSupabaseClient().request(
-    `/rest/v1/stock_areas?select=${areaSelect}&name=${encodeEq(name)}&limit=1`,
+    `/rest/v1/stock_areas?select=${areaSelect}&name=${encodeIlike(normalizedName)}&limit=10`,
     { cache: "no-store", headers: createSessionHeaders(actor.session) },
   );
   if (!response.ok) {
     throw new Error("Failed to load area.");
   }
-  const [record] = (await response.json()) as StockAreaRecord[];
-  return record ?? null;
+  const records = (await response.json()) as StockAreaRecord[];
+  return records.find((record) => normalizeDuplicateLookupValue(record.name) === normalizedName) ?? null;
 };
 
 export const listActiveTimberMaterials = async (
@@ -133,9 +146,7 @@ export const createTimberMaterial = async (
 ): Promise<TimberMaterialRecord> => {
   await assertTimberStockWriteAccess(actor);
   const material = normalizeTimberMaterialInput(actor.input);
-  const name = generateTimberMaterialName(material);
-
-  const existing = await findTimberMaterialByName(actor, name);
+  const existing = await findTimberMaterialByInput(actor, material);
   if (existing) {
     return existing;
   }
@@ -149,6 +160,10 @@ export const createTimberMaterial = async (
     },
   );
   if (!response.ok) {
+    const duplicate = await findTimberMaterialByInput(actor, material);
+    if (duplicate) {
+      return duplicate;
+    }
     throw new Error("Failed to add timber material.");
   }
   const [record] = (await response.json()) as TimberMaterialRecord[];
@@ -158,20 +173,49 @@ export const createTimberMaterial = async (
   return record;
 };
 
-export const findTimberMaterialByName = async (
+export const findTimberMaterialByInput = async (
   actor: StockTakeActor,
-  name: string,
+  input: TimberMaterialInput,
 ): Promise<TimberMaterialRecord | null> => {
   await assertTimberStockReadAccess(actor);
+  const material = normalizeTimberMaterialInput(input);
+  const normalized = normalizeTimberMaterialForLookup(material);
+  const normalizedName = normalizeDuplicateLookupValue(generateTimberMaterialName(material));
   const response = await createServerSupabaseClient().request(
-    `/rest/v1/timber_materials?select=${materialSelect}&name=${encodeEq(name)}&limit=1`,
+    `/rest/v1/timber_materials?select=${materialSelect}&name=${encodeIlike(normalizedName)}&limit=10`,
     { cache: "no-store", headers: createSessionHeaders(actor.session) },
   );
   if (!response.ok) {
     throw new Error("Failed to load timber material.");
   }
-  const [record] = (await response.json()) as TimberMaterialRecord[];
-  return record ?? null;
+  const records = (await response.json()) as TimberMaterialRecord[];
+  return records.find((record) => {
+    const recordFields = normalizeTimberMaterialForLookup(record);
+    return (
+      recordFields.height === normalized.height &&
+      recordFields.width === normalized.width &&
+      recordFields.length === normalized.length &&
+      recordFields.grade === normalized.grade &&
+      recordFields.treatment === normalized.treatment
+    );
+  }) ?? null;
+};
+
+export const findTimberMaterialByName = async (
+  actor: StockTakeActor,
+  name: string,
+): Promise<TimberMaterialRecord | null> => {
+  await assertTimberStockReadAccess(actor);
+  const normalizedName = normalizeDuplicateLookupValue(name);
+  const response = await createServerSupabaseClient().request(
+    `/rest/v1/timber_materials?select=${materialSelect}&name=${encodeIlike(normalizedName)}&limit=10`,
+    { cache: "no-store", headers: createSessionHeaders(actor.session) },
+  );
+  if (!response.ok) {
+    throw new Error("Failed to load timber material.");
+  }
+  const records = (await response.json()) as TimberMaterialRecord[];
+  return records.find((record) => normalizeDuplicateLookupValue(record.name) === normalizedName) ?? null;
 };
 
 export const listTimberStockRowsForArea = async (

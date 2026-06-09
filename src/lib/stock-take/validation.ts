@@ -15,6 +15,19 @@ export type MinimalAreaPayload = {
   created_by_profile_id?: string;
 };
 
+export type StockTakeFilterableRow = {
+  timberName: string;
+  bay: string;
+  level: string;
+};
+
+export type StockTakeComparableRow = {
+  timberMaterialId: string;
+  bay: string;
+  level: string;
+  quantity: string | number;
+};
+
 const trimRequired = (value: string | null | undefined, label: string) => {
   const trimmed = value?.trim() ?? "";
   if (!trimmed) {
@@ -23,7 +36,11 @@ const trimRequired = (value: string | null | undefined, label: string) => {
   return trimmed;
 };
 
+export const normalizeDuplicateLookupValue = (value: string) => value.trim().toLowerCase();
+
 export const normalizeAreaName = (name: string) => trimRequired(name, "Area name");
+
+export const normalizeAreaNameForLookup = (name: string) => normalizeDuplicateLookupValue(normalizeAreaName(name));
 
 export const buildAreaPayload = (
   input: AreaInput,
@@ -44,6 +61,17 @@ export const normalizeTimberMaterialInput = (input: TimberMaterialInput): Timber
   treatment: trimRequired(input.treatment, "Treatment"),
 });
 
+export const normalizeTimberMaterialForLookup = (input: TimberMaterialInput): TimberMaterialInput => {
+  const material = normalizeTimberMaterialInput(input);
+  return {
+    height: normalizeDuplicateLookupValue(material.height),
+    width: normalizeDuplicateLookupValue(material.width),
+    length: normalizeDuplicateLookupValue(material.length),
+    grade: normalizeDuplicateLookupValue(material.grade),
+    treatment: normalizeDuplicateLookupValue(material.treatment),
+  };
+};
+
 export const generateTimberMaterialName = (input: TimberMaterialInput) => {
   const material = normalizeTimberMaterialInput(input);
   return `${material.height}x${material.width} ${material.grade} ${material.treatment} ${material.length}`;
@@ -62,6 +90,41 @@ export const normalizeQuantity = (quantity: string | number) => {
   return value;
 };
 
+export const normalizeQuantityForComparison = (quantity: string | number) => String(normalizeQuantity(quantity));
+
+export const rowMatchesStockTakeSearch = (row: StockTakeFilterableRow, search: string) => {
+  const term = search.trim().toLowerCase();
+  if (!term) {
+    return true;
+  }
+  return [row.timberName, row.bay, row.level].some((value) => value.toLowerCase().includes(term));
+};
+
+export const normalizeRowsForChangeComparison = (rows: StockTakeComparableRow[]) =>
+  rows.map((row) => ({
+    timberMaterialId: row.timberMaterialId,
+    bay: normalizeBayLevelValue(row.bay),
+    level: normalizeBayLevelValue(row.level),
+    quantity: normalizeQuantityForComparison(row.quantity),
+  }));
+
+export const countChangedStockTakeRows = (
+  loadedRows: StockTakeComparableRow[],
+  draftRows: StockTakeComparableRow[],
+) => {
+  const loaded = normalizeRowsForChangeComparison(loadedRows);
+  const draft = normalizeRowsForChangeComparison(draftRows);
+  const maxLength = Math.max(loaded.length, draft.length);
+  let changed = 0;
+
+  for (let index = 0; index < maxLength; index += 1) {
+    if (JSON.stringify(loaded[index] ?? null) !== JSON.stringify(draft[index] ?? null)) {
+      changed += 1;
+    }
+  }
+
+  return changed;
+};
 
 export const getTimberStockRowScopeKey = ({
   areaId,

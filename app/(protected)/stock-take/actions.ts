@@ -7,12 +7,13 @@ import {
   createTimberMaterial,
   updateTimberStockRowsForArea,
 } from "@/src/lib/stock-take/data";
-import type { TimberStockRowInput } from "@/src/lib/stock-take/types";
+import type { TimberMaterialRecord, TimberStockRowInput } from "@/src/lib/stock-take/types";
 
 export type StockTakeActionState = {
   ok: boolean;
   message: string;
   selectedAreaId?: string;
+  material?: TimberMaterialRecord;
 };
 
 const errorMessage = (error: unknown, fallback: string) =>
@@ -69,6 +70,7 @@ export async function createTimberMaterialAction(
       ok: true,
       message: `${material.name} added.`,
       selectedAreaId: areaId,
+      material,
     };
   } catch (error) {
     return { ok: false, message: errorMessage(error, "Could not add timber material."), selectedAreaId: areaId };

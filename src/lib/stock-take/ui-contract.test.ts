@@ -31,3 +31,23 @@ test("add new material form only asks for the required fields", () => {
 test("main submit button says Update stock", () => {
   assert.equal(UPDATE_STOCK_LABEL, "Update stock");
 });
+
+test("stock-take client keeps forbidden working-list labels out of table headers", () => {
+  const renderedHeaders = WORKING_LIST_HEADERS.join(" ");
+
+  for (const forbidden of [
+    "Location",
+    "Area",
+    "Note",
+    "Notes",
+    "Reason",
+    "Comment",
+    "Comments",
+    "Description",
+    "Metadata",
+    "Status",
+    "Session",
+  ]) {
+    assert.equal(renderedHeaders.includes(forbidden), false);
+  }
+});
