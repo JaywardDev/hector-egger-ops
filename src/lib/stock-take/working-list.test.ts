@@ -29,6 +29,13 @@ test("working-list search matches level", () => {
   assert.equal(rowMatchesStockTakeSearch(rows[1], "top"), false);
 });
 
+test("working-list search is null-safe and still matches populated fields", () => {
+  assert.equal(rowMatchesStockTakeSearch({ timberName: "45x90 SG8 H1.2 6.0m", bay: null, level: undefined }, "sg8"), true);
+  assert.equal(rowMatchesStockTakeSearch({ timberName: "45x90 SG8 H1.2 6.0m", bay: null, level: undefined }, "a1"), false);
+  assert.equal(rowMatchesStockTakeSearch({ timberName: "", bay: "A1", level: null }, "a1"), true);
+  assert.equal(rowMatchesStockTakeSearch({ timberName: undefined, bay: null, level: "Top" }, "top"), true);
+});
+
 test("working-list search can produce the no-match state without changing rows", () => {
   const savedRows = [
     { timberMaterialId: "timber-1", bay: "A1", level: "Top", quantity: 10 },
@@ -69,6 +76,19 @@ test("editing quantity shows unsaved-change state and saving clears it", () => {
 
   assert.equal(countChangedStockTakeRows(loadedRows, draftRows), 1);
   assert.equal(countChangedStockTakeRows(draftRows, draftRows), 0);
+});
+
+test("dirty counting treats transient UI quantity values as changed without throwing", () => {
+  const loadedRows = [{ timberMaterialId: "timber-1", bay: "A1", level: "Top", quantity: 10 }];
+
+  for (const quantity of ["", ".", "e", "1e", undefined, null, NaN]) {
+    assert.doesNotThrow(() => {
+      assert.equal(
+        countChangedStockTakeRows(loadedRows, [{ timberMaterialId: "timber-1", bay: "A1", level: "Top", quantity }]),
+        1,
+      );
+    });
+  }
 });
 
 test("editing bay or level on draft rows shows unsaved-change state", () => {

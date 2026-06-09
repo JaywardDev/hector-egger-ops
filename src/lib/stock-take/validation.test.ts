@@ -85,6 +85,12 @@ test("quantity cannot be negative", () => {
   assert.throws(() => normalizeQuantity("-1"), /Quantity cannot be negative/);
 });
 
+test("submit quantity validation rejects blank and invalid numeric input", () => {
+  for (const quantity of ["", " ", ".", "e", "1e", NaN]) {
+    assert.throws(() => normalizeQuantity(quantity), /Quantity must be a number/);
+  }
+});
+
 
 test("rows are scoped to the selected area", () => {
   const hundegger = getTimberStockRowScopeKey({ areaId: "area-1", timberMaterialId: "timber-1", bay: "A", level: "1" });
