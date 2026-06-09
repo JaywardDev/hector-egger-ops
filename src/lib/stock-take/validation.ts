@@ -22,10 +22,10 @@ export type StockTakeFilterableRow = {
 };
 
 export type StockTakeComparableRow = {
-  timberMaterialId: string;
-  bay: string | null | undefined;
-  level: string | null | undefined;
-  quantity: string | number | null | undefined;
+  timberMaterialId?: string | null | undefined;
+  bay?: string | null | undefined;
+  level?: string | null | undefined;
+  quantity?: string | number | null | undefined;
 };
 
 const trimRequired = (value: string | null | undefined, label: string) => {
@@ -77,9 +77,15 @@ export const generateTimberMaterialName = (input: TimberMaterialInput) => {
   return `${material.height}x${material.width} ${material.grade} ${material.treatment} ${material.length}`;
 };
 
-export const normalizeBayLevelValue = (value: string | null | undefined) => value?.trim() ?? "";
+export const normalizeBayLevelValue = (value: string | null | undefined) => value == null ? "" : String(value).trim();
 
-export const normalizeQuantity = (quantity: string | number) => {
+export const normalizeQuantity = (quantity: unknown) => {
+  if (quantity === null || quantity === undefined) {
+    throw new Error("Quantity must be a number.");
+  }
+  if (typeof quantity !== "string" && typeof quantity !== "number") {
+    throw new Error("Quantity must be a number.");
+  }
   if (typeof quantity === "string" && !quantity.trim()) {
     throw new Error("Quantity must be a number.");
   }
@@ -110,27 +116,29 @@ export const normalizeQuantityForComparison = (quantity: string | number | null 
   }
 };
 
-const normalizeSearchValue = (value: string | null | undefined) => (value ?? "").toLowerCase();
+const normalizeSearchValue = (value: string | null | undefined) => value == null ? "" : String(value).toLowerCase();
 
-export const rowMatchesStockTakeSearch = (row: StockTakeFilterableRow, search: string) => {
+export const rowMatchesStockTakeSearch = (row: StockTakeFilterableRow | null | undefined, search: string) => {
   const term = search.trim().toLowerCase();
   if (!term) {
     return true;
   }
-  return [row.timberName, row.bay, row.level].some((value) => normalizeSearchValue(value).includes(term));
+  return [row?.timberName, row?.bay, row?.level].some((value) => normalizeSearchValue(value).includes(term));
 };
 
-export const normalizeRowsForChangeComparison = (rows: StockTakeComparableRow[]) =>
-  rows.map((row) => ({
-    timberMaterialId: row.timberMaterialId,
-    bay: normalizeBayLevelValue(row.bay),
-    level: normalizeBayLevelValue(row.level),
-    quantity: normalizeQuantityForComparison(row.quantity),
-  }));
+const normalizeComparableRow = (row: StockTakeComparableRow | null | undefined) => ({
+  timberMaterialId: row?.timberMaterialId ?? "",
+  bay: normalizeBayLevelValue(row?.bay),
+  level: normalizeBayLevelValue(row?.level),
+  quantity: normalizeQuantityForComparison(row?.quantity),
+});
+
+export const normalizeRowsForChangeComparison = (rows: readonly StockTakeComparableRow[] | null | undefined) =>
+  (Array.isArray(rows) ? rows : []).map((row) => normalizeComparableRow(row));
 
 export const countChangedStockTakeRows = (
-  loadedRows: StockTakeComparableRow[],
-  draftRows: StockTakeComparableRow[],
+  loadedRows: readonly StockTakeComparableRow[] | null | undefined,
+  draftRows: readonly StockTakeComparableRow[] | null | undefined,
 ) => {
   const loaded = normalizeRowsForChangeComparison(loadedRows);
   const draft = normalizeRowsForChangeComparison(draftRows);
