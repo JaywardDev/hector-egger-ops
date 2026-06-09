@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "@/src/components/ui/alert";
 import { Button } from "@/src/components/ui/button";
 import { Card } from "@/src/components/ui/card";
@@ -13,7 +13,11 @@ import {
   UPDATE_STOCK_LABEL,
   WORKING_LIST_HEADERS,
 } from "@/src/lib/stock-take/ui-contract";
-import { generateTimberMaterialName } from "@/src/lib/stock-take/validation";
+import {
+  countChangedStockTakeRows,
+  generateTimberMaterialName,
+  rowMatchesStockTakeSearch,
+} from "@/src/lib/stock-take/validation";
 import type {
   StockAreaRecord,
   TimberMaterialRecord,
@@ -72,6 +76,12 @@ export function StockTakeClient({
 }: StockTakeClientProps) {
   const [selectedAreaId, setSelectedAreaId] = useState(initialAreaId);
   const [rows, setRows] = useState<DraftRow[]>(toDraftRows(initialRows));
+  const [loadedRows, setLoadedRows] = useState<DraftRow[]>(toDraftRows(initialRows));
+  const [localMaterials, setLocalMaterials] = useState<TimberMaterialRecord[]>(materials);
+  const [search, setSearch] = useState("");
+  const [focusRowKey, setFocusRowKey] = useState<string | null>(null);
+  const focusedRowKeys = useRef(new Set<string>());
+  const rowsRef = useRef(rows);
   const [areaState, addAreaAction] = useActionState(createStockAreaAction, initialActionState);
   const [materialState, addMaterialAction] = useActionState(createTimberMaterialAction, initialActionState);
   const [updateState, updateStockAction] = useActionState(updateTimberStockAction, initialActionState);
@@ -83,10 +93,12 @@ export function StockTakeClient({
     treatment: "",
   });
 
-  const namesById = useMemo(() => materialNameById(materials), [materials]);
+  const namesById = useMemo(() => materialNameById(localMaterials), [localMaterials]);
   const selectedArea = areas.find((area) => area.id === selectedAreaId);
   const selectedAreaName = selectedArea?.name ?? "selected area";
   const latestSelectedAreaId = areaState.selectedAreaId ?? materialState.selectedAreaId ?? updateState.selectedAreaId;
+  const changedRowCount = countChangedStockTakeRows(loadedRows, rows);
+  const hasUnsavedChanges = changedRowCount > 0;
   const preview = useMemo(() => {
     try {
       return generateTimberMaterialName(materialPreviewInput);
@@ -95,7 +107,73 @@ export function StockTakeClient({
     }
   }, [materialPreviewInput]);
 
-  const visibleRows = rows;
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
+
+  useEffect(() => {
+    setLocalMaterials(materials);
+  }, [materials]);
+
+  useEffect(() => {
+    if (!materialState.ok || !materialState.material) {
+      return;
+    }
+
+    const material = materialState.material;
+    const newKey = `new-${material.id}-${crypto.randomUUID()}`;
+    setLocalMaterials((currentMaterials) => {
+      if (currentMaterials.some((currentMaterial) => currentMaterial.id === material.id)) {
+        return currentMaterials;
+      }
+      return [...currentMaterials, material].sort((left, right) => left.name.localeCompare(right.name));
+    });
+    setRows((currentRows) => [
+      ...currentRows,
+      {
+        key: newKey,
+        timberMaterialId: material.id,
+        bay: "",
+        level: "",
+        quantity: "0",
+        persisted: false,
+      },
+    ]);
+    setSearch("");
+    setFocusRowKey(newKey);
+  }, [materialState]);
+
+  useEffect(() => {
+    if (!updateState.ok) {
+      return;
+    }
+    const savedRows = rowsRef.current.map((row) => ({ ...row, persisted: true }));
+    setLoadedRows(savedRows);
+    setRows(savedRows);
+  }, [updateState]);
+
+  useEffect(() => {
+    if (!focusRowKey || focusedRowKeys.current.has(focusRowKey)) {
+      return;
+    }
+
+    const input = document.querySelector<HTMLInputElement>(`[data-stock-row-key="${focusRowKey}"][data-stock-field="bay"]`);
+    input?.focus();
+    if (input) {
+      focusedRowKeys.current.add(focusRowKey);
+    }
+  }, [focusRowKey, rows]);
+
+  const visibleRows = rows.filter((row) =>
+    rowMatchesStockTakeSearch(
+      {
+        timberName: namesById.get(row.timberMaterialId) ?? "Timber material",
+        bay: row.bay,
+        level: row.level,
+      },
+      search,
+    ),
+  );
   const updateRow = (key: string, field: keyof DraftRow, value: string) => {
     setRows((currentRows) =>
       currentRows.map((row) => (row.key === key ? { ...row, [field]: value } : row)),
@@ -107,7 +185,7 @@ export function StockTakeClient({
       ...currentRows,
       {
         key: `new-${crypto.randomUUID()}`,
-        timberMaterialId: materials[0]?.id ?? "",
+        timberMaterialId: localMaterials[0]?.id ?? "",
         bay: "",
         level: "",
         quantity: "0",
@@ -116,12 +194,20 @@ export function StockTakeClient({
     ]);
   };
 
-  const stockRowsPayload = visibleRows.map((row) => ({
+  const stockRowsPayload = rows.map((row) => ({
     timberMaterialId: row.timberMaterialId,
     bay: row.bay,
     level: row.level,
     quantity: Number(row.quantity),
   }));
+
+  const navigateToArea = (areaId: string) => {
+    if (hasUnsavedChanges && !window.confirm("You have unsaved stock changes. Leave this area without updating stock?")) {
+      return;
+    }
+    setSelectedAreaId(areaId);
+    window.location.href = `/stock-take?area=${areaId}`;
+  };
 
   return (
     <div className="space-y-4">
@@ -140,8 +226,7 @@ export function StockTakeClient({
             id="area_selector"
             value={selectedAreaId}
             onChange={(event) => {
-              setSelectedAreaId(event.currentTarget.value);
-              window.location.href = `/stock-take?area=${event.currentTarget.value}`;
+              navigateToArea(event.currentTarget.value);
             }}
           >
             {areas.length === 0 ? <option value="">No areas yet</option> : null}
@@ -158,7 +243,7 @@ export function StockTakeClient({
             type="button"
             variant="secondary"
             onClick={() => {
-              window.location.href = `/stock-take?area=${latestSelectedAreaId}`;
+              navigateToArea(latestSelectedAreaId);
             }}
           >
             Open updated area
@@ -185,9 +270,25 @@ export function StockTakeClient({
               </h2>
               <p className="text-sm text-zinc-600">Enter the timber quantities in this area.</p>
             </div>
-            <Button type="button" variant="secondary" onClick={addWorkingRow} disabled={materials.length === 0}>
+            <Button type="button" variant="secondary" onClick={addWorkingRow} disabled={localMaterials.length === 0}>
               Add row
             </Button>
+          </div>
+
+          <div className="space-y-2">
+            <FormField label="Search working list" htmlFor="stock_take_search">
+              <Input
+                id="stock_take_search"
+                value={search}
+                onChange={(event) => setSearch(event.currentTarget.value)}
+                placeholder="Search timber, bay, or level..."
+              />
+            </FormField>
+            {hasUnsavedChanges ? (
+              <Alert variant="warning">
+                Unsaved changes · {changedRowCount} {changedRowCount === 1 ? "row has" : "rows have"} changed.
+              </Alert>
+            ) : null}
           </div>
 
           <form action={updateStockAction} className="space-y-3">
@@ -208,7 +309,7 @@ export function StockTakeClient({
                   {visibleRows.length === 0 ? (
                     <tr>
                       <td className="px-2 py-4 text-zinc-600" colSpan={WORKING_LIST_HEADERS.length}>
-                        No timber rows yet. Add a row or add a new material to begin.
+                        {search.trim() ? "No matching timber rows in this area." : "No timber rows yet. Add a row or add a new material to begin."}
                       </td>
                     </tr>
                   ) : null}
@@ -223,7 +324,7 @@ export function StockTakeClient({
                             onChange={(event) => updateRow(row.key, "timberMaterialId", event.currentTarget.value)}
                             required
                           >
-                            {materials.map((material) => (
+                            {localMaterials.map((material) => (
                               <option key={material.id} value={material.id}>
                                 {material.name}
                               </option>
@@ -232,16 +333,28 @@ export function StockTakeClient({
                         )}
                       </td>
                       <td className="px-2 py-2 align-top">
-                        <Input value={row.bay} onChange={(event) => updateRow(row.key, "bay", event.currentTarget.value)} />
+                        <Input
+                          data-stock-row-key={row.key}
+                          data-stock-field="bay"
+                          value={row.bay}
+                          onChange={(event) => updateRow(row.key, "bay", event.currentTarget.value)}
+                        />
                       </td>
                       <td className="px-2 py-2 align-top">
-                        <Input value={row.level} onChange={(event) => updateRow(row.key, "level", event.currentTarget.value)} />
+                        <Input
+                          data-stock-row-key={row.key}
+                          data-stock-field="level"
+                          value={row.level}
+                          onChange={(event) => updateRow(row.key, "level", event.currentTarget.value)}
+                        />
                       </td>
                       <td className="px-2 py-2 align-top">
                         <Input
                           type="number"
                           min={0}
                           step="0.001"
+                          data-stock-row-key={row.key}
+                          data-stock-field="quantity"
                           value={row.quantity}
                           onChange={(event) => updateRow(row.key, "quantity", event.currentTarget.value)}
                           required
@@ -253,7 +366,7 @@ export function StockTakeClient({
               </table>
             </div>
             <div className="flex justify-end">
-              <PendingSubmitButton type="submit" variant="primary" disabled={!selectedAreaId || visibleRows.length === 0}>
+              <PendingSubmitButton type="submit" variant="primary" disabled={!selectedAreaId || rows.length === 0}>
                 {UPDATE_STOCK_LABEL}
               </PendingSubmitButton>
             </div>
