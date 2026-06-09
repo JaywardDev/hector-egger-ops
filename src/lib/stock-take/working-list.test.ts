@@ -136,3 +136,18 @@ test("database migration rejects leading or trailing timber material whitespace"
     assert.match(migration, new RegExp(`${field} = btrim\\(${field}\\)`));
   }
 });
+
+test("dirty counting is defensive for missing row collections and malformed rows", () => {
+  assert.doesNotThrow(() => {
+    assert.equal(countChangedStockTakeRows(null, undefined), 0);
+  });
+  assert.doesNotThrow(() => {
+    assert.equal(
+      countChangedStockTakeRows(
+        [{ timberMaterialId: "timber-1", bay: "A1", level: "Top", quantity: 10 }],
+        [{ timberMaterialId: undefined, bay: undefined, level: undefined, quantity: undefined }],
+      ),
+      1,
+    );
+  });
+});

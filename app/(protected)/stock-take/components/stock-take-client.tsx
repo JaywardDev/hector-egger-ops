@@ -97,8 +97,8 @@ export function StockTakeClient({
   const selectedArea = areas.find((area) => area.id === selectedAreaId);
   const selectedAreaName = selectedArea?.name ?? "selected area";
   const latestSelectedAreaId = areaState.selectedAreaId ?? materialState.selectedAreaId ?? updateState.selectedAreaId;
-  const changedRowCount = countChangedStockTakeRows(loadedRows, rows);
-  const hasUnsavedChanges = changedRowCount > 0;
+  const changedRowCount = useMemo(() => countChangedStockTakeRows(loadedRows, rows), [loadedRows, rows]);
+  const hasUnsavedChanges = useMemo(() => changedRowCount > 0, [changedRowCount]);
   const preview = useMemo(() => {
     try {
       return generateTimberMaterialName(materialPreviewInput);
@@ -164,15 +164,19 @@ export function StockTakeClient({
     }
   }, [focusRowKey, rows]);
 
-  const visibleRows = rows.filter((row) =>
-    rowMatchesStockTakeSearch(
-      {
-        timberName: namesById.get(row.timberMaterialId) ?? "Timber material",
-        bay: row.bay,
-        level: row.level,
-      },
-      search,
-    ),
+  const visibleRows = useMemo(
+    () =>
+      rows.filter((row) =>
+        rowMatchesStockTakeSearch(
+          {
+            timberName: namesById.get(row.timberMaterialId) ?? "Timber material",
+            bay: row.bay,
+            level: row.level,
+          },
+          search,
+        ),
+      ),
+    [namesById, rows, search],
   );
   const updateRow = (key: string, field: keyof DraftRow, value: string) => {
     setRows((currentRows) =>
@@ -194,12 +198,17 @@ export function StockTakeClient({
     ]);
   };
 
-  const stockRowsPayload = rows.map((row) => ({
-    timberMaterialId: row.timberMaterialId,
-    bay: row.bay,
-    level: row.level,
-    quantity: row.quantity,
-  }));
+  const stockRowsPayload = useMemo(
+    () =>
+      rows.map((row) => ({
+        timberMaterialId: row.timberMaterialId,
+        bay: row.bay,
+        level: row.level,
+        quantity: row.quantity,
+      })),
+    [rows],
+  );
+  const stockRowsPayloadJson = useMemo(() => JSON.stringify(stockRowsPayload), [stockRowsPayload]);
 
   const navigateToArea = (areaId: string) => {
     if (hasUnsavedChanges && !window.confirm("You have unsaved stock changes. Leave this area without updating stock?")) {
@@ -293,7 +302,7 @@ export function StockTakeClient({
 
           <form action={updateStockAction} className="space-y-3">
             <input type="hidden" name="area_id" value={selectedAreaId} />
-            <input type="hidden" name="rows" value={JSON.stringify(stockRowsPayload)} />
+            <input type="hidden" name="rows" value={stockRowsPayloadJson} />
             <div className="overflow-x-auto">
               <table className="min-w-full border-collapse text-sm">
                 <thead>

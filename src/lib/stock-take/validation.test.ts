@@ -86,9 +86,16 @@ test("quantity cannot be negative", () => {
 });
 
 test("submit quantity validation rejects blank and invalid numeric input", () => {
-  for (const quantity of ["", " ", ".", "e", "1e", NaN]) {
-    assert.throws(() => normalizeQuantity(quantity), /Quantity must be a number/);
+  for (const quantity of ["", " ", ".", "e", "1e", Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, NaN, null, undefined]) {
+    assert.throws(() => normalizeQuantity(quantity as never), /Quantity must be a number/);
   }
+});
+
+test("submit quantity validation remains strict and does not coerce invalid values to zero", () => {
+  for (const quantity of ["", " ", ".", "e", "1e", Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY, NaN, null, undefined]) {
+    assert.throws(() => normalizeQuantity(quantity as never));
+  }
+  assert.throws(() => normalizeQuantity("-0.001"), /Quantity cannot be negative/);
 });
 
 

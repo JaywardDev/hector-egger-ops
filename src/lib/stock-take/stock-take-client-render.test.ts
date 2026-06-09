@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import Module from "node:module";
 import test from "node:test";
 import { createElement } from "react";
@@ -64,4 +65,32 @@ test("stock-take client renders add-material fields with an existing row", async
   assert.match(html, /name="height"/);
   assert.match(html, /name="width"/);
   assert.match(html, /45x90 SG8 H1.2 6.0m/);
+});
+
+test("stock-take client isolates add-material typing from working-list dirty comparison", () => {
+  const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
+
+  assert.match(
+    source,
+    /const changedRowCount = useMemo\(\(\) => countChangedStockTakeRows\(loadedRows, rows\), \[loadedRows, rows\]\)/,
+  );
+  assert.doesNotMatch(
+    source,
+    /countChangedStockTakeRows\(loadedRows, rows\);/,
+  );
+  assert.match(source, /const visibleRows = useMemo\(/);
+  assert.match(source, /\[namesById, rows, search\]/);
+  assert.match(source, /const stockRowsPayload = useMemo\(/);
+  assert.match(source, /const stockRowsPayloadJson = useMemo\(\(\) => JSON\.stringify\(stockRowsPayload\), \[stockRowsPayload\]\)/);
+  assert.match(source, /name="rows" value=\{stockRowsPayloadJson\}/);
+});
+
+test("add-material typing uses local draft state and does not wire server actions to normal input changes", () => {
+  const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
+
+  assert.match(source, /value=\{materialPreviewInput\[key\]\}/);
+  assert.match(source, /onChange=\{\(event\) =>\s*setMaterialPreviewInput/);
+  assert.match(source, /<form action=\{addMaterialAction\}/);
+  assert.doesNotMatch(source, /onChange=\{addMaterialAction\}/);
+  assert.doesNotMatch(source, /formAction=\{addMaterialAction\}/);
 });
