@@ -215,3 +215,19 @@ test("dirty counting is defensive for missing row collections and malformed rows
     );
   });
 });
+
+test("dirty counting marks timber edits and deleted persisted rows as changes", () => {
+  const loadedRows = [
+    { timberMaterialId: "timber-1", bay: "1", level: "Top", quantity: 10 },
+    { timberMaterialId: "timber-2", bay: "1", level: "Lower", quantity: 5 },
+  ];
+
+  assert.equal(
+    countChangedStockTakeRows(loadedRows, [
+      { timberMaterialId: "timber-3", bay: "1", level: "Top", quantity: 10 },
+      loadedRows[1],
+    ]),
+    1,
+  );
+  assert.equal(countChangedStockTakeRows(loadedRows, [loadedRows[0]]), 1);
+});
