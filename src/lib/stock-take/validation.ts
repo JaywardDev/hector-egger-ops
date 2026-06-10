@@ -123,7 +123,7 @@ export const rowMatchesStockTakeSearch = (row: StockTakeFilterableRow | null | u
   if (!term) {
     return true;
   }
-  return [row?.timberName, row?.bay, row?.level].some((value) => normalizeSearchValue(value).includes(term));
+  return [row?.timberName, row?.level].some((value) => normalizeSearchValue(value).includes(term));
 };
 
 const normalizeComparableRow = (row: StockTakeComparableRow | null | undefined) => ({
