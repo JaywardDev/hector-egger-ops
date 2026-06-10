@@ -265,6 +265,19 @@ export const updateTimberStockRowsForArea = async (
     updated_by_profile_id: actor.updatedByProfileId,
   }));
 
+  const deleteSearchParams = new URLSearchParams({ area_id: `eq.${actor.areaId}` });
+  const deleteResponse = await createServiceRoleSupabaseClient().request(
+    `/rest/v1/timber_stock_rows?${deleteSearchParams.toString()}`,
+    {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    },
+  );
+
+  if (!deleteResponse.ok) {
+    throw new Error("Failed to replace stock rows.");
+  }
+
   if (payload.length === 0) {
     return [];
   }

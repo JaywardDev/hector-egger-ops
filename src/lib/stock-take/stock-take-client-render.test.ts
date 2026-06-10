@@ -239,3 +239,75 @@ test("stock-take client source assigns active bay to new rows and preserves flat
   assert.match(source, /setFocusTarget\(\{ rowKey: newKey, field: "level" \}\)/);
   assert.match(source, /timberMaterialId: row\.timberMaterialId,[\s\S]*bay: row\.bay,[\s\S]*level: row\.level,[\s\S]*quantity: row\.quantity/);
 });
+
+test("stock-take working rows render read-only by default with row action buttons", async () => {
+  const { StockTakeClient } = await import("@/app/(protected)/stock-take/components/stock-take-client");
+  const html = renderToStaticMarkup(
+    createElement(StockTakeClient, {
+      areas: [area],
+      materials: [material],
+      initialAreaId: area.id,
+      initialRows: [existingRow],
+    }),
+  );
+
+  assert.match(html, /45x90 SG8 H1\.2 6\.0m/);
+  assert.match(html, />Top</);
+  assert.match(html, />10</);
+  assert.match(html, /aria-label="Actions for 45x90 SG8 H1\.2 6\.0m"/);
+  assert.match(html, /aria-haspopup="menu"/);
+  assert.doesNotMatch(html, /data-stock-field="level"/);
+  assert.doesNotMatch(html, /data-stock-field="quantity"/);
+});
+
+test("stock-take client source uses a floating row action menu for edit and delete", () => {
+  const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
+
+  assert.match(source, /const \[openRowActionsKey, setOpenRowActionsKey\] = useState<string \| null>\(null\)/);
+  assert.match(source, /aria-haspopup="menu"/);
+  assert.match(source, /role="menu"/);
+  assert.match(source, /role="menuitem"[\s\S]*Edit/);
+  assert.match(source, /role="menuitem"[\s\S]*Delete/);
+  assert.match(source, /className="absolute right-0 top-9 z-20/);
+  assert.match(source, /document\.addEventListener\("mousedown", onPointerDown\)/);
+  assert.match(source, /event\.key === "Escape"/);
+});
+
+test("stock-take client source puts only one row into edit mode with Done and Cancel", () => {
+  const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
+
+  assert.match(source, /const \[editingRowKey, setEditingRowKey\] = useState<string \| null>\(null\)/);
+  assert.match(source, /const isEditing = editingRowKey === row\.key/);
+  assert.match(source, /setEditSessionStartRow\(\{ \.\.\.row \}\)/);
+  assert.match(source, /data-stock-field="timber"/);
+  assert.match(source, /data-stock-field="level"/);
+  assert.match(source, /data-stock-field="quantity"/);
+  assert.match(source, /onClick=\{finishEditingRow\}[\s\S]*Done/);
+  assert.match(source, /onClick=\{cancelEditingRow\}[\s\S]*Cancel/);
+  assert.match(source, /currentRows\.map\(\(row\) => \(row\.key === editSessionStartRow\.key \? editSessionStartRow : row\)\)/);
+});
+
+test("stock-take client moves Add row into the active bay as a bottom plus row", () => {
+  const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
+
+  assert.doesNotMatch(source, /<Button type="button" variant="secondary" onClick=\{addWorkingRow\} disabled=\{localMaterials\.length === 0\}>\s*Add row\s*<\/Button>/);
+  assert.match(source, /aria-label=\{`Add row to \$\{formatBayTabLabel\(activeBay\)\}`\}/);
+  assert.match(source, /<span aria-hidden="true">\+<\/span>/);
+  assert.match(source, /bay: activeBay === UNASSIGNED_BAY_TAB \? "" : activeBay/);
+  assert.match(source, /setEditingRowKey\(newKey\)/);
+  assert.match(source, /setFocusTarget\(\{ rowKey: newKey, field: "timber" \}\)/);
+  assert.doesNotMatch(source, /disabled=\{!selectedAreaId \|\| rows\.length === 0\}/);
+});
+
+test("stock-take update flow replaces the area row set so omitted rows are deleted", () => {
+  const dataSource = readFileSync("src/lib/stock-take/data.ts", "utf8");
+  const clientSource = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
+
+  assert.match(dataSource, /method: "DELETE"/);
+  assert.match(dataSource, /\/rest\/v1\/timber_stock_rows\?\$\{deleteSearchParams\.toString\(\)\}/);
+  assert.match(dataSource, /if \(payload\.length === 0\) \{\s*return \[\];\s*\}/);
+  assert.match(clientSource, /timberMaterialId: row\.timberMaterialId/);
+  assert.match(clientSource, /bay: row\.bay/);
+  assert.match(clientSource, /level: row\.level/);
+  assert.match(clientSource, /quantity: row\.quantity/);
+});
