@@ -168,10 +168,32 @@ test("stock-take atomic replacement migration deletes the selected area inside t
 
   assert.match(migration, /create or replace function public\.replace_timber_stock_rows_for_area/);
   assert.match(migration, /security definer/);
-  assert.match(migration, /set search_path = public/);
+  assert.match(migration, /set search_path = public, pg_temp/);
   assert.match(migration, /where p\.auth_user_id = auth\.uid\(\)[\s\S]*p\.account_status = 'approved'/);
   assert.match(migration, /ur\.role in \('admin', 'supervisor', 'operator'\)/);
   assert.match(migration, /delete from public\.timber_stock_rows[\s\S]*where area_id = p_area_id;[\s\S]*insert into public\.timber_stock_rows/);
   assert.match(migration, /for v_row in select \* from jsonb_array_elements\(p_rows\)/);
   assert.match(migration, /return query[\s\S]*from public\.timber_stock_rows tsr[\s\S]*where tsr\.area_id = p_area_id/);
+});
+
+test("stock-take atomic replacement RPC rejects missing or inactive timber materials before insert", () => {
+  const migration = readFileSync(
+    "supabase/migrations/20260610120000_atomic_timber_stock_area_replacement_rpc.sql",
+    "utf8",
+  );
+
+  const materialValidationIndex = migration.indexOf("from public.timber_materials tm");
+  const materialActiveCheckIndex = migration.indexOf("and tm.is_active = true");
+  const materialExceptionIndex = migration.indexOf("raise exception 'Timber material was not found or is inactive.'");
+  const rowInsertIndex = migration.indexOf("insert into public.timber_stock_rows");
+
+  assert.notEqual(materialValidationIndex, -1);
+  assert.notEqual(materialActiveCheckIndex, -1);
+  assert.notEqual(materialExceptionIndex, -1);
+  assert.notEqual(rowInsertIndex, -1);
+  assert.equal(materialValidationIndex < rowInsertIndex, true);
+  assert.equal(materialActiveCheckIndex < rowInsertIndex, true);
+  assert.equal(materialExceptionIndex < rowInsertIndex, true);
+  assert.match(migration, /where tm\.id = v_timber_material_id[\s\S]*and tm\.is_active = true/);
+  assert.match(migration, /if not exists \([\s\S]*from public\.timber_materials tm[\s\S]*raise exception 'Timber material was not found or is inactive\.'/);
 });

@@ -5,7 +5,7 @@ create or replace function public.replace_timber_stock_rows_for_area(
 returns setof public.timber_stock_rows
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   v_actor_profile_id uuid;
@@ -68,6 +68,15 @@ begin
 
     if v_quantity < 0 then
       raise exception 'Quantity cannot be negative.';
+    end if;
+
+    if not exists (
+      select 1
+      from public.timber_materials tm
+      where tm.id = v_timber_material_id
+        and tm.is_active = true
+    ) then
+      raise exception 'Timber material was not found or is inactive.';
     end if;
 
     insert into public.timber_stock_rows (
