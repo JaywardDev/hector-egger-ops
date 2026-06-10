@@ -10,7 +10,7 @@ import {
 } from "@/src/lib/stock-take/ui-contract";
 
 test("working list headers are exactly the required columns", () => {
-  assert.deepEqual([...WORKING_LIST_HEADERS], ["Timber", "Bay", "Level", "Quantity"]);
+  assert.deepEqual([...WORKING_LIST_HEADERS], ["Timber", "Level", "Quantity"]);
 });
 
 test("working list does not render forbidden row columns", () => {

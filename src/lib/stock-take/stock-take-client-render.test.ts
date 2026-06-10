@@ -43,7 +43,7 @@ const existingRow: TimberStockWorkingRow = {
   area_id: area.id,
   timber_material_id: material.id,
   timber_name: material.name,
-  bay: "A1",
+  bay: "1",
   level: "Top",
   quantity: 10,
   updated_by_profile_id: null,
@@ -109,15 +109,15 @@ test("stock-take change value helper tolerates missing currentTarget and target"
 });
 
 test("stock-take focus helper tolerates a missing querySelector match", async () => {
-  const { focusStockTakeBayInput } = await import("@/app/(protected)/stock-take/components/stock-take-client");
+  const { focusStockTakeRowField } = await import("@/app/(protected)/stock-take/components/stock-take-client");
   const root = {
     querySelector() {
       return null;
     },
   } as unknown as ParentNode;
 
-  assert.doesNotThrow(() => focusStockTakeBayInput("missing-row", root));
-  assert.equal(focusStockTakeBayInput("missing-row", root), false);
+  assert.doesNotThrow(() => focusStockTakeRowField("missing-row", "timber", root));
+  assert.equal(focusStockTakeRowField("missing-row", "timber", root), false);
 });
 
 test("stock-take client isolates add-material typing from working-list dirty comparison", () => {
@@ -132,7 +132,8 @@ test("stock-take client isolates add-material typing from working-list dirty com
     /countChangedStockTakeRows\(loadedRows, rows\);/,
   );
   assert.match(source, /const visibleRows = useMemo\(/);
-  assert.match(source, /\[namesById, rows, search\]/);
+  assert.match(source, /getRowBayTabKey\(row\.bay\) === activeBay/);
+  assert.match(source, /\[activeBay, namesById, rows, search\]/);
   assert.match(source, /const stockRowsPayload = useMemo\(/);
   assert.match(source, /const stockRowsPayloadJson = useMemo\(\(\) => JSON\.stringify\(stockRowsPayload\), \[stockRowsPayload\]\)/);
   assert.match(source, /name="rows" value=\{stockRowsPayloadJson\}/);
@@ -148,4 +149,58 @@ test("add-material typing uses local draft state and does not wire server action
   assert.match(source, /<form action=\{addMaterialAction\}/);
   assert.doesNotMatch(source, /onChange=\{addMaterialAction\}/);
   assert.doesNotMatch(source, /formAction=\{addMaterialAction\}/);
+});
+
+
+test("stock-take client renders default bay tabs and removes Bay from row headers", async () => {
+  const { StockTakeClient } = await import("@/app/(protected)/stock-take/components/stock-take-client");
+  const html = renderToStaticMarkup(
+    createElement(StockTakeClient, {
+      areas: [area],
+      materials: [material],
+      initialAreaId: area.id,
+      initialRows: [],
+    }),
+  );
+
+  assert.match(html, /Bay 1/);
+  assert.match(html, /Bay 2/);
+  assert.match(html, /aria-label="Add next bay"/);
+  assert.match(html, /Search timber or level in this bay/);
+  assert.match(html, />Timber<\/th>/);
+  assert.match(html, />Level<\/th>/);
+  assert.match(html, />Quantity<\/th>/);
+  assert.doesNotMatch(html, />Bay<\/th>/);
+});
+
+test("stock-take client renders saved numeric, unusual, and unassigned bay tabs", async () => {
+  const { StockTakeClient } = await import("@/app/(protected)/stock-take/components/stock-take-client");
+  const makeRow = (id: string, bay: string): TimberStockWorkingRow => ({
+    ...existingRow,
+    id,
+    bay,
+  });
+  const html = renderToStaticMarkup(
+    createElement(StockTakeClient, {
+      areas: [area],
+      materials: [material],
+      initialAreaId: area.id,
+      initialRows: [makeRow("row-1", "1"), makeRow("row-2", "2"), makeRow("row-5", "5"), makeRow("row-a", "A1"), makeRow("row-blank", "")],
+    }),
+  );
+
+  assert.match(html, /Bay 1/);
+  assert.match(html, /Bay 2/);
+  assert.match(html, /Bay 5/);
+  assert.match(html, /Bay A1/);
+  assert.match(html, /Unassigned/);
+});
+
+test("stock-take client source assigns active bay to new rows and preserves flat payload", () => {
+  const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
+
+  assert.match(source, /bay: activeBay === UNASSIGNED_BAY_TAB \? "" : activeBay/);
+  assert.match(source, /setFocusTarget\(\{ rowKey: newKey, field: "timber" \}\)/);
+  assert.match(source, /setFocusTarget\(\{ rowKey: newKey, field: "level" \}\)/);
+  assert.match(source, /timberMaterialId: row\.timberMaterialId,[\s\S]*bay: row\.bay,[\s\S]*level: row\.level,[\s\S]*quantity: row\.quantity/);
 });

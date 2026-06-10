@@ -48,6 +48,8 @@ type StockTakeClientProps = {
 
 const initialActionState: StockTakeActionState = { ok: false, message: "" };
 
+export const UNASSIGNED_BAY_TAB = "__unassigned__";
+
 type StockTakeChangeEvent = {
   currentTarget?: EventTarget | null;
   target?: EventTarget | null;
@@ -55,6 +57,10 @@ type StockTakeChangeEvent = {
 
 type StockTakeValueElement = {
   value: string;
+};
+
+type FocusableStockTakeElement = {
+  focus: () => void;
 };
 
 const hasStringValue = (element: EventTarget | null | undefined): element is EventTarget & StockTakeValueElement => {
@@ -75,21 +81,127 @@ const hasStringValue = (element: EventTarget | null | undefined): element is Eve
   return typeof (element as { value?: unknown }).value === "string";
 };
 
+const isFocusableStockTakeElement = (element: Element | null): element is Element & FocusableStockTakeElement =>
+  !!element && typeof (element as { focus?: unknown }).focus === "function";
+
 export const readStockTakeChangeValue = (event: StockTakeChangeEvent): string => {
   const element = event.currentTarget ?? event.target;
 
   return hasStringValue(element) ? element.value : "";
 };
 
-export const focusStockTakeBayInput = (rowKey: string, root: ParentNode = document): boolean => {
-  const input = root.querySelector(`[data-stock-row-key="${rowKey}"][data-stock-field="bay"]`);
+export const focusStockTakeRowField = (
+  rowKey: string,
+  field: "timber" | "level" | "quantity",
+  root: ParentNode = document,
+): boolean => {
+  const fieldElement = root.querySelector(`[data-stock-row-key="${rowKey}"][data-stock-field="${field}"]`);
 
-  if (typeof HTMLInputElement !== "undefined" && input instanceof HTMLInputElement) {
-    input.focus();
+  if (isFocusableStockTakeElement(fieldElement)) {
+    fieldElement.focus();
     return true;
   }
 
   return false;
+};
+
+const getRowBayTabKey = (bay: string) => (bay.trim() ? bay : UNASSIGNED_BAY_TAB);
+
+const isPositiveIntegerBay = (bay: string) => /^\d+$/.test(bay) && Number(bay) > 0;
+
+export const getLowestMissingPositiveNumericBay = (bays: readonly string[]) => {
+  const numericBays = new Set(bays.filter(isPositiveIntegerBay).map((bay) => Number(bay)));
+  let bay = 1;
+
+  while (numericBays.has(bay)) {
+    bay += 1;
+  }
+
+  return String(bay);
+};
+
+export type BayTab = {
+  key: string;
+  label: string;
+  count: number;
+};
+
+const formatBayTabLabel = (bay: string) => {
+  if (bay === UNASSIGNED_BAY_TAB) {
+    return "Unassigned";
+  }
+
+  return `Bay ${bay}`;
+};
+
+export const deriveBayTabs = (rows: readonly Pick<DraftRow, "bay">[], addedBays: readonly string[] = []): BayTab[] => {
+  const bayValues = new Set<string>(["1", "2", ...addedBays]);
+  let hasUnassignedRows = false;
+  const counts = new Map<string, number>();
+
+  for (const row of rows) {
+    const tabKey = getRowBayTabKey(row.bay);
+    counts.set(tabKey, (counts.get(tabKey) ?? 0) + 1);
+
+    if (tabKey === UNASSIGNED_BAY_TAB) {
+      hasUnassignedRows = true;
+    } else {
+      bayValues.add(tabKey);
+    }
+  }
+
+  const tabs = [...bayValues]
+    .sort((left, right) => {
+      const leftIsNumeric = isPositiveIntegerBay(left);
+      const rightIsNumeric = isPositiveIntegerBay(right);
+
+      if (leftIsNumeric && rightIsNumeric) {
+        return Number(left) - Number(right);
+      }
+      if (leftIsNumeric) {
+        return -1;
+      }
+      if (rightIsNumeric) {
+        return 1;
+      }
+      return left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" });
+    })
+    .map((bay) => ({
+      key: bay,
+      label: formatBayTabLabel(bay),
+      count: counts.get(bay) ?? 0,
+    }));
+
+  if (hasUnassignedRows) {
+    tabs.push({
+      key: UNASSIGNED_BAY_TAB,
+      label: "Unassigned",
+      count: counts.get(UNASSIGNED_BAY_TAB) ?? 0,
+    });
+  }
+
+  return tabs;
+};
+
+const getLevelSortValue = (level: string) => {
+  const match = level.trim().match(/^(?:level\s*)?(\d+(?:\.\d+)?)$/i);
+  return match ? Number(match[1]) : null;
+};
+
+export const compareStockTakeLevels = (left: Pick<DraftRow, "level">, right: Pick<DraftRow, "level">) => {
+  const leftLevel = getLevelSortValue(left.level);
+  const rightLevel = getLevelSortValue(right.level);
+
+  if (leftLevel !== null && rightLevel !== null) {
+    return leftLevel - rightLevel;
+  }
+  if (leftLevel !== null) {
+    return -1;
+  }
+  if (rightLevel !== null) {
+    return 1;
+  }
+  return 0;
 };
 
 const toDraftRows = (rows: TimberStockWorkingRow[]): DraftRow[] =>
@@ -123,8 +235,11 @@ export function StockTakeClient({
   const [loadedRows, setLoadedRows] = useState<DraftRow[]>(toDraftRows(initialRows));
   const [localMaterials, setLocalMaterials] = useState<TimberMaterialRecord[]>(materials);
   const [search, setSearch] = useState("");
-  const [focusRowKey, setFocusRowKey] = useState<string | null>(null);
-  const focusedRowKeys = useRef(new Set<string>());
+  const [activeBay, setActiveBay] = useState("1");
+  const [addedBays, setAddedBays] = useState<string[]>([]);
+  const [focusTarget, setFocusTarget] = useState<{ rowKey: string; field: "timber" | "level" | "quantity" } | null>(null);
+  const focusedTargets = useRef(new Set<string>());
+  const activeBayRef = useRef(activeBay);
   const rowsRef = useRef(rows);
   const [areaState, addAreaAction] = useActionState(createStockAreaAction, initialActionState);
   const [materialState, addMaterialAction] = useActionState(createTimberMaterialAction, initialActionState);
@@ -143,6 +258,7 @@ export function StockTakeClient({
   const latestSelectedAreaId = areaState.selectedAreaId ?? materialState.selectedAreaId ?? updateState.selectedAreaId;
   const changedRowCount = useMemo(() => countChangedStockTakeRows(loadedRows, rows), [loadedRows, rows]);
   const hasUnsavedChanges = useMemo(() => changedRowCount > 0, [changedRowCount]);
+  const bayTabs = useMemo(() => deriveBayTabs(rows, addedBays), [addedBays, rows]);
   const preview = useMemo(() => {
     try {
       return generateTimberMaterialName(materialPreviewInput);
@@ -154,6 +270,10 @@ export function StockTakeClient({
   useEffect(() => {
     rowsRef.current = rows;
   }, [rows]);
+
+  useEffect(() => {
+    activeBayRef.current = activeBay;
+  }, [activeBay]);
 
   useEffect(() => {
     setLocalMaterials(materials);
@@ -177,14 +297,14 @@ export function StockTakeClient({
       {
         key: newKey,
         timberMaterialId: material.id,
-        bay: "",
+        bay: activeBayRef.current === UNASSIGNED_BAY_TAB ? "" : activeBayRef.current,
         level: "",
         quantity: "0",
         persisted: false,
       },
     ]);
     setSearch("");
-    setFocusRowKey(newKey);
+    setFocusTarget({ rowKey: newKey, field: "level" });
   }, [materialState]);
 
   useEffect(() => {
@@ -197,29 +317,45 @@ export function StockTakeClient({
   }, [updateState]);
 
   useEffect(() => {
-    if (!focusRowKey || focusedRowKeys.current.has(focusRowKey)) {
+    if (!bayTabs.some((tab) => tab.key === activeBay)) {
+      setActiveBay("1");
+    }
+  }, [activeBay, bayTabs]);
+
+  useEffect(() => {
+    if (!focusTarget) {
       return;
     }
 
-    if (focusStockTakeBayInput(focusRowKey)) {
-      focusedRowKeys.current.add(focusRowKey);
+    const focusKey = `${focusTarget.rowKey}:${focusTarget.field}`;
+    if (focusedTargets.current.has(focusKey)) {
+      return;
     }
-  }, [focusRowKey, rows]);
+
+    if (focusStockTakeRowField(focusTarget.rowKey, focusTarget.field)) {
+      focusedTargets.current.add(focusKey);
+    }
+  }, [focusTarget, rows]);
 
   const visibleRows = useMemo(
     () =>
-      rows.filter((row) =>
-        rowMatchesStockTakeSearch(
-          {
-            timberName: namesById.get(row.timberMaterialId) ?? "Timber material",
-            bay: row.bay,
-            level: row.level,
-          },
-          search,
-        ),
-      ),
-    [namesById, rows, search],
+      rows
+        .filter((row) => getRowBayTabKey(row.bay) === activeBay)
+        .filter((row) =>
+          rowMatchesStockTakeSearch(
+            {
+              timberName: namesById.get(row.timberMaterialId) ?? "Timber material",
+              level: row.level,
+            },
+            search,
+          ),
+        )
+        .map((row, index) => ({ row, index }))
+        .sort((left, right) => compareStockTakeLevels(left.row, right.row) || left.index - right.index)
+        .map(({ row }) => row),
+    [activeBay, namesById, rows, search],
   );
+
   const updateRow = (key: string, field: keyof DraftRow, value: string) => {
     setRows((currentRows) =>
       currentRows.map((row) => (row.key === key ? { ...row, [field]: value } : row)),
@@ -227,17 +363,27 @@ export function StockTakeClient({
   };
 
   const addWorkingRow = () => {
+    const newKey = `new-${crypto.randomUUID()}`;
     setRows((currentRows) => [
       ...currentRows,
       {
-        key: `new-${crypto.randomUUID()}`,
+        key: newKey,
         timberMaterialId: localMaterials[0]?.id ?? "",
-        bay: "",
+        bay: activeBay === UNASSIGNED_BAY_TAB ? "" : activeBay,
         level: "",
         quantity: "0",
         persisted: false,
       },
     ]);
+    setSearch("");
+    setFocusTarget({ rowKey: newKey, field: "timber" });
+  };
+
+  const addBayTab = () => {
+    const nextBay = getLowestMissingPositiveNumericBay(bayTabs.map((tab) => tab.key));
+    setAddedBays((currentBays) => (currentBays.includes(nextBay) ? currentBays : [...currentBays, nextBay]));
+    setActiveBay(nextBay);
+    setSearch("");
   };
 
   const stockRowsPayload = useMemo(
@@ -326,13 +472,49 @@ export function StockTakeClient({
             </Button>
           </div>
 
+          <div className="-mx-1 overflow-x-auto px-1" role="tablist" aria-label="Bay tabs">
+            <div className="flex w-max min-w-full flex-nowrap gap-2 pb-1">
+              {bayTabs.map((tab) => {
+                const isActive = tab.key === activeBay;
+
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    className={`min-h-10 shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                      isActive
+                        ? "border-blue-700 bg-blue-700 text-white"
+                        : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400"
+                    }`}
+                    onClick={() => {
+                      setActiveBay(tab.key);
+                      setSearch("");
+                    }}
+                  >
+                    {tab.label} <span className={isActive ? "text-blue-100" : "text-zinc-500"}>({tab.count})</span>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                aria-label="Add next bay"
+                className="min-h-10 shrink-0 rounded-full border border-dashed border-zinc-400 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:border-zinc-600"
+                onClick={addBayTab}
+              >
+                +
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <FormField label="Search working list" htmlFor="stock_take_search">
               <Input
                 id="stock_take_search"
                 value={search}
                 onChange={(event) => setSearch(readStockTakeChangeValue(event))}
-                placeholder="Search timber, bay, or level..."
+                placeholder="Search timber or level in this bay..."
               />
             </FormField>
             {hasUnsavedChanges ? (
@@ -360,7 +542,7 @@ export function StockTakeClient({
                   {visibleRows.length === 0 ? (
                     <tr>
                       <td className="px-2 py-4 text-zinc-600" colSpan={WORKING_LIST_HEADERS.length}>
-                        {search.trim() ? "No matching timber rows in this area." : "No timber rows yet. Add a row or add a new material to begin."}
+                        {search.trim() ? "No matching timber rows in this bay." : "No timber rows in this bay yet. Add a row or add a new material to begin."}
                       </td>
                     </tr>
                   ) : null}
@@ -371,6 +553,8 @@ export function StockTakeClient({
                           <p className="pt-1.5 text-zinc-900">{namesById.get(row.timberMaterialId) ?? "Timber material"}</p>
                         ) : (
                           <Select
+                            data-stock-row-key={row.key}
+                            data-stock-field="timber"
                             value={row.timberMaterialId}
                             onChange={(event) => updateRow(row.key, "timberMaterialId", readStockTakeChangeValue(event))}
                             required
@@ -382,14 +566,6 @@ export function StockTakeClient({
                             ))}
                           </Select>
                         )}
-                      </td>
-                      <td className="px-2 py-2 align-top">
-                        <Input
-                          data-stock-row-key={row.key}
-                          data-stock-field="bay"
-                          value={row.bay}
-                          onChange={(event) => updateRow(row.key, "bay", readStockTakeChangeValue(event))}
-                        />
                       </td>
                       <td className="px-2 py-2 align-top">
                         <Input
@@ -416,7 +592,12 @@ export function StockTakeClient({
                 </tbody>
               </table>
             </div>
-            <div className="flex justify-end">
+            <div className="sticky bottom-0 -mx-3 flex items-center justify-between gap-3 border-t border-zinc-200 bg-white/95 px-3 py-3 backdrop-blur sm:static sm:mx-0 sm:justify-end sm:border-t-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
+              {hasUnsavedChanges ? (
+                <p className="text-sm font-medium text-amber-700">
+                  {changedRowCount} {changedRowCount === 1 ? "change" : "changes"}
+                </p>
+              ) : <span />}
               <PendingSubmitButton type="submit" variant="primary" disabled={!selectedAreaId || rows.length === 0}>
                 {UPDATE_STOCK_LABEL}
               </PendingSubmitButton>

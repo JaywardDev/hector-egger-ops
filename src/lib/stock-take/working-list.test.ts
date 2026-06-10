@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import Module from "node:module";
 import test from "node:test";
 import {
   countChangedStockTakeRows,
@@ -8,19 +9,69 @@ import {
   normalizeTimberMaterialForLookup,
   rowMatchesStockTakeSearch,
 } from "@/src/lib/stock-take/validation";
+const originalLoad = Module._load;
+Module._load = function loadWithServerOnlyStub(request, parent, isMain) {
+  if (request === "server-only") {
+    return {};
+  }
+  return originalLoad.call(this, request, parent, isMain);
+};
+
+const getStockTakeClientHelpers = async () => import("@/app/(protected)/stock-take/components/stock-take-client");
 
 const rows = [
   { timberName: "45x90 SG8 H1.2 6.0m", bay: "A1", level: "Top" },
   { timberName: "90x90 SG10 H3.2 4.8m", bay: "B2", level: "Lower" },
 ];
 
+
+test("bay tabs include default Bay 1 and Bay 2 with no rows", async () => {
+  const { deriveBayTabs } = await getStockTakeClientHelpers();
+
+  assert.deepEqual(deriveBayTabs([]), [
+    { key: "1", label: "Bay 1", count: 0 },
+    { key: "2", label: "Bay 2", count: 0 },
+  ]);
+});
+
+test("bay tabs include existing numeric, unusual, and unassigned bays without dropping labels", async () => {
+  const { deriveBayTabs, UNASSIGNED_BAY_TAB } = await getStockTakeClientHelpers();
+
+  assert.deepEqual(deriveBayTabs([{ bay: "1" }, { bay: "2" }, { bay: "5" }, { bay: "A1" }, { bay: "" }]), [
+    { key: "1", label: "Bay 1", count: 1 },
+    { key: "2", label: "Bay 2", count: 1 },
+    { key: "5", label: "Bay 5", count: 1 },
+    { key: "A1", label: "Bay A1", count: 1 },
+    { key: UNASSIGNED_BAY_TAB, label: "Unassigned", count: 1 },
+  ]);
+});
+
+test("add bay chooses the lowest missing positive numeric bay", async () => {
+  const { getLowestMissingPositiveNumericBay } = await getStockTakeClientHelpers();
+
+  assert.equal(getLowestMissingPositiveNumericBay(["1", "2", "5"]), "3");
+  assert.equal(getLowestMissingPositiveNumericBay(["1", "2", "3", "5"]), "4");
+  assert.equal(getLowestMissingPositiveNumericBay(["1", "2", "3", "4", "5", "A1"]), "6");
+});
+
+test("level sorting is numeric ascending with stable fallback for blanks and words", async () => {
+  const { compareStockTakeLevels } = await getStockTakeClientHelpers();
+  const draftRows = [{ level: "Top" }, { level: "Level 3" }, { level: "" }, { level: "Level 1" }, { level: "2" }];
+  const sortedLevels = draftRows
+    .map((row, index) => ({ row, index }))
+    .sort((left, right) => compareStockTakeLevels(left.row, right.row) || left.index - right.index)
+    .map(({ row }) => row.level);
+
+  assert.deepEqual(sortedLevels, ["Level 1", "2", "Level 3", "Top", ""]);
+});
+
 test("working-list search matches timber name", () => {
   assert.equal(rowMatchesStockTakeSearch(rows[0], "sg8"), true);
   assert.equal(rowMatchesStockTakeSearch(rows[1], "sg8"), false);
 });
 
-test("working-list search matches bay", () => {
-  assert.equal(rowMatchesStockTakeSearch(rows[0], "a1"), true);
+test("working-list search no longer matches bay text", () => {
+  assert.equal(rowMatchesStockTakeSearch(rows[0], "a1"), false);
   assert.equal(rowMatchesStockTakeSearch(rows[1], "a1"), false);
 });
 
@@ -29,10 +80,10 @@ test("working-list search matches level", () => {
   assert.equal(rowMatchesStockTakeSearch(rows[1], "top"), false);
 });
 
-test("working-list search is null-safe and still matches populated fields", () => {
+test("working-list search is null-safe and still matches timber and level fields", () => {
   assert.equal(rowMatchesStockTakeSearch({ timberName: "45x90 SG8 H1.2 6.0m", bay: null, level: undefined }, "sg8"), true);
   assert.equal(rowMatchesStockTakeSearch({ timberName: "45x90 SG8 H1.2 6.0m", bay: null, level: undefined }, "a1"), false);
-  assert.equal(rowMatchesStockTakeSearch({ timberName: "", bay: "A1", level: null }, "a1"), true);
+  assert.equal(rowMatchesStockTakeSearch({ timberName: "", bay: "A1", level: null }, "a1"), false);
   assert.equal(rowMatchesStockTakeSearch({ timberName: undefined, bay: null, level: "Top" }, "top"), true);
 });
 
@@ -47,20 +98,33 @@ test("working-list search can produce the no-match state without changing rows",
   assert.equal(countChangedStockTakeRows(savedRows, savedRows), 0);
 });
 
-test("add-material flow appends an unsaved row using the created or reused material", () => {
+test("add-material flow appends an unsaved row using the active bay", () => {
   const createdMaterial = { id: "timber-3", name: "140x45 SG8 H1.2 6.0m" };
+  const activeBay = "3";
   const appendedRow = {
     timberMaterialId: createdMaterial.id,
-    bay: "",
+    bay: activeBay,
     level: "",
     quantity: "0",
   };
 
   assert.equal(appendedRow.timberMaterialId, createdMaterial.id);
-  assert.equal(appendedRow.bay, "");
+  assert.equal(appendedRow.bay, "3");
   assert.equal(appendedRow.level, "");
   assert.equal(appendedRow.quantity, "0");
   assert.equal(countChangedStockTakeRows([], [appendedRow]), 1);
+});
+
+test("rows added from the Unassigned tab keep a blank bay", async () => {
+  const { UNASSIGNED_BAY_TAB } = await getStockTakeClientHelpers();
+  const appendedRow = {
+    timberMaterialId: "timber-3",
+    bay: UNASSIGNED_BAY_TAB === "__unassigned__" ? "" : "unexpected",
+    level: "",
+    quantity: "0",
+  };
+
+  assert.equal(appendedRow.bay, "");
 });
 
 test("appended material row supports immediate bay, level, and quantity edits", () => {
