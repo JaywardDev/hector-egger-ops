@@ -299,13 +299,14 @@ test("stock-take client moves Add row into the active bay as a bottom plus row",
   assert.doesNotMatch(source, /disabled=\{!selectedAreaId \|\| rows\.length === 0\}/);
 });
 
-test("stock-take update flow replaces the area row set so omitted rows are deleted", () => {
+test("stock-take update flow replaces the area row set through the atomic RPC", () => {
   const dataSource = readFileSync("src/lib/stock-take/data.ts", "utf8");
   const clientSource = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
 
-  assert.match(dataSource, /method: "DELETE"/);
-  assert.match(dataSource, /\/rest\/v1\/timber_stock_rows\?\$\{deleteSearchParams\.toString\(\)\}/);
-  assert.match(dataSource, /if \(payload\.length === 0\) \{\s*return \[\];\s*\}/);
+  assert.match(dataSource, /\/rest\/v1\/rpc\/replace_timber_stock_rows_for_area\?select=\$\{rowSelect\}/);
+  assert.doesNotMatch(dataSource, /method: "DELETE"/);
+  assert.doesNotMatch(dataSource, /\/rest\/v1\/timber_stock_rows\?\$\{deleteSearchParams\.toString\(\)\}/);
+  assert.match(dataSource, /p_rows: payload/);
   assert.match(clientSource, /timberMaterialId: row\.timberMaterialId/);
   assert.match(clientSource, /bay: row\.bay/);
   assert.match(clientSource, /level: row\.level/);

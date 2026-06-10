@@ -256,41 +256,32 @@ export const updateTimberStockRowsForArea = async (
 ): Promise<TimberStockRowRecord[]> => {
   await assertTimberStockWriteAccess(actor);
 
-  const payload = actor.rows.map((row) => ({
-    area_id: actor.areaId,
-    timber_material_id: row.timberMaterialId,
-    bay: normalizeBayLevelValue(row.bay),
-    level: normalizeBayLevelValue(row.level),
-    quantity: normalizeQuantity(row.quantity),
-    updated_by_profile_id: actor.updatedByProfileId,
-  }));
+  const payload = actor.rows.map((row) => {
+    const timberMaterialId = row.timberMaterialId.trim();
+    if (!timberMaterialId) {
+      throw new Error("Timber material is required.");
+    }
 
-  const deleteSearchParams = new URLSearchParams({ area_id: `eq.${actor.areaId}` });
-  const deleteResponse = await createServiceRoleSupabaseClient().request(
-    `/rest/v1/timber_stock_rows?${deleteSearchParams.toString()}`,
-    {
-      method: "DELETE",
-      headers: { Prefer: "return=minimal" },
-    },
-  );
+    return {
+      timberMaterialId,
+      bay: normalizeBayLevelValue(row.bay),
+      level: normalizeBayLevelValue(row.level),
+      quantity: normalizeQuantity(row.quantity),
+    };
+  });
 
-  if (!deleteResponse.ok) {
-    throw new Error("Failed to replace stock rows.");
-  }
-
-  if (payload.length === 0) {
-    return [];
-  }
-
-  const response = await createServiceRoleSupabaseClient().request(
-    `/rest/v1/timber_stock_rows?on_conflict=area_id,timber_material_id,bay,level&select=${rowSelect}`,
+  const response = await createServerSupabaseClient().request(
+    `/rest/v1/rpc/replace_timber_stock_rows_for_area?select=${rowSelect}`,
     {
       method: "POST",
       headers: {
+        ...createSessionHeaders(actor.session),
         "Content-Type": "application/json",
-        Prefer: "return=representation,resolution=merge-duplicates",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        p_area_id: actor.areaId,
+        p_rows: payload,
+      }),
     },
   );
 
