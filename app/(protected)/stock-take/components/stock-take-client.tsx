@@ -5,6 +5,7 @@ import { Alert } from "@/src/components/ui/alert";
 import { Button } from "@/src/components/ui/button";
 import { Card } from "@/src/components/ui/card";
 import { FormField } from "@/src/components/ui/form-field";
+import { FullScreenDialog } from "@/src/components/ui/full-screen-dialog";
 import { Input } from "@/src/components/ui/input";
 import { PendingSubmitButton } from "@/src/components/ui/pending-button";
 import { Select } from "@/src/components/ui/select";
@@ -244,6 +245,8 @@ export function StockTakeClient({
   const [areaState, addAreaAction] = useActionState(createStockAreaAction, initialActionState);
   const [materialState, addMaterialAction] = useActionState(createTimberMaterialAction, initialActionState);
   const [updateState, updateStockAction] = useActionState(updateTimberStockAction, initialActionState);
+  const [isAreaModalOpen, setIsAreaModalOpen] = useState(false);
+  const [isMaterialModalOpen, setIsMaterialModalOpen] = useState(false);
   const [materialPreviewInput, setMaterialPreviewInput] = useState({
     height: "",
     width: "",
@@ -304,6 +307,7 @@ export function StockTakeClient({
       },
     ]);
     setSearch("");
+    setIsMaterialModalOpen(false);
     setFocusTarget({ rowKey: newKey, field: "level" });
   }, [materialState]);
 
@@ -408,55 +412,20 @@ export function StockTakeClient({
 
   return (
     <div className="space-y-4">
-      <Card className="space-y-3">
-        <div>
-          <h2 className="text-base font-semibold text-zinc-950">Choose area</h2>
-          <p className="text-sm text-zinc-600">Select the physical area you are counting.</p>
+      <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Current area</p>
+          <p className="truncate text-sm font-medium text-zinc-900">{selectedArea ? selectedAreaName : "No area selected"}</p>
         </div>
-
-        {areas.length === 0 ? (
-          <Alert variant="warning">Add an area before entering timber quantities.</Alert>
-        ) : null}
-
-        <FormField label="Area" htmlFor="area_selector">
-          <Select
-            id="area_selector"
-            value={selectedAreaId}
-            onChange={(event) => {
-              navigateToArea(readStockTakeChangeValue(event));
-            }}
-          >
-            {areas.length === 0 ? <option value="">No areas yet</option> : null}
-            {areas.map((area) => (
-              <option key={area.id} value={area.id}>
-                {area.name}
-              </option>
-            ))}
-          </Select>
-        </FormField>
-
-        {latestSelectedAreaId && latestSelectedAreaId !== selectedAreaId ? (
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              navigateToArea(latestSelectedAreaId);
-            }}
-          >
-            Open updated area
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:shrink-0">
+          <Button type="button" variant="secondary" onClick={() => setIsAreaModalOpen(true)}>
+            Choose area
           </Button>
-        ) : null}
-
-        <form action={addAreaAction} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <FormField label="Area name" htmlFor="area_name" className="flex-1">
-            <Input id="area_name" name="area_name" required />
-          </FormField>
-          <PendingSubmitButton type="submit" variant="secondary">
-            Add area
-          </PendingSubmitButton>
-        </form>
-        <ActionMessage state={areaState} />
-      </Card>
+          <Button type="button" variant="secondary" onClick={() => setIsMaterialModalOpen(true)} disabled={!selectedAreaId}>
+            Add new material
+          </Button>
+        </div>
+      </div>
 
       {selectedArea ? (
         <Card className="space-y-3">
@@ -607,45 +576,107 @@ export function StockTakeClient({
         </Card>
       ) : null}
 
-      <Card className="space-y-3">
-        <div>
-          <h2 className="text-base font-semibold text-zinc-950">Add new material</h2>
-          <p className="text-sm text-zinc-600">Create a timber material from its dimensions and specification.</p>
-        </div>
-        <form action={addMaterialAction} className="grid gap-3 sm:grid-cols-2">
-          <input type="hidden" name="selected_area_id" value={selectedAreaId} />
-          {ADD_MATERIAL_FIELDS.map((field) => {
-            const key = field.toLowerCase() as keyof typeof materialPreviewInput;
-            return (
-              <FormField key={field} label={field} htmlFor={key}>
-                <Input
-                  id={key}
-                  name={key}
-                  value={materialPreviewInput[key]}
-                  onChange={(event) => {
-                    const nextValue = readStockTakeChangeValue(event);
+      <FullScreenDialog
+        open={isAreaModalOpen}
+        title="Choose area"
+        description="Select the physical area you are counting or add another active area."
+        closeLabel="Close area chooser"
+        onClose={() => setIsAreaModalOpen(false)}
+        contentClassName="p-3 sm:p-6"
+      >
+        <Card className="mx-auto max-w-2xl space-y-3">
+          {areas.length === 0 ? (
+            <Alert variant="warning">Add an area before entering timber quantities.</Alert>
+          ) : null}
 
-                    setMaterialPreviewInput((current) => ({
-                      ...current,
-                      [key]: nextValue,
-                    }));
-                  }}
-                  required
-                />
-              </FormField>
-            );
-          })}
-          <FormField label="Generated timber name" className="sm:col-span-2">
-            <Input value={preview} readOnly aria-readonly="true" />
+          <FormField label="Area" htmlFor="area_selector">
+            <Select
+              id="area_selector"
+              value={selectedAreaId}
+              onChange={(event) => {
+                navigateToArea(readStockTakeChangeValue(event));
+              }}
+            >
+              {areas.length === 0 ? <option value="">No areas yet</option> : null}
+              {areas.map((area) => (
+                <option key={area.id} value={area.id}>
+                  {area.name}
+                </option>
+              ))}
+            </Select>
           </FormField>
-          <div className="sm:col-span-2">
+
+          {latestSelectedAreaId && latestSelectedAreaId !== selectedAreaId ? (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                navigateToArea(latestSelectedAreaId);
+              }}
+            >
+              Open updated area
+            </Button>
+          ) : null}
+
+          <form action={addAreaAction} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <FormField label="Area name" htmlFor="area_name" className="flex-1">
+              <Input id="area_name" name="area_name" required />
+            </FormField>
             <PendingSubmitButton type="submit" variant="secondary">
-              Add new material
+              Add area
             </PendingSubmitButton>
-          </div>
-        </form>
-        <ActionMessage state={materialState} />
-      </Card>
+          </form>
+          <ActionMessage state={areaState} />
+        </Card>
+      </FullScreenDialog>
+
+      <FullScreenDialog
+        open={isMaterialModalOpen}
+        title="Add new material"
+        description="Create a timber material from its dimensions and specification. The new row will be added to the active bay."
+        closeLabel="Close material form"
+        onClose={() => setIsMaterialModalOpen(false)}
+        contentClassName="p-3 sm:p-6"
+      >
+        <Card className="mx-auto max-w-2xl space-y-3">
+          <form action={addMaterialAction} className="grid gap-3 sm:grid-cols-2">
+            <input type="hidden" name="selected_area_id" value={selectedAreaId} />
+            {ADD_MATERIAL_FIELDS.map((field) => {
+              const key = field.toLowerCase() as keyof typeof materialPreviewInput;
+              return (
+                <FormField key={field} label={field} htmlFor={key}>
+                  <Input
+                    id={key}
+                    name={key}
+                    value={materialPreviewInput[key]}
+                    onChange={(event) => {
+                      const nextValue = readStockTakeChangeValue(event);
+
+                      setMaterialPreviewInput((current) => ({
+                        ...current,
+                        [key]: nextValue,
+                      }));
+                    }}
+                    required
+                  />
+                </FormField>
+              );
+            })}
+            <FormField label="Generated timber name" className="sm:col-span-2">
+              <Input value={preview} readOnly aria-readonly="true" />
+            </FormField>
+            <div className="flex flex-col gap-2 sm:col-span-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="secondary" onClick={() => setIsMaterialModalOpen(false)}>
+                Cancel
+              </Button>
+              <PendingSubmitButton type="submit" variant="secondary">
+                Add new material
+              </PendingSubmitButton>
+            </div>
+          </form>
+          <ActionMessage state={materialState} />
+        </Card>
+      </FullScreenDialog>
     </div>
   );
 }

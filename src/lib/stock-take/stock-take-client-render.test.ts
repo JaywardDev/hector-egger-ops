@@ -51,7 +51,7 @@ const existingRow: TimberStockWorkingRow = {
   updated_at: "2026-06-09T00:00:00.000Z",
 };
 
-test("stock-take client renders add-material fields with an existing row", async () => {
+test("stock-take client renders compact stock-take actions without full modal forms by default", async () => {
   const { StockTakeClient } = await import("@/app/(protected)/stock-take/components/stock-take-client");
   const html = renderToStaticMarkup(
     createElement(StockTakeClient, {
@@ -62,13 +62,48 @@ test("stock-take client renders add-material fields with an existing row", async
     }),
   );
 
-  assert.match(html, /Add new material/);
+  assert.match(html, />Choose area</);
+  assert.match(html, />Add new material</);
+  assert.match(html, /Working list for Main Yard/);
   assert.match(html, /45x90 SG8 H1.2 6.0m/);
+  assert.doesNotMatch(html, /id="area_selector"/);
+  assert.doesNotMatch(html, /id="area_name"/);
 
   for (const field of ADD_MATERIAL_FIELDS.map((label) => label.toLowerCase())) {
-    assert.match(html, new RegExp(`id="${field}"`));
-    assert.match(html, new RegExp(`name="${field}"`));
+    assert.doesNotMatch(html, new RegExp(`id="${field}"`));
+    assert.doesNotMatch(html, new RegExp(`name="${field}"`));
   }
+});
+
+test("stock-take client source keeps Choose area controls inside an accessible modal", () => {
+  const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
+
+  assert.match(source, /const \[isAreaModalOpen, setIsAreaModalOpen\] = useState\(false\)/);
+  assert.match(source, /<Button type="button" variant="secondary" onClick=\{\(\) => setIsAreaModalOpen\(true\)\}>\s*Choose area\s*<\/Button>/);
+  assert.match(source, /<FullScreenDialog[\s\S]*open=\{isAreaModalOpen\}[\s\S]*title="Choose area"[\s\S]*closeLabel="Close area chooser"/);
+  assert.match(source, /<Select[\s\S]*id="area_selector"[\s\S]*navigateToArea\(readStockTakeChangeValue\(event\)\)/);
+  assert.match(source, /<Input id="area_name" name="area_name" required \/>/);
+  assert.match(source, /<PendingSubmitButton type="submit" variant="secondary">\s*Add area\s*<\/PendingSubmitButton>/);
+});
+
+test("stock-take client source keeps Add new material controls inside an accessible modal", () => {
+  const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
+
+  assert.match(source, /const \[isMaterialModalOpen, setIsMaterialModalOpen\] = useState\(false\)/);
+  assert.match(source, /<Button type="button" variant="secondary" onClick=\{\(\) => setIsMaterialModalOpen\(true\)\} disabled=\{!selectedAreaId\}>\s*Add new material\s*<\/Button>/);
+  assert.match(source, /<FullScreenDialog[\s\S]*open=\{isMaterialModalOpen\}[\s\S]*title="Add new material"[\s\S]*closeLabel="Close material form"/);
+  assert.match(source, /ADD_MATERIAL_FIELDS\.map\(\(field\) => \{/);
+  assert.match(source, /<FormField label="Generated timber name" className="sm:col-span-2">/);
+  assert.match(source, /<Button type="button" variant="secondary" onClick=\{\(\) => setIsMaterialModalOpen\(false\)\}>\s*Cancel\s*<\/Button>/);
+});
+
+test("stock-take client source preserves dirty guards and draft rows while modals open or close", () => {
+  const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
+
+  assert.match(source, /if \(hasUnsavedChanges && !window\.confirm\("You have unsaved stock changes\. Leave this area without updating stock\?"\)\) \{/);
+  assert.match(source, /onClose=\{\(\) => setIsAreaModalOpen\(false\)\}/);
+  assert.match(source, /onClose=\{\(\) => setIsMaterialModalOpen\(false\)\}/);
+  assert.doesNotMatch(source, /setRows\(toDraftRows|setRows\(\[\]\)|setLoadedRows\(\[\]\)/);
 });
 
 test("add-material height then width typing captures event values before React clears currentTarget", async () => {
