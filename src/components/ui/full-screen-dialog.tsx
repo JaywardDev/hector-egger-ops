@@ -36,18 +36,23 @@ export function FullScreenDialog({
   contentClassName,
 }: FullScreenDialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  const wasOpenRef = useRef(false);
   const titleId = useId();
   const descriptionId = useId();
   const hasDescription = Boolean(subtitle || description || metadata);
 
   useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
     if (!open) return;
 
     const previousOverflow = document.body.style.overflow;
-    panelRef.current?.focus();
 
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") onCloseRef.current();
     };
 
     document.body.style.overflow = "hidden";
@@ -57,7 +62,19 @@ export function FullScreenDialog({
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", onKey);
     };
-  }, [open, onClose]);
+  }, [open]);
+
+  useEffect(() => {
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = open;
+
+    if (!open || wasOpen) return;
+
+    const panel = panelRef.current;
+    if (!panel || panel.contains(document.activeElement)) return;
+
+    panel.focus();
+  }, [open]);
 
   if (!open) return null;
 
