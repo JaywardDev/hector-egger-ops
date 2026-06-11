@@ -184,6 +184,38 @@ export const deriveBayTabs = (rows: readonly Pick<DraftRow, "bay">[], addedBays:
   return tabs;
 };
 
+
+export const deriveSearchMatchCountByBay = (
+  rows: readonly DraftRow[],
+  namesById: ReadonlyMap<string, string>,
+  search: string,
+) => {
+  const term = search.trim();
+  const counts = new Map<string, number>();
+
+  if (!term) {
+    return counts;
+  }
+
+  for (const row of rows) {
+    if (
+      rowMatchesStockTakeSearch(
+        {
+          timberName: namesById.get(row.timberMaterialId) ?? "Timber material",
+          bay: row.bay,
+          level: row.level,
+        },
+        term,
+      )
+    ) {
+      const bayKey = getRowBayTabKey(row.bay);
+      counts.set(bayKey, (counts.get(bayKey) ?? 0) + 1);
+    }
+  }
+
+  return counts;
+};
+
 const getLevelSortValue = (level: string) => {
   const match = level.trim().match(/^(?:level\s*)?(\d+(?:\.\d+)?)$/i);
   return match ? Number(match[1]) : null;
@@ -266,6 +298,10 @@ export function StockTakeClient({
   const changedRowCount = useMemo(() => countChangedStockTakeRows(loadedRows, rows), [loadedRows, rows]);
   const hasUnsavedChanges = useMemo(() => changedRowCount > 0, [changedRowCount]);
   const bayTabs = useMemo(() => deriveBayTabs(rows, addedBays), [addedBays, rows]);
+  const searchMatchCountByBay = useMemo(
+    () => deriveSearchMatchCountByBay(rows, namesById, search),
+    [namesById, rows, search],
+  );
   const preview = useMemo(() => {
     try {
       return generateTimberMaterialName(materialPreviewInput);
@@ -388,6 +424,7 @@ export function StockTakeClient({
           rowMatchesStockTakeSearch(
             {
               timberName: namesById.get(row.timberMaterialId) ?? "Timber material",
+              bay: row.bay,
               level: row.level,
             },
             search,
@@ -510,10 +547,27 @@ export function StockTakeClient({
             </div>
           </div>
 
-          <div className="-mx-1 overflow-x-auto px-1" role="tablist" aria-label="Bay tabs">
-            <div className="flex w-max min-w-full flex-nowrap gap-2 pb-1">
+          <div className="space-y-2">
+            <FormField label="Search working list" htmlFor="stock_take_search">
+              <Input
+                id="stock_take_search"
+                value={search}
+                onChange={(event) => setSearch(readStockTakeChangeValue(event))}
+                placeholder="Search timber, bay, or level in this area..."
+              />
+            </FormField>
+            {hasUnsavedChanges ? (
+              <Alert variant="warning">
+                Unsaved changes · {changedRowCount} {changedRowCount === 1 ? "row has" : "rows have"} changed.
+              </Alert>
+            ) : null}
+          </div>
+
+          <div className="-mx-1 overflow-x-auto px-1 pt-1" role="tablist" aria-label="Bay tabs">
+            <div className="flex w-max min-w-full flex-nowrap gap-2 pb-1 pt-2">
               {bayTabs.map((tab) => {
                 const isActive = tab.key === activeBay;
+                const searchMatchCount = searchMatchCountByBay.get(tab.key) ?? 0;
 
                 return (
                   <button
@@ -521,16 +575,23 @@ export function StockTakeClient({
                     type="button"
                     role="tab"
                     aria-selected={isActive}
-                    className={`min-h-10 shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
+                    className={`relative min-h-10 shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
                       isActive
                         ? "border-blue-700 bg-blue-700 text-white"
                         : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400"
                     }`}
                     onClick={() => {
                       setActiveBay(tab.key);
-                      setSearch("");
                     }}
                   >
+                    {searchMatchCount > 0 ? (
+                      <span
+                        className="absolute -right-1.5 -top-2 min-w-5 rounded-full bg-amber-500 px-1.5 py-0.5 text-center text-[0.65rem] font-bold leading-none text-white shadow-sm ring-2 ring-white"
+                        aria-label={`${searchMatchCount} search ${searchMatchCount === 1 ? "match" : "matches"} in ${tab.label}`}
+                      >
+                        {searchMatchCount}
+                      </span>
+                    ) : null}
                     {tab.label} <span className={isActive ? "text-blue-100" : "text-zinc-500"}>({tab.count})</span>
                   </button>
                 );
@@ -544,22 +605,6 @@ export function StockTakeClient({
                 +
               </button>
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <FormField label="Search working list" htmlFor="stock_take_search">
-              <Input
-                id="stock_take_search"
-                value={search}
-                onChange={(event) => setSearch(readStockTakeChangeValue(event))}
-                placeholder="Search timber or level in this bay..."
-              />
-            </FormField>
-            {hasUnsavedChanges ? (
-              <Alert variant="warning">
-                Unsaved changes · {changedRowCount} {changedRowCount === 1 ? "row has" : "rows have"} changed.
-              </Alert>
-            ) : null}
           </div>
 
           <form action={updateStockAction} className="space-y-3">
