@@ -201,7 +201,7 @@ test("stock-take client renders default bay tabs and removes Bay from row header
   assert.match(html, /Bay 1/);
   assert.match(html, /Bay 2/);
   assert.match(html, /aria-label="Add next bay"/);
-  assert.match(html, /Search timber or level in this bay/);
+  assert.match(html, /Search timber, bay, or level in this area/);
   assert.match(html, />Timber<\/th>/);
   assert.match(html, />Level<\/th>/);
   assert.match(html, />Quantity<\/th>/);

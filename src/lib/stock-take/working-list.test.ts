@@ -65,13 +65,94 @@ test("level sorting is numeric ascending with stable fallback for blanks and wor
   assert.deepEqual(sortedLevels, ["Level 1", "2", "Level 3", "Top", ""]);
 });
 
+
+test("working-list search input is rendered above the bay selector", () => {
+  const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
+
+  assert.ok(source.indexOf('label="Search working list"') < source.indexOf('role="tablist" aria-label="Bay tabs"'));
+});
+
+test("working-list area search derives match badges for non-active bays without changing inline totals", async () => {
+  const { deriveBayTabs, deriveSearchMatchCountByBay } = await getStockTakeClientHelpers();
+  const draftRows = [
+    { key: "row-1", timberMaterialId: "timber-1", bay: "1", level: "Top", quantity: "2", persisted: true },
+    { key: "row-2", timberMaterialId: "timber-2", bay: "1", level: "Lower", quantity: "3", persisted: true },
+    { key: "row-3", timberMaterialId: "timber-3", bay: "2", level: "Top", quantity: "4", persisted: true },
+  ];
+  const namesById = new Map([
+    ["timber-1", "45x90 SG8 H1.2 6.0m"],
+    ["timber-2", "90x90 SG10 H3.2 4.8m"],
+    ["timber-3", "140x45 LVL H1.2 6.0m"],
+  ]);
+
+  const bayTabs = deriveBayTabs(draftRows);
+  const searchMatchCountByBay = deriveSearchMatchCountByBay(draftRows, namesById, "lvl");
+
+  assert.deepEqual(bayTabs, [
+    { key: "1", label: "Bay 1", count: 2 },
+    { key: "2", label: "Bay 2", count: 1 },
+  ]);
+  assert.equal(searchMatchCountByBay.get("1") ?? 0, 0);
+  assert.equal(searchMatchCountByBay.get("2"), 1);
+});
+
+test("clearing working-list area search removes derived floating badge counts", async () => {
+  const { deriveSearchMatchCountByBay } = await getStockTakeClientHelpers();
+  const draftRows = [{ key: "row-1", timberMaterialId: "timber-1", bay: "2", level: "Top", quantity: "2", persisted: true }];
+  const namesById = new Map([["timber-1", "45x90 SG8 H1.2 6.0m"]]);
+
+  assert.equal(deriveSearchMatchCountByBay(draftRows, namesById, "sg8").get("2"), 1);
+  assert.equal(deriveSearchMatchCountByBay(draftRows, namesById, "").size, 0);
+});
+
+test("active bay display is filtered by area search while update payload still includes every row", () => {
+  const draftRows = [
+    { timberMaterialId: "timber-1", bay: "1", level: "Top", quantity: "2" },
+    { timberMaterialId: "timber-2", bay: "1", level: "Lower", quantity: "3" },
+    { timberMaterialId: "timber-3", bay: "2", level: "Top", quantity: "4" },
+  ];
+  const namesById = new Map([
+    ["timber-1", "45x90 SG8 H1.2 6.0m"],
+    ["timber-2", "90x90 SG10 H3.2 4.8m"],
+    ["timber-3", "140x45 LVL H1.2 6.0m"],
+  ]);
+  const visibleActiveBayRows = draftRows.filter((row) =>
+    row.bay === "1" &&
+    rowMatchesStockTakeSearch({ timberName: namesById.get(row.timberMaterialId), bay: row.bay, level: row.level }, "sg10"),
+  );
+  const stockRowsPayload = draftRows.map((row) => ({
+    timberMaterialId: row.timberMaterialId,
+    bay: row.bay,
+    level: row.level,
+    quantity: row.quantity,
+  }));
+
+  assert.deepEqual(visibleActiveBayRows, [draftRows[1]]);
+  assert.equal(stockRowsPayload.length, 3);
+  assert.deepEqual(stockRowsPayload, draftRows);
+});
+
+test("unsaved-change indicator still counts all changed rows while search is active", () => {
+  const loadedRows = [
+    { timberMaterialId: "timber-1", bay: "1", level: "Top", quantity: 10 },
+    { timberMaterialId: "timber-2", bay: "2", level: "Lower", quantity: 5 },
+  ];
+  const searchedRows = [
+    { timberMaterialId: "timber-1", bay: "1", level: "Top", quantity: 11 },
+    { timberMaterialId: "timber-2", bay: "2", level: "Lower", quantity: 6 },
+  ];
+
+  assert.equal(rowMatchesStockTakeSearch({ timberName: "45x90 SG8 H1.2 6.0m", bay: "1", level: "Top" }, "sg8"), true);
+  assert.equal(countChangedStockTakeRows(loadedRows, searchedRows), 2);
+});
+
 test("working-list search matches timber name", () => {
   assert.equal(rowMatchesStockTakeSearch(rows[0], "sg8"), true);
   assert.equal(rowMatchesStockTakeSearch(rows[1], "sg8"), false);
 });
 
-test("working-list search no longer matches bay text", () => {
-  assert.equal(rowMatchesStockTakeSearch(rows[0], "a1"), false);
+test("working-list search matches bay text across the selected area", () => {
+  assert.equal(rowMatchesStockTakeSearch(rows[0], "a1"), true);
   assert.equal(rowMatchesStockTakeSearch(rows[1], "a1"), false);
 });
 
@@ -80,10 +161,10 @@ test("working-list search matches level", () => {
   assert.equal(rowMatchesStockTakeSearch(rows[1], "top"), false);
 });
 
-test("working-list search is null-safe and still matches timber and level fields", () => {
+test("working-list search is null-safe and still matches timber, bay, and level fields", () => {
   assert.equal(rowMatchesStockTakeSearch({ timberName: "45x90 SG8 H1.2 6.0m", bay: null, level: undefined }, "sg8"), true);
   assert.equal(rowMatchesStockTakeSearch({ timberName: "45x90 SG8 H1.2 6.0m", bay: null, level: undefined }, "a1"), false);
-  assert.equal(rowMatchesStockTakeSearch({ timberName: "", bay: "A1", level: null }, "a1"), false);
+  assert.equal(rowMatchesStockTakeSearch({ timberName: "", bay: "A1", level: null }, "a1"), true);
   assert.equal(rowMatchesStockTakeSearch({ timberName: undefined, bay: null, level: "Top" }, "top"), true);
 });
 
