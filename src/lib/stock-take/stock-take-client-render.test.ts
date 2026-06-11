@@ -314,3 +314,30 @@ test("stock-take update flow replaces the area row set through the atomic RPC", 
   assert.match(clientSource, /level: row\.level/);
   assert.match(clientSource, /quantity: row\.quantity/);
 });
+
+test("stock-take top toolbar renders all-areas Excel export link without area, bay, or search parameters", async () => {
+  const { StockTakeClient } = await import("@/app/(protected)/stock-take/components/stock-take-client");
+  const html = renderToStaticMarkup(
+    createElement(StockTakeClient, {
+      areas: [area],
+      materials: [material],
+      initialAreaId: area.id,
+      initialRows: [existingRow],
+    }),
+  );
+
+  assert.match(html, />Export Excel</);
+  assert.match(html, /href="\/stock-take\/export"/);
+  assert.doesNotMatch(html, /href="\/stock-take\/export\?area=/);
+  assert.doesNotMatch(html, /activeBay|search=/);
+});
+
+test("stock-take export helper copy is shown only from the unsaved-changes state and does not block export", () => {
+  const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
+
+  assert.match(source, /href="\/stock-take\/export"/);
+  assert.match(source, /Export uses saved stock only\. Update stock first to include your latest edits\./);
+  assert.match(source, /\{hasUnsavedChanges \? \(/);
+  assert.doesNotMatch(source, /href=\{`\/stock-take\/export\?area=/);
+  assert.doesNotMatch(source, /preventDefault\(\)[\s\S]*Export Excel|disabled=\{hasUnsavedChanges\}/);
+});
