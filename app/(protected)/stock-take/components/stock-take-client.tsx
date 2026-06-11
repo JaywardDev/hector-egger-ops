@@ -533,7 +533,20 @@ export function StockTakeClient({
           <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Current area</p>
           <p className="truncate text-sm font-medium text-zinc-900">{selectedArea ? selectedAreaName : "No area selected"}</p>
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:flex sm:shrink-0">
+        <div className="grid grid-cols-1 gap-2 sm:flex sm:shrink-0 sm:items-center">
+          <div className="space-y-1">
+            <a
+              href="/stock-take/export"
+              className="inline-flex min-h-12 w-full items-center justify-center rounded-md border border-zinc-300 bg-white px-4 py-3 text-sm font-medium text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)] sm:w-auto"
+            >
+              Export Excel
+            </a>
+            {hasUnsavedChanges ? (
+              <p className="max-w-56 text-xs text-amber-700">
+                Export uses saved stock only. Update stock first to include your latest edits.
+              </p>
+            ) : null}
+          </div>
           <Button type="button" variant="secondary" size="lg" onClick={() => setIsAreaModalOpen(true)}>
             Choose area
           </Button>
