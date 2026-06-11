@@ -275,7 +275,7 @@ export function StockTakeClient({
   const [editingRowKey, setEditingRowKey] = useState<string | null>(null);
   const [editSessionStartRow, setEditSessionStartRow] = useState<DraftRow | null>(null);
   const focusedTargets = useRef(new Set<string>());
-  const rowActionsRef = useRef<HTMLTableSectionElement | null>(null);
+  const rowActionsRef = useRef<HTMLUListElement | null>(null);
   const activeBayRef = useRef(activeBay);
   const rowsRef = useRef(rows);
   const [areaState, addAreaAction] = useActionState(createStockAreaAction, initialActionState);
@@ -436,6 +436,11 @@ export function StockTakeClient({
     [activeBay, namesById, rows, search],
   );
 
+  const editingRow = useMemo(
+    () => (editingRowKey ? rows.find((row) => row.key === editingRowKey) ?? null : null),
+    [editingRowKey, rows],
+  );
+
   const updateRow = (key: string, field: keyof DraftRow, value: string) => {
     setRows((currentRows) =>
       currentRows.map((row) => (row.key === key ? { ...row, [field]: value } : row)),
@@ -519,6 +524,8 @@ export function StockTakeClient({
     window.location.href = `/stock-take?area=${areaId}`;
   };
 
+  const [timberHeader, levelHeader, quantityHeader] = WORKING_LIST_HEADERS;
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
@@ -527,10 +534,10 @@ export function StockTakeClient({
           <p className="truncate text-sm font-medium text-zinc-900">{selectedArea ? selectedAreaName : "No area selected"}</p>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:flex sm:shrink-0">
-          <Button type="button" variant="secondary" onClick={() => setIsAreaModalOpen(true)}>
+          <Button type="button" variant="secondary" size="lg" onClick={() => setIsAreaModalOpen(true)}>
             Choose area
           </Button>
-          <Button type="button" variant="secondary" onClick={() => setIsMaterialModalOpen(true)} disabled={!selectedAreaId}>
+          <Button type="button" variant="secondary" size="lg" onClick={() => setIsMaterialModalOpen(true)} disabled={!selectedAreaId}>
             Add new material
           </Button>
         </div>
@@ -563,8 +570,10 @@ export function StockTakeClient({
             ) : null}
           </div>
 
-          <div className="-mx-1 overflow-x-auto px-1 pt-1" role="tablist" aria-label="Bay tabs">
-            <div className="flex w-max min-w-full flex-nowrap gap-2 pb-1 pt-2">
+          <div className="flex items-center gap-2 pt-1">
+            <div className="relative min-w-0 flex-1">
+              <div className="-mx-1 overflow-x-auto px-1" role="tablist" aria-label="Bay tabs">
+                <div className="flex w-max min-w-full flex-nowrap gap-2 pb-1 pt-2">
               {bayTabs.map((tab) => {
                 const isActive = tab.key === activeBay;
                 const searchMatchCount = searchMatchCountByBay.get(tab.key) ?? 0;
@@ -596,160 +605,104 @@ export function StockTakeClient({
                   </button>
                 );
               })}
-              <button
-                type="button"
-                aria-label="Add next bay"
-                className="min-h-10 shrink-0 rounded-full border border-dashed border-zinc-400 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 hover:border-zinc-600"
-                onClick={addBayTab}
-              >
-                +
-              </button>
+                </div>
+              </div>
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white via-white/80 to-transparent"
+              />
             </div>
+            <button
+              type="button"
+              aria-label="Add next bay"
+              className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-zinc-400 bg-white text-lg font-semibold leading-none text-zinc-700 hover:border-zinc-600"
+              onClick={addBayTab}
+            >
+              +
+            </button>
           </div>
 
           <form action={updateStockAction} className="space-y-3">
             <input type="hidden" name="area_id" value={selectedAreaId} />
             <input type="hidden" name="rows" value={stockRowsPayloadJson} />
-            <div className="overflow-x-auto">
-              <table className="min-w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500">
-                    {WORKING_LIST_HEADERS.map((header) => (
-                      <th key={header} className="px-2 py-2 font-medium">
-                        {header}
-                      </th>
-                    ))}
-                    <th className="w-20 px-2 py-2 font-medium text-right" aria-label="Row actions" />
-                  </tr>
-                </thead>
-                <tbody ref={rowActionsRef}>
-                  {visibleRows.length === 0 ? (
-                    <tr>
-                      <td className="px-2 py-4 text-zinc-600" colSpan={WORKING_LIST_HEADERS.length + 1}>
-                        {search.trim() ? "No matching timber rows in this bay." : "No timber rows in this bay yet."}
-                      </td>
-                    </tr>
-                  ) : null}
-                  {visibleRows.map((row) => {
-                    const isEditing = editingRowKey === row.key;
-                    const timberName = namesById.get(row.timberMaterialId) ?? "Timber material";
+            <ul ref={rowActionsRef} className="divide-y divide-zinc-100 border-y border-zinc-100">
+              {visibleRows.length === 0 ? (
+                <li className="py-6 text-center text-sm text-zinc-600">
+                  {search.trim() ? "No matching timber rows in this bay." : "No timber rows in this bay yet."}
+                </li>
+              ) : null}
+              {visibleRows.map((row) => {
+                const timberName = namesById.get(row.timberMaterialId) ?? "Timber material";
 
-                    return (
-                      <tr key={row.key} className="border-b border-zinc-100">
-                        <td className="px-2 py-2 align-top">
-                          {isEditing ? (
-                            <Select
-                              data-stock-row-key={row.key}
-                              data-stock-field="timber"
-                              value={row.timberMaterialId}
-                              onChange={(event) => updateRow(row.key, "timberMaterialId", readStockTakeChangeValue(event))}
-                              required
-                            >
-                              {localMaterials.map((material) => (
-                                <option key={material.id} value={material.id}>
-                                  {material.name}
-                                </option>
-                              ))}
-                            </Select>
-                          ) : (
-                            <p className="pt-1.5 text-zinc-900">{timberName}</p>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 align-top">
-                          {isEditing ? (
-                            <Input
-                              data-stock-row-key={row.key}
-                              data-stock-field="level"
-                              value={row.level}
-                              onChange={(event) => updateRow(row.key, "level", readStockTakeChangeValue(event))}
-                            />
-                          ) : (
-                            <p className="pt-1.5 text-zinc-900">{row.level || "—"}</p>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 align-top">
-                          {isEditing ? (
-                            <Input
-                              type="number"
-                              min={0}
-                              step="0.001"
-                              data-stock-row-key={row.key}
-                              data-stock-field="quantity"
-                              value={row.quantity}
-                              onChange={(event) => updateRow(row.key, "quantity", readStockTakeChangeValue(event))}
-                              required
-                            />
-                          ) : (
-                            <p className="pt-1.5 text-zinc-900">{row.quantity}</p>
-                          )}
-                        </td>
-                        <td className="px-2 py-2 text-right align-top">
-                          {isEditing ? (
-                            <div className="flex justify-end gap-2">
-                              <Button type="button" variant="secondary" onClick={finishEditingRow}>
-                                Done
-                              </Button>
-                              <Button type="button" variant="secondary" onClick={cancelEditingRow}>
-                                Cancel
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="relative inline-flex">
-                              <button
-                                type="button"
-                                aria-label={`Actions for ${timberName}`}
-                                aria-haspopup="menu"
-                                aria-expanded={openRowActionsKey === row.key}
-                                className="rounded-full px-2 py-1 text-xl leading-none text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                                onClick={() => setOpenRowActionsKey((currentKey) => (currentKey === row.key ? null : row.key))}
-                              >
-                                <span aria-hidden="true">⋯</span>
-                              </button>
-                              {openRowActionsKey === row.key ? (
-                                <div
-                                  role="menu"
-                                  className="absolute right-0 top-9 z-20 min-w-28 rounded-md border border-zinc-200 bg-white py-1 text-left shadow-lg"
-                                >
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50"
-                                    onClick={() => startEditingRow(row)}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    type="button"
-                                    role="menuitem"
-                                    className="block w-full px-3 py-2 text-left text-sm text-red-700 hover:bg-red-50"
-                                    onClick={() => deleteRow(row.key)}
-                                  >
-                                    Delete
-                                  </button>
-                                </div>
-                              ) : null}
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  <tr className="border-b border-dashed border-zinc-200">
-                    <td className="px-2 py-2" colSpan={WORKING_LIST_HEADERS.length + 1}>
+                return (
+                  <li key={row.key} className="relative">
+                    <button
+                      type="button"
+                      className="flex w-full items-start gap-3 py-3 pr-12 text-left transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      onClick={() => startEditingRow(row)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-zinc-950">{timberName}</p>
+                        <dl className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                          <div className="flex items-baseline gap-1.5">
+                            <dt className="text-zinc-500">{levelHeader}</dt>
+                            <dd className="font-medium text-zinc-900">{row.level || "—"}</dd>
+                          </div>
+                          <div className="flex items-baseline gap-1.5">
+                            <dt className="text-zinc-500">{quantityHeader}</dt>
+                            <dd className="font-medium text-zinc-900">{row.quantity}</dd>
+                          </div>
+                        </dl>
+                      </div>
+                    </button>
+                    <div className="absolute right-0 top-1.5">
                       <button
                         type="button"
-                        aria-label={`Add row to ${formatBayTabLabel(activeBay)}`}
-                        className="flex w-full items-center justify-center rounded-md py-2 text-lg font-semibold text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                        onClick={addWorkingRow}
-                        disabled={localMaterials.length === 0}
+                        aria-label={`Actions for ${timberName}`}
+                        aria-haspopup="menu"
+                        aria-expanded={openRowActionsKey === row.key}
+                        className="flex min-h-10 min-w-10 items-center justify-center rounded-full text-xl leading-none text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                        onClick={() => setOpenRowActionsKey((currentKey) => (currentKey === row.key ? null : row.key))}
                       >
-                        <span aria-hidden="true">+</span>
+                        <span aria-hidden="true">⋯</span>
                       </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+                      {openRowActionsKey === row.key ? (
+                        <div
+                          role="menu"
+                          className="absolute right-0 top-9 z-20 min-w-28 rounded-md border border-zinc-200 bg-white py-1 text-left shadow-lg"
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="block w-full px-3 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-50"
+                            onClick={() => startEditingRow(row)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="block w-full px-3 py-2.5 text-left text-sm text-red-700 hover:bg-red-50"
+                            onClick={() => deleteRow(row.key)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <button
+              type="button"
+              aria-label={`Add row to ${formatBayTabLabel(activeBay)}`}
+              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-dashed border-zinc-300 text-sm font-semibold text-zinc-600 transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={addWorkingRow}
+              disabled={localMaterials.length === 0}
+            >
+              <span aria-hidden="true">+</span> Add timber row
+            </button>
             <div className="sticky bottom-0 -mx-3 flex items-center justify-between gap-3 border-t border-zinc-200 bg-white/95 px-3 py-3 backdrop-blur sm:static sm:mx-0 sm:justify-end sm:border-t-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
               {hasUnsavedChanges ? (
                 <p className="text-sm font-medium text-amber-700">
@@ -764,6 +717,71 @@ export function StockTakeClient({
           <ActionMessage state={updateState} />
         </Card>
       ) : null}
+
+      <FullScreenDialog
+        open={editingRow !== null}
+        eyebrow="Working list"
+        title={editSessionStartRow?.persisted ? "Edit timber row" : "Add timber row"}
+        subtitle={selectedAreaName}
+        description={`Bay ${activeBay === UNASSIGNED_BAY_TAB ? "Unassigned" : activeBay}`}
+        closeLabel="Close"
+        onClose={cancelEditingRow}
+        contentClassName="p-3 sm:max-w-xl sm:p-6"
+      >
+        {editingRow ? (
+          <Card className="mx-auto max-w-xl space-y-4">
+            <FormField label={timberHeader} htmlFor="edit_timber">
+              <Select
+                id="edit_timber"
+                data-stock-row-key={editingRow.key}
+                data-stock-field="timber"
+                className="min-h-12"
+                value={editingRow.timberMaterialId}
+                onChange={(event) => updateRow(editingRow.key, "timberMaterialId", readStockTakeChangeValue(event))}
+                required
+              >
+                {localMaterials.map((material) => (
+                  <option key={material.id} value={material.id}>
+                    {material.name}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+            <FormField label={levelHeader} htmlFor="edit_level">
+              <Input
+                id="edit_level"
+                data-stock-row-key={editingRow.key}
+                data-stock-field="level"
+                className="min-h-12"
+                value={editingRow.level}
+                onChange={(event) => updateRow(editingRow.key, "level", readStockTakeChangeValue(event))}
+              />
+            </FormField>
+            <FormField label={quantityHeader} htmlFor="edit_quantity">
+              <Input
+                id="edit_quantity"
+                type="number"
+                min={0}
+                step="0.001"
+                data-stock-row-key={editingRow.key}
+                data-stock-field="quantity"
+                className="min-h-12"
+                value={editingRow.quantity}
+                onChange={(event) => updateRow(editingRow.key, "quantity", readStockTakeChangeValue(event))}
+                required
+              />
+            </FormField>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <Button type="button" variant="secondary" size="lg" onClick={cancelEditingRow}>
+                Cancel
+              </Button>
+              <Button type="button" variant="primary" size="lg" onClick={finishEditingRow}>
+                Done
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+      </FullScreenDialog>
 
       <FullScreenDialog
         open={isAreaModalOpen}

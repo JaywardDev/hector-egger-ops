@@ -79,7 +79,7 @@ test("stock-take client source keeps Choose area controls inside an accessible m
   const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
 
   assert.match(source, /const \[isAreaModalOpen, setIsAreaModalOpen\] = useState\(false\)/);
-  assert.match(source, /<Button type="button" variant="secondary" onClick=\{\(\) => setIsAreaModalOpen\(true\)\}>\s*Choose area\s*<\/Button>/);
+  assert.match(source, /<Button type="button" variant="secondary" size="lg" onClick=\{\(\) => setIsAreaModalOpen\(true\)\}>\s*Choose area\s*<\/Button>/);
   assert.match(source, /<FullScreenDialog[\s\S]*open=\{isAreaModalOpen\}[\s\S]*title="Choose area"[\s\S]*closeLabel="Close area chooser"/);
   assert.match(source, /<Select[\s\S]*id="area_selector"[\s\S]*navigateToArea\(readStockTakeChangeValue\(event\)\)/);
   assert.match(source, /<Input id="area_name" name="area_name" required \/>/);
@@ -90,7 +90,7 @@ test("stock-take client source keeps Add new material controls inside an accessi
   const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
 
   assert.match(source, /const \[isMaterialModalOpen, setIsMaterialModalOpen\] = useState\(false\)/);
-  assert.match(source, /<Button type="button" variant="secondary" onClick=\{\(\) => setIsMaterialModalOpen\(true\)\} disabled=\{!selectedAreaId\}>\s*Add new material\s*<\/Button>/);
+  assert.match(source, /<Button type="button" variant="secondary" size="lg" onClick=\{\(\) => setIsMaterialModalOpen\(true\)\} disabled=\{!selectedAreaId\}>\s*Add new material\s*<\/Button>/);
   assert.match(source, /<FullScreenDialog[\s\S]*open=\{isMaterialModalOpen\}[\s\S]*title="Add new material"[\s\S]*closeLabel="Close material form"/);
   assert.match(source, /ADD_MATERIAL_FIELDS\.map\(\(field\) => \{/);
   assert.match(source, /<FormField label="Generated timber name" className="sm:col-span-2">/);
@@ -202,9 +202,10 @@ test("stock-take client renders default bay tabs and removes Bay from row header
   assert.match(html, /Bay 2/);
   assert.match(html, /aria-label="Add next bay"/);
   assert.match(html, /Search timber, bay, or level in this area/);
-  assert.match(html, />Timber<\/th>/);
-  assert.match(html, />Level<\/th>/);
-  assert.match(html, />Quantity<\/th>/);
+  assert.match(html, /No timber rows in this bay yet\./);
+  assert.match(html, /aria-label="Add row to Bay 1"/);
+  assert.doesNotMatch(html, /<th/);
+  assert.doesNotMatch(html, /<table/);
   assert.doesNotMatch(html, />Bay<\/th>/);
 });
 
@@ -277,8 +278,9 @@ test("stock-take client source puts only one row into edit mode with Done and Ca
   const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
 
   assert.match(source, /const \[editingRowKey, setEditingRowKey\] = useState<string \| null>\(null\)/);
-  assert.match(source, /const isEditing = editingRowKey === row\.key/);
+  assert.match(source, /const editingRow = useMemo\(\s*\(\) => \(editingRowKey \? rows\.find\(\(row\) => row\.key === editingRowKey\) \?\? null : null\)/);
   assert.match(source, /setEditSessionStartRow\(\{ \.\.\.row \}\)/);
+  assert.match(source, /open=\{editingRow !== null\}/);
   assert.match(source, /data-stock-field="timber"/);
   assert.match(source, /data-stock-field="level"/);
   assert.match(source, /data-stock-field="quantity"/);
