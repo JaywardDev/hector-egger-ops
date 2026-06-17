@@ -58,11 +58,11 @@ test("stock-take client renders compact stock-take actions without full modal fo
       areas: [area],
       materials: [material],
       initialAreaId: area.id,
-      initialRows: [existingRow],
+      initialRowsByAreaId: { [area.id]: [existingRow] },
     }),
   );
 
-  assert.match(html, />Choose area</);
+  assert.match(html, />Add area</);
   assert.match(html, />Add new material</);
   assert.match(html, /Working list for Main Yard/);
   assert.match(html, /45x90 SG8 H1.2 6.0m/);
@@ -75,15 +75,33 @@ test("stock-take client renders compact stock-take actions without full modal fo
   }
 });
 
-test("stock-take client source keeps Choose area controls inside an accessible modal", () => {
+test("stock-take client source keeps Add area controls inside an accessible modal", () => {
   const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
 
   assert.match(source, /const \[isAreaModalOpen, setIsAreaModalOpen\] = useState\(false\)/);
-  assert.match(source, /<Button type="button" variant="secondary" size="lg" onClick=\{\(\) => setIsAreaModalOpen\(true\)\}>\s*Choose area\s*<\/Button>/);
-  assert.match(source, /<FullScreenDialog[\s\S]*open=\{isAreaModalOpen\}[\s\S]*title="Choose area"[\s\S]*closeLabel="Close area chooser"/);
-  assert.match(source, /<Select[\s\S]*id="area_selector"[\s\S]*navigateToArea\(readStockTakeChangeValue\(event\)\)/);
+  assert.match(source, /<Button type="button" variant="secondary" size="lg" onClick=\{\(\) => setIsAreaModalOpen\(true\)\}>\s*Add area\s*<\/Button>/);
+  assert.match(source, /<FullScreenDialog[\s\S]*open=\{isAreaModalOpen\}[\s\S]*title="Add area"[\s\S]*closeLabel="Close area chooser"/);
   assert.match(source, /<Input id="area_name" name="area_name" required \/>/);
   assert.match(source, /<PendingSubmitButton type="submit" variant="secondary">\s*Add area\s*<\/PendingSubmitButton>/);
+  // Area selection now lives in the spreadsheet-style area tabs, not a dropdown.
+  assert.doesNotMatch(source, /id="area_selector"/);
+});
+
+test("stock-take client renders spreadsheet-style area tabs for in-memory switching", async () => {
+  const { StockTakeClient } = await import("@/app/(protected)/stock-take/components/stock-take-client");
+  const secondArea: StockAreaRecord = { ...area, id: "area-2", name: "Outside Factory" };
+  const html = renderToStaticMarkup(
+    createElement(StockTakeClient, {
+      areas: [area, secondArea],
+      materials: [material],
+      initialAreaId: area.id,
+      initialRowsByAreaId: { [area.id]: [existingRow], [secondArea.id]: [] },
+    }),
+  );
+
+  assert.match(html, /role="tablist" aria-label="Area tabs"/);
+  assert.match(html, /aria-label="Show Main Yard"/);
+  assert.match(html, /aria-label="Show Outside Factory"/);
 });
 
 test("stock-take client source keeps Add new material controls inside an accessible modal", () => {
@@ -194,7 +212,7 @@ test("stock-take client renders default bay tabs and removes Bay from row header
       areas: [area],
       materials: [material],
       initialAreaId: area.id,
-      initialRows: [],
+      initialRowsByAreaId: { [area.id]: [] },
     }),
   );
 
@@ -221,7 +239,9 @@ test("stock-take client renders saved numeric, unusual, and unassigned bay tabs"
       areas: [area],
       materials: [material],
       initialAreaId: area.id,
-      initialRows: [makeRow("row-1", "1"), makeRow("row-2", "2"), makeRow("row-5", "5"), makeRow("row-a", "A1"), makeRow("row-blank", "")],
+      initialRowsByAreaId: {
+        [area.id]: [makeRow("row-1", "1"), makeRow("row-2", "2"), makeRow("row-5", "5"), makeRow("row-a", "A1"), makeRow("row-blank", "")],
+      },
     }),
   );
 
@@ -248,7 +268,7 @@ test("stock-take working rows render read-only by default with row action button
       areas: [area],
       materials: [material],
       initialAreaId: area.id,
-      initialRows: [existingRow],
+      initialRowsByAreaId: { [area.id]: [existingRow] },
     }),
   );
 
@@ -322,7 +342,7 @@ test("stock-take top toolbar renders all-areas Excel export link without area, b
       areas: [area],
       materials: [material],
       initialAreaId: area.id,
-      initialRows: [existingRow],
+      initialRowsByAreaId: { [area.id]: [existingRow] },
     }),
   );
 

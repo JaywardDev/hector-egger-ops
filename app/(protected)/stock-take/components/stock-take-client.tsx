@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Alert } from "@/src/components/ui/alert";
 import { Button } from "@/src/components/ui/button";
 import { Card } from "@/src/components/ui/card";
@@ -9,12 +9,14 @@ import { FullScreenDialog } from "@/src/components/ui/full-screen-dialog";
 import { Input } from "@/src/components/ui/input";
 import { PendingSubmitButton } from "@/src/components/ui/pending-button";
 import { Select } from "@/src/components/ui/select";
+import { cn } from "@/src/lib/utils";
 import {
   ADD_MATERIAL_FIELDS,
   UPDATE_STOCK_LABEL,
   WORKING_LIST_HEADERS,
 } from "@/src/lib/stock-take/ui-contract";
 import {
+  compareTimberMaterialsBySize,
   countChangedStockTakeRows,
   generateTimberMaterialName,
   rowMatchesStockTakeSearch,
@@ -44,7 +46,7 @@ type StockTakeClientProps = {
   areas: StockAreaRecord[];
   materials: TimberMaterialRecord[];
   initialAreaId: string;
-  initialRows: TimberStockWorkingRow[];
+  initialRowsByAreaId: Record<string, TimberStockWorkingRow[]>;
 };
 
 const initialActionState: StockTakeActionState = { ok: false, message: "" };
@@ -216,6 +218,42 @@ export const deriveSearchMatchCountByBay = (
   return counts;
 };
 
+export const deriveSearchMatchCountByArea = (
+  rowsByAreaId: Readonly<Record<string, readonly DraftRow[]>>,
+  namesById: ReadonlyMap<string, string>,
+  search: string,
+) => {
+  const term = search.trim();
+  const counts = new Map<string, number>();
+
+  if (!term) {
+    return counts;
+  }
+
+  for (const [areaId, rows] of Object.entries(rowsByAreaId)) {
+    let matches = 0;
+    for (const row of rows) {
+      if (
+        rowMatchesStockTakeSearch(
+          {
+            timberName: namesById.get(row.timberMaterialId) ?? "Timber material",
+            bay: row.bay,
+            level: row.level,
+          },
+          term,
+        )
+      ) {
+        matches += 1;
+      }
+    }
+    if (matches > 0) {
+      counts.set(areaId, matches);
+    }
+  }
+
+  return counts;
+};
+
 const getLevelSortValue = (level: string) => {
   const match = level.trim().match(/^(?:level\s*)?(\d+(?:\.\d+)?)$/i);
   return match ? Number(match[1]) : null;
@@ -237,7 +275,7 @@ export const compareStockTakeLevels = (left: Pick<DraftRow, "level">, right: Pic
   return 0;
 };
 
-const toDraftRows = (rows: TimberStockWorkingRow[]): DraftRow[] =>
+const toDraftRows = (rows: readonly TimberStockWorkingRow[]): DraftRow[] =>
   rows.map((row) => ({
     key: row.id,
     timberMaterialId: row.timber_material_id,
@@ -247,8 +285,81 @@ const toDraftRows = (rows: TimberStockWorkingRow[]): DraftRow[] =>
     persisted: true,
   }));
 
+const buildDraftRowsByAreaId = (
+  rowsByAreaId: Record<string, TimberStockWorkingRow[]>,
+): Record<string, DraftRow[]> => {
+  const result: Record<string, DraftRow[]> = {};
+  for (const [areaId, rows] of Object.entries(rowsByAreaId)) {
+    result[areaId] = toDraftRows(rows);
+  }
+  return result;
+};
+
+const sortMaterialsBySize = (materials: readonly TimberMaterialRecord[]) =>
+  [...materials].sort(compareTimberMaterialsBySize);
+
 const materialNameById = (materials: TimberMaterialRecord[]) =>
   new Map(materials.map((material) => [material.id, material.name]));
+
+const firstBayWithMatches = (
+  rows: readonly DraftRow[],
+  addedBays: readonly string[],
+  namesById: ReadonlyMap<string, string>,
+  search: string,
+) => {
+  const term = search.trim();
+  if (!term) {
+    return "1";
+  }
+  const counts = deriveSearchMatchCountByBay(rows, namesById, term);
+  const tabs = deriveBayTabs(rows, addedBays);
+  for (const tab of tabs) {
+    if ((counts.get(tab.key) ?? 0) > 0) {
+      return tab.key;
+    }
+  }
+  return "1";
+};
+
+type ExcelTabProps = {
+  active: boolean;
+  onClick: () => void;
+  badgeCount?: number;
+  badgeLabel?: string;
+  ariaLabel?: string;
+  size?: "md" | "sm";
+  children: ReactNode;
+};
+
+// Spreadsheet-style tab (flat, baseline-attached) shared by the area and bay rows.
+function ExcelTab({ active, onClick, badgeCount = 0, badgeLabel, ariaLabel, size = "md", children }: ExcelTabProps) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      aria-label={ariaLabel}
+      onClick={onClick}
+      className={cn(
+        "relative -mb-px shrink-0 rounded-t-md border font-medium transition",
+        size === "md" ? "px-4 py-2 text-sm" : "px-3 py-1.5 text-sm",
+        active
+          ? "z-10 border-zinc-300 border-b-white bg-white text-zinc-950 shadow-[0_-1px_2px_rgba(24,24,27,0.04)]"
+          : "border-transparent bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900",
+      )}
+    >
+      {badgeCount > 0 ? (
+        <span
+          className="absolute -right-1 -top-2 min-w-5 rounded-full bg-amber-500 px-1.5 py-0.5 text-center text-[0.65rem] font-bold leading-none text-white shadow-sm ring-2 ring-white"
+          aria-label={badgeLabel}
+        >
+          {badgeCount}
+        </span>
+      ) : null}
+      {children}
+    </button>
+  );
+}
 
 function ActionMessage({ state }: { state: StockTakeActionState }) {
   if (!state.message) {
@@ -261,12 +372,22 @@ export function StockTakeClient({
   areas,
   materials,
   initialAreaId,
-  initialRows,
+  initialRowsByAreaId,
 }: StockTakeClientProps) {
   const [selectedAreaId, setSelectedAreaId] = useState(initialAreaId);
-  const [rows, setRows] = useState<DraftRow[]>(toDraftRows(initialRows));
-  const [loadedRows, setLoadedRows] = useState<DraftRow[]>(toDraftRows(initialRows));
-  const [localMaterials, setLocalMaterials] = useState<TimberMaterialRecord[]>(materials);
+  const [rows, setRows] = useState<DraftRow[]>(() => toDraftRows(initialRowsByAreaId[initialAreaId] ?? []));
+  const [loadedRows, setLoadedRows] = useState<DraftRow[]>(() => toDraftRows(initialRowsByAreaId[initialAreaId] ?? []));
+  // Every area's rows are preloaded into client caches so switching tabs is instant and
+  // search badges can be derived across areas without refetching.
+  const [draftCacheByAreaId, setDraftCacheByAreaId] = useState<Record<string, DraftRow[]>>(() =>
+    buildDraftRowsByAreaId(initialRowsByAreaId),
+  );
+  const [loadedCacheByAreaId, setLoadedCacheByAreaId] = useState<Record<string, DraftRow[]>>(() =>
+    buildDraftRowsByAreaId(initialRowsByAreaId),
+  );
+  const [addedBaysCacheByAreaId, setAddedBaysCacheByAreaId] = useState<Record<string, string[]>>({});
+  const [localMaterials, setLocalMaterials] = useState<TimberMaterialRecord[]>(() => sortMaterialsBySize(materials));
+  const [lastUsedMaterialId, setLastUsedMaterialId] = useState("");
   const [search, setSearch] = useState("");
   const [activeBay, setActiveBay] = useState("1");
   const [addedBays, setAddedBays] = useState<string[]>([]);
@@ -278,6 +399,7 @@ export function StockTakeClient({
   const rowActionsRef = useRef<HTMLUListElement | null>(null);
   const activeBayRef = useRef(activeBay);
   const rowsRef = useRef(rows);
+  const selectedAreaIdRef = useRef(selectedAreaId);
   const [areaState, addAreaAction] = useActionState(createStockAreaAction, initialActionState);
   const [materialState, addMaterialAction] = useActionState(createTimberMaterialAction, initialActionState);
   const [updateState, updateStockAction] = useActionState(updateTimberStockAction, initialActionState);
@@ -302,6 +424,16 @@ export function StockTakeClient({
     () => deriveSearchMatchCountByBay(rows, namesById, search),
     [namesById, rows, search],
   );
+  // Merge the live active-area draft over the cached snapshots so the active area's
+  // unsaved edits are reflected in the cross-area search badges.
+  const rowsByAreaIdForSearch = useMemo(
+    () => ({ ...draftCacheByAreaId, [selectedAreaId]: rows }),
+    [draftCacheByAreaId, rows, selectedAreaId],
+  );
+  const searchMatchCountByArea = useMemo(
+    () => deriveSearchMatchCountByArea(rowsByAreaIdForSearch, namesById, search),
+    [namesById, rowsByAreaIdForSearch, search],
+  );
   const preview = useMemo(() => {
     try {
       return generateTimberMaterialName(materialPreviewInput);
@@ -319,7 +451,11 @@ export function StockTakeClient({
   }, [activeBay]);
 
   useEffect(() => {
-    setLocalMaterials(materials);
+    selectedAreaIdRef.current = selectedAreaId;
+  }, [selectedAreaId]);
+
+  useEffect(() => {
+    setLocalMaterials(sortMaterialsBySize(materials));
   }, [materials]);
 
   useEffect(() => {
@@ -333,8 +469,9 @@ export function StockTakeClient({
       if (currentMaterials.some((currentMaterial) => currentMaterial.id === material.id)) {
         return currentMaterials;
       }
-      return [...currentMaterials, material].sort((left, right) => left.name.localeCompare(right.name));
+      return sortMaterialsBySize([...currentMaterials, material]);
     });
+    setLastUsedMaterialId(material.id);
     setRows((currentRows) => [
       ...currentRows,
       {
@@ -364,9 +501,21 @@ export function StockTakeClient({
     if (!updateState.ok) {
       return;
     }
-    const savedRows = rowsRef.current.map((row) => ({ ...row, persisted: true }));
-    setLoadedRows(savedRows);
-    setRows(savedRows);
+    const savedAreaId = updateState.selectedAreaId ?? selectedAreaIdRef.current;
+    if (savedAreaId === selectedAreaIdRef.current) {
+      const savedRows = rowsRef.current.map((row) => ({ ...row, persisted: true }));
+      setLoadedRows(savedRows);
+      setRows(savedRows);
+    } else {
+      setDraftCacheByAreaId((cache) => ({
+        ...cache,
+        [savedAreaId]: (cache[savedAreaId] ?? []).map((row) => ({ ...row, persisted: true })),
+      }));
+      setLoadedCacheByAreaId((cache) => ({
+        ...cache,
+        [savedAreaId]: (cache[savedAreaId] ?? []).map((row) => ({ ...row, persisted: true })),
+      }));
+    }
     setOpenRowActionsKey(null);
     setEditingRowKey(null);
     setEditSessionStartRow(null);
@@ -445,6 +594,9 @@ export function StockTakeClient({
     setRows((currentRows) =>
       currentRows.map((row) => (row.key === key ? { ...row, [field]: value } : row)),
     );
+    if (field === "timberMaterialId") {
+      setLastUsedMaterialId(value);
+    }
   };
 
   const startEditingRow = (row: DraftRow, focusField: "timber" | "level" | "quantity" = "timber") => {
@@ -455,6 +607,10 @@ export function StockTakeClient({
   };
 
   const finishEditingRow = () => {
+    const finishedRow = editingRowKey ? rows.find((row) => row.key === editingRowKey) : null;
+    if (finishedRow?.timberMaterialId) {
+      setLastUsedMaterialId(finishedRow.timberMaterialId);
+    }
     setEditingRowKey(null);
     setEditSessionStartRow(null);
   };
@@ -478,9 +634,13 @@ export function StockTakeClient({
 
   const addWorkingRow = () => {
     const newKey = `new-${crypto.randomUUID()}`;
+    const defaultMaterialId =
+      (lastUsedMaterialId && localMaterials.some((material) => material.id === lastUsedMaterialId)
+        ? lastUsedMaterialId
+        : localMaterials[0]?.id) ?? "";
     const newRow = {
       key: newKey,
-      timberMaterialId: localMaterials[0]?.id ?? "",
+      timberMaterialId: defaultMaterialId,
       bay: activeBay === UNASSIGNED_BAY_TAB ? "" : activeBay,
       level: "",
       quantity: "0",
@@ -516,6 +676,37 @@ export function StockTakeClient({
   );
   const stockRowsPayloadJson = useMemo(() => JSON.stringify(stockRowsPayload), [stockRowsPayload]);
 
+  // In-memory tab switch: drafts for every area stay in client state, so moving
+  // between areas keeps unsaved edits and never reloads the page.
+  const switchArea = (areaId: string) => {
+    if (areaId === selectedAreaId) {
+      return;
+    }
+
+    setDraftCacheByAreaId((cache) => ({ ...cache, [selectedAreaId]: rows }));
+    setLoadedCacheByAreaId((cache) => ({ ...cache, [selectedAreaId]: loadedRows }));
+    setAddedBaysCacheByAreaId((cache) => ({ ...cache, [selectedAreaId]: addedBays }));
+
+    const targetDraft = draftCacheByAreaId[areaId] ?? toDraftRows(initialRowsByAreaId[areaId] ?? []);
+    const targetLoaded = loadedCacheByAreaId[areaId] ?? toDraftRows(initialRowsByAreaId[areaId] ?? []);
+    const targetAddedBays = addedBaysCacheByAreaId[areaId] ?? [];
+
+    setRows(targetDraft);
+    setLoadedRows(targetLoaded);
+    setAddedBays(targetAddedBays);
+    setActiveBay(firstBayWithMatches(targetDraft, targetAddedBays, namesById, search));
+    setSelectedAreaId(areaId);
+    setOpenRowActionsKey(null);
+    setEditingRowKey(null);
+    setEditSessionStartRow(null);
+
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `/stock-take?area=${areaId}`);
+    }
+  };
+
+  // Full reload used only after creating a brand-new area whose (empty) rows are
+  // not yet in the client cache. Guards unsaved edits in the active area first.
   const navigateToArea = (areaId: string) => {
     if (hasUnsavedChanges && !window.confirm("You have unsaved stock changes. Leave this area without updating stock?")) {
       return;
@@ -528,10 +719,16 @@ export function StockTakeClient({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Current area</p>
-          <p className="truncate text-sm font-medium text-zinc-900">{selectedArea ? selectedAreaName : "No area selected"}</p>
+      <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0 flex-1 sm:max-w-md">
+          <FormField label="Search working list" htmlFor="stock_take_search">
+            <Input
+              id="stock_take_search"
+              value={search}
+              onChange={(event) => setSearch(readStockTakeChangeValue(event))}
+              placeholder="Search timber, bay, or level in this area..."
+            />
+          </FormField>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:flex sm:shrink-0 sm:items-center">
           <div className="space-y-1">
@@ -548,7 +745,7 @@ export function StockTakeClient({
             ) : null}
           </div>
           <Button type="button" variant="secondary" size="lg" onClick={() => setIsAreaModalOpen(true)}>
-            Choose area
+            Add area
           </Button>
           <Button type="button" variant="secondary" size="lg" onClick={() => setIsMaterialModalOpen(true)} disabled={!selectedAreaId}>
             Add new material
@@ -556,179 +753,205 @@ export function StockTakeClient({
         </div>
       </div>
 
+      {areas.length === 0 ? (
+        <Card>
+          <Alert variant="warning">Add an area before entering timber quantities.</Alert>
+        </Card>
+      ) : null}
+
       {selectedArea ? (
-        <Card className="space-y-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-zinc-950">
-                Working list for {selectedAreaName}
-              </h2>
-              <p className="text-sm text-zinc-600">Enter the timber quantities in this area.</p>
+        <div>
+          <div className="relative">
+            <div className="-mx-1 overflow-x-auto px-1">
+              <div
+                className="flex w-max min-w-full items-end gap-0.5 border-b border-zinc-300 pt-2"
+                role="tablist"
+                aria-label="Area tabs"
+              >
+                {areas.map((area) => {
+                  const isActive = area.id === selectedAreaId;
+                  const areaMatchCount = searchMatchCountByArea.get(area.id) ?? 0;
+
+                  return (
+                    <ExcelTab
+                      key={area.id}
+                      active={isActive}
+                      onClick={() => switchArea(area.id)}
+                      badgeCount={areaMatchCount}
+                      badgeLabel={`${areaMatchCount} search ${areaMatchCount === 1 ? "match" : "matches"} in ${area.name}`}
+                      ariaLabel={`Show ${area.name}`}
+                    >
+                      {area.name}
+                    </ExcelTab>
+                  );
+                })}
+              </div>
             </div>
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-zinc-50 via-zinc-50/70 to-transparent"
+            />
           </div>
 
-          <div className="space-y-2">
-            <FormField label="Search working list" htmlFor="stock_take_search">
-              <Input
-                id="stock_take_search"
-                value={search}
-                onChange={(event) => setSearch(readStockTakeChangeValue(event))}
-                placeholder="Search timber, bay, or level in this area..."
-              />
-            </FormField>
+          <Card className="space-y-3 rounded-t-none border-t-0">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-zinc-950">
+                  Working list for {selectedAreaName}
+                </h2>
+                <p className="text-sm text-zinc-600">Enter the timber quantities in this area.</p>
+              </div>
+            </div>
+
             {hasUnsavedChanges ? (
               <Alert variant="warning">
                 Unsaved changes · {changedRowCount} {changedRowCount === 1 ? "row has" : "rows have"} changed.
               </Alert>
             ) : null}
-          </div>
 
-          <div className="flex items-center gap-2 pt-1">
-            <div className="relative min-w-0 flex-1">
-              <div className="-mx-1 overflow-x-auto px-1" role="tablist" aria-label="Bay tabs">
-                <div className="flex w-max min-w-full flex-nowrap gap-2 pb-1 pt-2">
-              {bayTabs.map((tab) => {
-                const isActive = tab.key === activeBay;
-                const searchMatchCount = searchMatchCountByBay.get(tab.key) ?? 0;
+            <div className="flex items-end gap-2 pt-1">
+              <div className="relative min-w-0 flex-1">
+                <div className="-mx-1 overflow-x-auto px-1">
+                  <div className="flex w-max min-w-full flex-nowrap items-end gap-0.5 border-b border-zinc-300 pt-2" role="tablist" aria-label="Bay tabs">
+                    {bayTabs.map((tab) => {
+                      const isActive = tab.key === activeBay;
+                      const searchMatchCount = searchMatchCountByBay.get(tab.key) ?? 0;
 
-                return (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    className={`relative min-h-10 shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition ${
-                      isActive
-                        ? "border-blue-700 bg-blue-700 text-white"
-                        : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-400"
-                    }`}
-                    onClick={() => {
-                      setActiveBay(tab.key);
-                    }}
-                  >
-                    {searchMatchCount > 0 ? (
-                      <span
-                        className="absolute -right-1.5 -top-2 min-w-5 rounded-full bg-amber-500 px-1.5 py-0.5 text-center text-[0.65rem] font-bold leading-none text-white shadow-sm ring-2 ring-white"
-                        aria-label={`${searchMatchCount} search ${searchMatchCount === 1 ? "match" : "matches"} in ${tab.label}`}
-                      >
-                        {searchMatchCount}
-                      </span>
-                    ) : null}
-                    {tab.label} <span className={isActive ? "text-blue-100" : "text-zinc-500"}>({tab.count})</span>
-                  </button>
-                );
-              })}
+                      return (
+                        <ExcelTab
+                          key={tab.key}
+                          active={isActive}
+                          onClick={() => {
+                            setActiveBay(tab.key);
+                          }}
+                          size="sm"
+                          badgeCount={searchMatchCount}
+                          badgeLabel={`${searchMatchCount} search ${searchMatchCount === 1 ? "match" : "matches"} in ${tab.label}`}
+                        >
+                          {tab.label} <span className={isActive ? "text-zinc-500" : "text-zinc-400"}>({tab.count})</span>
+                        </ExcelTab>
+                      );
+                    })}
+                  </div>
                 </div>
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white via-white/80 to-transparent"
+                />
               </div>
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white via-white/80 to-transparent"
-              />
+              <button
+                type="button"
+                aria-label="Add next bay"
+                className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-zinc-400 bg-white text-lg font-semibold leading-none text-zinc-700 hover:border-zinc-600"
+                onClick={addBayTab}
+              >
+                +
+              </button>
             </div>
-            <button
-              type="button"
-              aria-label="Add next bay"
-              className="flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-zinc-400 bg-white text-lg font-semibold leading-none text-zinc-700 hover:border-zinc-600"
-              onClick={addBayTab}
-            >
-              +
-            </button>
-          </div>
 
-          <form action={updateStockAction} className="space-y-3">
-            <input type="hidden" name="area_id" value={selectedAreaId} />
-            <input type="hidden" name="rows" value={stockRowsPayloadJson} />
-            <ul ref={rowActionsRef} className="divide-y divide-zinc-100 border-y border-zinc-100">
-              {visibleRows.length === 0 ? (
-                <li className="py-6 text-center text-sm text-zinc-600">
-                  {search.trim() ? "No matching timber rows in this bay." : "No timber rows in this bay yet."}
-                </li>
-              ) : null}
-              {visibleRows.map((row) => {
-                const timberName = namesById.get(row.timberMaterialId) ?? "Timber material";
+            <form action={updateStockAction} className="space-y-3">
+              <input type="hidden" name="area_id" value={selectedAreaId} />
+              <input type="hidden" name="rows" value={stockRowsPayloadJson} />
+              <div className="hidden pb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 sm:flex sm:items-center">
+                <div className="flex flex-1 items-center gap-4 pr-3">
+                  <span className="flex-1">{timberHeader}</span>
+                  <span className="w-28 text-right">{levelHeader}</span>
+                  <span className="w-28 text-right">{quantityHeader}</span>
+                </div>
+                <span className="w-10 shrink-0" aria-hidden="true" />
+              </div>
+              <ul ref={rowActionsRef} className="divide-y divide-zinc-100 border-y border-zinc-100">
+                {visibleRows.length === 0 ? (
+                  <li className="py-6 text-center text-sm text-zinc-600">
+                    {search.trim() ? "No matching timber rows in this bay." : "No timber rows in this bay yet."}
+                  </li>
+                ) : null}
+                {visibleRows.map((row) => {
+                  const timberName = namesById.get(row.timberMaterialId) ?? "Timber material";
 
-                return (
-                  <li key={row.key} className="relative">
-                    <button
-                      type="button"
-                      className="flex w-full items-start gap-3 py-3 pr-12 text-left transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                      onClick={() => startEditingRow(row)}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-zinc-950">{timberName}</p>
-                        <dl className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                          <div className="flex items-baseline gap-1.5">
-                            <dt className="text-zinc-500">{levelHeader}</dt>
-                            <dd className="font-medium text-zinc-900">{row.level || "—"}</dd>
-                          </div>
-                          <div className="flex items-baseline gap-1.5">
-                            <dt className="text-zinc-500">{quantityHeader}</dt>
-                            <dd className="font-medium text-zinc-900">{row.quantity}</dd>
-                          </div>
-                        </dl>
-                      </div>
-                    </button>
-                    <div className="absolute right-0 top-1.5">
+                  return (
+                    <li key={row.key} className="relative sm:flex sm:items-center">
                       <button
                         type="button"
-                        aria-label={`Actions for ${timberName}`}
-                        aria-haspopup="menu"
-                        aria-expanded={openRowActionsKey === row.key}
-                        className="flex min-h-10 min-w-10 items-center justify-center rounded-full text-xl leading-none text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                        onClick={() => setOpenRowActionsKey((currentKey) => (currentKey === row.key ? null : row.key))}
+                        className="flex w-full items-start gap-3 py-3 pr-12 text-left transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-1 sm:items-center sm:pr-3"
+                        onClick={() => startEditingRow(row)}
                       >
-                        <span aria-hidden="true">⋯</span>
-                      </button>
-                      {openRowActionsKey === row.key ? (
-                        <div
-                          role="menu"
-                          className="absolute right-0 top-9 z-20 min-w-28 rounded-md border border-zinc-200 bg-white py-1 text-left shadow-lg"
-                        >
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="block w-full px-3 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-50"
-                            onClick={() => startEditingRow(row)}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="block w-full px-3 py-2.5 text-left text-sm text-red-700 hover:bg-red-50"
-                            onClick={() => deleteRow(row.key)}
-                          >
-                            Delete
-                          </button>
+                        <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4">
+                          <p className="font-medium text-zinc-950 sm:flex-1 sm:truncate">{timberName}</p>
+                          <dl className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm sm:mt-0 sm:flex-none sm:gap-4">
+                            <div className="flex items-baseline gap-1.5 sm:w-28 sm:justify-end">
+                              <dt className="text-zinc-500 sm:hidden">{levelHeader}</dt>
+                              <dd className="font-medium text-zinc-900">{row.level || "—"}</dd>
+                            </div>
+                            <div className="flex items-baseline gap-1.5 sm:w-28 sm:justify-end">
+                              <dt className="text-zinc-500 sm:hidden">{quantityHeader}</dt>
+                              <dd className="font-medium text-zinc-900">{row.quantity}</dd>
+                            </div>
+                          </dl>
                         </div>
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <button
-              type="button"
-              aria-label={`Add row to ${formatBayTabLabel(activeBay)}`}
-              className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-dashed border-zinc-300 text-sm font-semibold text-zinc-600 transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-              onClick={addWorkingRow}
-              disabled={localMaterials.length === 0}
-            >
-              <span aria-hidden="true">+</span> Add timber row
-            </button>
-            <div className="sticky bottom-0 -mx-3 flex items-center justify-between gap-3 border-t border-zinc-200 bg-white/95 px-3 py-3 backdrop-blur sm:static sm:mx-0 sm:justify-end sm:border-t-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
-              {hasUnsavedChanges ? (
-                <p className="text-sm font-medium text-amber-700">
-                  {changedRowCount} {changedRowCount === 1 ? "change" : "changes"}
-                </p>
-              ) : <span />}
-              <PendingSubmitButton type="submit" variant="primary" disabled={!selectedAreaId}>
-                {UPDATE_STOCK_LABEL}
-              </PendingSubmitButton>
-            </div>
-          </form>
-          <ActionMessage state={updateState} />
-        </Card>
+                      </button>
+                      <div className="absolute right-0 top-1.5 sm:relative sm:right-auto sm:top-auto sm:ml-1 sm:flex sm:w-10 sm:shrink-0 sm:justify-center">
+                        <button
+                          type="button"
+                          aria-label={`Actions for ${timberName}`}
+                          aria-haspopup="menu"
+                          aria-expanded={openRowActionsKey === row.key}
+                          className="flex min-h-10 min-w-10 items-center justify-center rounded-full text-xl leading-none text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                          onClick={() => setOpenRowActionsKey((currentKey) => (currentKey === row.key ? null : row.key))}
+                        >
+                          <span aria-hidden="true">⋯</span>
+                        </button>
+                        {openRowActionsKey === row.key ? (
+                          <div
+                            role="menu"
+                            className="absolute right-0 top-9 z-20 min-w-28 rounded-md border border-zinc-200 bg-white py-1 text-left shadow-lg"
+                          >
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="block w-full px-3 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-50"
+                              onClick={() => startEditingRow(row)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="block w-full px-3 py-2.5 text-left text-sm text-red-700 hover:bg-red-50"
+                              onClick={() => deleteRow(row.key)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <button
+                type="button"
+                aria-label={`Add row to ${formatBayTabLabel(activeBay)}`}
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-dashed border-zinc-300 text-sm font-semibold text-zinc-600 transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={addWorkingRow}
+                disabled={localMaterials.length === 0}
+              >
+                <span aria-hidden="true">+</span> Add timber row
+              </button>
+              <div className="sticky bottom-0 -mx-3 flex items-center justify-between gap-3 border-t border-zinc-200 bg-white/95 px-3 py-3 backdrop-blur sm:static sm:mx-0 sm:justify-end sm:border-t-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
+                {hasUnsavedChanges ? (
+                  <p className="text-sm font-medium text-amber-700">
+                    {changedRowCount} {changedRowCount === 1 ? "change" : "changes"}
+                  </p>
+                ) : <span />}
+                <PendingSubmitButton type="submit" variant="primary" disabled={!selectedAreaId}>
+                  {UPDATE_STOCK_LABEL}
+                </PendingSubmitButton>
+              </div>
+            </form>
+            <ActionMessage state={updateState} />
+          </Card>
+        </div>
       ) : null}
 
       <FullScreenDialog
@@ -798,8 +1021,8 @@ export function StockTakeClient({
 
       <FullScreenDialog
         open={isAreaModalOpen}
-        title="Choose area"
-        description="Select the physical area you are counting or add another active area."
+        title="Add area"
+        description="Add another active area. Switch between areas using the tabs."
         closeLabel="Close area chooser"
         onClose={() => setIsAreaModalOpen(false)}
         contentClassName="p-3 sm:p-6"
@@ -809,22 +1032,14 @@ export function StockTakeClient({
             <Alert variant="warning">Add an area before entering timber quantities.</Alert>
           ) : null}
 
-          <FormField label="Area" htmlFor="area_selector">
-            <Select
-              id="area_selector"
-              value={selectedAreaId}
-              onChange={(event) => {
-                navigateToArea(readStockTakeChangeValue(event));
-              }}
-            >
-              {areas.length === 0 ? <option value="">No areas yet</option> : null}
-              {areas.map((area) => (
-                <option key={area.id} value={area.id}>
-                  {area.name}
-                </option>
-              ))}
-            </Select>
-          </FormField>
+          <form action={addAreaAction} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <FormField label="Area name" htmlFor="area_name" className="flex-1">
+              <Input id="area_name" name="area_name" required />
+            </FormField>
+            <PendingSubmitButton type="submit" variant="secondary">
+              Add area
+            </PendingSubmitButton>
+          </form>
 
           {latestSelectedAreaId && latestSelectedAreaId !== selectedAreaId ? (
             <Button
@@ -838,14 +1053,6 @@ export function StockTakeClient({
             </Button>
           ) : null}
 
-          <form action={addAreaAction} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <FormField label="Area name" htmlFor="area_name" className="flex-1">
-              <Input id="area_name" name="area_name" required />
-            </FormField>
-            <PendingSubmitButton type="submit" variant="secondary">
-              Add area
-            </PendingSubmitButton>
-          </form>
           <ActionMessage state={areaState} />
         </Card>
       </FullScreenDialog>

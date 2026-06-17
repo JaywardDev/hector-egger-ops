@@ -96,6 +96,24 @@ test("working-list area search derives match badges for non-active bays without 
   assert.equal(searchMatchCountByBay.get("2"), 1);
 });
 
+test("working-list search derives match badges across non-active areas", async () => {
+  const { deriveSearchMatchCountByArea } = await getStockTakeClientHelpers();
+  const namesById = new Map([
+    ["timber-1", "45x90 SG8 H1.2 6.0m"],
+    ["timber-2", "90x90 LVL11 H1.2 4.8m"],
+  ]);
+  const rowsByAreaId = {
+    "area-1": [{ key: "row-1", timberMaterialId: "timber-1", bay: "1", level: "Top", quantity: "2", persisted: true }],
+    "area-2": [{ key: "row-2", timberMaterialId: "timber-2", bay: "1", level: "Lower", quantity: "3", persisted: true }],
+  };
+
+  const counts = deriveSearchMatchCountByArea(rowsByAreaId, namesById, "lvl");
+
+  assert.equal(counts.get("area-1") ?? 0, 0);
+  assert.equal(counts.get("area-2"), 1);
+  assert.equal(deriveSearchMatchCountByArea(rowsByAreaId, namesById, "").size, 0);
+});
+
 test("clearing working-list area search removes derived floating badge counts", async () => {
   const { deriveSearchMatchCountByBay } = await getStockTakeClientHelpers();
   const draftRows = [{ key: "row-1", timberMaterialId: "timber-1", bay: "2", level: "Top", quantity: "2", persisted: true }];

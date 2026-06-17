@@ -77,6 +77,69 @@ export const generateTimberMaterialName = (input: TimberMaterialInput) => {
   return `${material.height}x${material.width} ${material.grade} ${material.treatment} ${material.length}`;
 };
 
+export type TimberMaterialSizeFields = {
+  height?: string | null;
+  width?: string | null;
+  length?: string | null;
+  name?: string | null;
+};
+
+const parseLeadingNumber = (value: string | null | undefined) => {
+  if (value == null) {
+    return Number.NaN;
+  }
+  const match = String(value).trim().match(/-?\d+(?:\.\d+)?/);
+  return match ? Number(match[0]) : Number.NaN;
+};
+
+const crossSectionArea = (material: TimberMaterialSizeFields) => {
+  const height = parseLeadingNumber(material.height);
+  const width = parseLeadingNumber(material.width);
+  if (!Number.isFinite(height) || !Number.isFinite(width)) {
+    return Number.NaN;
+  }
+  return height * width;
+};
+
+// Orders timber by its physical cross-section (height x width) so a 45x90 sorts
+// before a 135x200 instead of being ranked purely by the leading digit. Falls
+// back to height, width, length, then the display name for deterministic ties.
+export const compareTimberMaterialsBySize = (
+  left: TimberMaterialSizeFields,
+  right: TimberMaterialSizeFields,
+) => {
+  const leftArea = crossSectionArea(left);
+  const rightArea = crossSectionArea(right);
+  const leftValid = Number.isFinite(leftArea);
+  const rightValid = Number.isFinite(rightArea);
+
+  if (leftValid && rightValid && leftArea !== rightArea) {
+    return leftArea - rightArea;
+  }
+  if (leftValid !== rightValid) {
+    return leftValid ? -1 : 1;
+  }
+
+  for (const dimension of ["height", "width", "length"] as const) {
+    const leftValue = parseLeadingNumber(left[dimension]);
+    const rightValue = parseLeadingNumber(right[dimension]);
+    const leftNumeric = Number.isFinite(leftValue);
+    const rightNumeric = Number.isFinite(rightValue);
+
+    if (leftNumeric && rightNumeric && leftValue !== rightValue) {
+      return leftValue - rightValue;
+    }
+    if (leftNumeric !== rightNumeric) {
+      return leftNumeric ? -1 : 1;
+    }
+  }
+
+  return String(left.name ?? "").localeCompare(String(right.name ?? ""), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
+};
+
 export const normalizeBayLevelValue = (value: string | null | undefined) => value == null ? "" : String(value).trim();
 
 export const normalizeQuantity = (quantity: unknown) => {

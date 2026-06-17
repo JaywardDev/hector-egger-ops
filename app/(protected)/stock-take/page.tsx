@@ -4,8 +4,9 @@ import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import {
   listActiveStockAreas,
   listActiveTimberMaterials,
-  listTimberStockRowsForArea,
+  listAllTimberStockRows,
 } from "@/src/lib/stock-take/data";
+import type { TimberStockWorkingRow } from "@/src/lib/stock-take/types";
 import {
   STOCK_TAKE_PAGE_DESCRIPTION,
   STOCK_TAKE_PAGE_TITLE,
@@ -22,15 +23,21 @@ export default async function StockTakePage({ searchParams }: StockTakePageProps
   const params = await searchParams;
   const actor = { session, accessContext: { accountStatus: "approved" as const, roles }, route };
 
-  const [areas, materials] = await Promise.all([
+  const [areas, materials, allRows] = await Promise.all([
     listActiveStockAreas(actor),
     listActiveTimberMaterials(actor),
+    listAllTimberStockRows(actor),
   ]);
   const selectedAreaId =
     areas.find((area) => area.id === params?.area)?.id ?? areas[0]?.id ?? "";
-  const workingRows = selectedAreaId
-    ? await listTimberStockRowsForArea({ ...actor, areaId: selectedAreaId })
-    : [];
+
+  const initialRowsByAreaId: Record<string, TimberStockWorkingRow[]> = {};
+  for (const area of areas) {
+    initialRowsByAreaId[area.id] = [];
+  }
+  for (const row of allRows) {
+    (initialRowsByAreaId[row.area_id] ??= []).push(row);
+  }
 
   return (
     <PageContainer>
@@ -43,7 +50,7 @@ export default async function StockTakePage({ searchParams }: StockTakePageProps
         areas={areas}
         materials={materials}
         initialAreaId={selectedAreaId}
-        initialRows={workingRows}
+        initialRowsByAreaId={initialRowsByAreaId}
       />
     </PageContainer>
   );

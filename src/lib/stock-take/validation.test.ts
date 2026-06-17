@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildAreaPayload,
+  compareTimberMaterialsBySize,
   generateTimberMaterialName,
   getTimberStockRowScopeKey,
   normalizeQuantity,
@@ -53,6 +54,41 @@ test("does not reverse height and width", () => {
     }).startsWith("45x90"),
     true,
   );
+});
+
+test("timber materials sort by cross-section size, not by leading digit", () => {
+  const materials = [
+    { height: "135", width: "200", length: "12000", name: "135x200 LVL11 H1.2 12000" },
+    { height: "45", width: "90", length: "6000", name: "45x90 SG8 H1.2 6000" },
+    { height: "90", width: "240", length: "12000", name: "90x240 LVL11 H1.2 12000" },
+    { height: "135", width: "240", length: "12000", name: "135x240 LVL11 H1.2 12000" },
+  ];
+
+  const sorted = [...materials].sort(compareTimberMaterialsBySize).map((material) => material.name);
+
+  assert.deepEqual(sorted, [
+    "45x90 SG8 H1.2 6000",
+    "90x240 LVL11 H1.2 12000",
+    "135x200 LVL11 H1.2 12000",
+    "135x240 LVL11 H1.2 12000",
+  ]);
+});
+
+test("equal cross-section timber falls back to length then name for stable ordering", () => {
+  const shortBoard = { height: "90", width: "90", length: "4800", name: "90x90 SG8 H1.2 4800" };
+  const longBoard = { height: "90", width: "90", length: "6000", name: "90x90 SG8 H1.2 6000" };
+
+  assert.ok(compareTimberMaterialsBySize(shortBoard, longBoard) < 0);
+  assert.ok(compareTimberMaterialsBySize(longBoard, shortBoard) > 0);
+});
+
+test("non-numeric timber dimensions sort after sized materials without throwing", () => {
+  const sized = { height: "45", width: "90", length: "6000", name: "45x90 SG8 H1.2 6000" };
+  const unsized = { height: "", width: "", length: "", name: "Custom offcut" };
+
+  assert.doesNotThrow(() => compareTimberMaterialsBySize(sized, unsized));
+  assert.ok(compareTimberMaterialsBySize(sized, unsized) < 0);
+  assert.ok(compareTimberMaterialsBySize(unsized, sized) > 0);
 });
 
 test("add area payload accepts name only plus optional creator", () => {

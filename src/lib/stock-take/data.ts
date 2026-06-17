@@ -247,6 +247,33 @@ export const listTimberStockRowsForArea = async (
     },
   });
 
+export const listAllTimberStockRows = async (
+  actor: StockTakeActor,
+): Promise<TimberStockWorkingRow[]> =>
+  withServerTiming({
+    name: "listAllTimberStockRows",
+    route: actor.route,
+    operation: async () => {
+      await assertTimberStockReadAccess(actor);
+      const searchParams = new URLSearchParams({
+        select: `${rowSelect},timber_materials(name)`,
+        order: "area_id.asc,bay.asc,level.asc,created_at.asc",
+      });
+      const response = await createServerSupabaseClient().request(
+        `/rest/v1/timber_stock_rows?${searchParams.toString()}`,
+        { cache: "no-store", headers: createSessionHeaders(actor.session) },
+      );
+      if (!response.ok) {
+        throw new Error("Failed to load working lists.");
+      }
+      const rows = (await response.json()) as TimberStockRowRestRecord[];
+      return rows.map((row) => ({
+        ...row,
+        timber_name: row.timber_materials?.name ?? "Timber material",
+      }));
+    },
+  });
+
 export const updateTimberStockRowsForArea = async (
   actor: StockTakeActor & {
     areaId: string;
