@@ -39,13 +39,13 @@ const assertValidProfileId = (profileId: string) => {
 };
 
 const assertValidRole = (role: AppRole) => {
-  if (!ADMIN_ROLE_OPTIONS.includes(role)) {
+  if (!(ADMIN_ROLE_OPTIONS as readonly AppRole[]).includes(role)) {
     throw new Error("Invalid role");
   }
 };
 
 const assertRequiredApprovalRole = (role: AppRole) => {
-  if (!ADMIN_ROLE_OPTIONS.includes(role)) {
+  if (!(ADMIN_ROLE_OPTIONS as readonly AppRole[]).includes(role)) {
     throw new Error("Select a role before approving this user.");
   }
 };

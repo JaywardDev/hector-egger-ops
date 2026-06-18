@@ -4,6 +4,7 @@ export const roleDisplayLabels: Record<AppRole, string> = {
   operator: "Staff",
   supervisor: "supervisor",
   admin: "admin",
+  "initial-admin": "initial admin",
 };
 
 export const formatRoleLabel = (role: AppRole | string | null | undefined) => {

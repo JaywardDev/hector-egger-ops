@@ -36,7 +36,7 @@ const getProfileId = (formData: FormData, path: string) => {
 const getRole = (formData: FormData, path: string, message = "Invalid role selected.") => {
   const role = String(formData.get("role") ?? "").trim() as AppRole;
 
-  if (!ADMIN_ROLE_OPTIONS.includes(role)) {
+  if (!(ADMIN_ROLE_OPTIONS as readonly AppRole[]).includes(role)) {
     toAdminMessage(path, message, "error");
   }
 

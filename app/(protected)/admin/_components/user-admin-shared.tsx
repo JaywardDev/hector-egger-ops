@@ -55,7 +55,7 @@ export function StaffGroupSelect({ user, idPrefix, required = false }: { user: A
 }
 
 export function RoleSelect({ user, idPrefix, defaultRole = "operator", required = false }: { user: AdminUserRecord; idPrefix: string; defaultRole?: AppRole | ""; required?: boolean }) {
-  const selectedRole = user.roles.find((role) => ADMIN_ROLE_OPTIONS.includes(role)) ?? defaultRole;
+  const selectedRole = user.roles.find((role) => (ADMIN_ROLE_OPTIONS as readonly AppRole[]).includes(role)) ?? defaultRole;
 
   return (
     <FormField>

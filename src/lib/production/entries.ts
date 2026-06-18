@@ -34,40 +34,12 @@ type ProductionEntryInput = {
 
 type OperatorProfileRow = { id: string; full_name: string | null; email: string };
 
-const entrySelect =
-  "id,entry_date,operator_profile_id,start_time,finish_time,project_id,time_remaining_start_minutes,time_remaining_end_minutes,actual_volume_cut_m3,run_through_break,created_by_profile_id,created_at,updated_at";
-
-const syncReasonRows = async ({
-  supabase,
-  table,
-  entryId,
-  rows,
-}: {
-  supabase: ReturnType<typeof createServiceRoleSupabaseClient>;
-  table: "production_entry_downtime_reasons" | "production_entry_interruption_reasons";
-  entryId: string;
-  rows: ProductionEntryReasonLine[];
-}) => {
-  const deleteResponse = await supabase.request(`/rest/v1/${table}?entry_id=eq.${entryId}`, {
-    method: "DELETE",
-    headers: { Prefer: "return=minimal" },
-  });
-  if (!deleteResponse.ok) throw new Error("Failed to replace production reason rows");
-  if (rows.length === 0) return;
-  const response = await supabase.request(`/rest/v1/${table}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
-    body: JSON.stringify(
-      rows.map((row, index) => ({
-        entry_id: entryId,
-        reason_id: row.reasonId,
-        duration_minutes: row.durationMinutes,
-        sort_order: row.sortOrder ?? index,
-      })),
-    ),
-  });
-  if (!response.ok) throw new Error("Failed to save production reason rows");
-};
+const toReasonRpcRows = (rows: ProductionEntryReasonLine[]) =>
+  rows.map((row, index) => ({
+    reason_id: row.reasonId,
+    duration_minutes: row.durationMinutes,
+    sort_order: row.sortOrder ?? index,
+  }));
 
 export const listProductionEntries = async ({
   session,
@@ -106,53 +78,51 @@ export const listProductionEntries = async ({
 export const createProductionEntry = async ({ session, accessContext, input }: ProductionActor & { input: ProductionEntryInput }): Promise<ProductionEntryRecord> => {
   await assertProductionEntryWriteAccess({ session, accessContext });
   const supabase = createServiceRoleSupabaseClient();
-  const response = await supabase.request(`/rest/v1/production_entries?select=${entrySelect}`, {
+  const response = await supabase.request("/rest/v1/rpc/create_production_entry_with_reasons", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      entry_date: input.entryDate,
-      operator_profile_id: input.operatorProfileId,
-      start_time: input.startTime,
-      finish_time: input.finishTime,
-      project_id: input.projectId,
-      time_remaining_start_minutes: input.timeRemainingStartMinutes,
-      time_remaining_end_minutes: input.timeRemainingEndMinutes,
-      actual_volume_cut_m3: input.actualVolumeCutM3,
-      run_through_break: input.runThroughBreak,
-      created_by_profile_id: input.createdByProfileId,
+      p_entry_date: input.entryDate,
+      p_operator_profile_id: input.operatorProfileId,
+      p_start_time: input.startTime,
+      p_finish_time: input.finishTime,
+      p_project_id: input.projectId,
+      p_time_remaining_start_minutes: input.timeRemainingStartMinutes,
+      p_time_remaining_end_minutes: input.timeRemainingEndMinutes,
+      p_actual_volume_cut_m3: input.actualVolumeCutM3,
+      p_run_through_break: input.runThroughBreak,
+      p_created_by_profile_id: input.createdByProfileId,
+      p_downtime_reasons: toReasonRpcRows(input.downtimeReasons),
+      p_interruption_reasons: toReasonRpcRows(input.interruptionReasons),
     }),
   });
   if (!response.ok) throw new Error("Failed to create production entry");
-  const [record] = (await response.json()) as ProductionEntryRecord[];
-  await syncReasonRows({ supabase, table: "production_entry_downtime_reasons", entryId: record.id, rows: input.downtimeReasons });
-  await syncReasonRows({ supabase, table: "production_entry_interruption_reasons", entryId: record.id, rows: input.interruptionReasons });
-  return record;
+  return (await response.json()) as ProductionEntryRecord;
 };
 
 export const updateProductionEntry = async ({ session, accessContext, entryId, input }: ProductionActor & { entryId: string; input: Partial<ProductionEntryInput> }): Promise<ProductionEntryRecord> => {
   await assertProductionEntryWriteAccess({ session, accessContext });
   const supabase = createServiceRoleSupabaseClient();
-  const response = await supabase.request(`/rest/v1/production_entries?id=eq.${entryId}&select=${entrySelect}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+  const response = await supabase.request("/rest/v1/rpc/update_production_entry_with_reasons", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      entry_date: input.entryDate,
-      operator_profile_id: input.operatorProfileId,
-      start_time: input.startTime,
-      finish_time: input.finishTime,
-      project_id: input.projectId,
-      time_remaining_start_minutes: input.timeRemainingStartMinutes,
-      time_remaining_end_minutes: input.timeRemainingEndMinutes,
-      actual_volume_cut_m3: input.actualVolumeCutM3,
-      run_through_break: input.runThroughBreak,
+      p_entry_id: entryId,
+      p_entry_date: input.entryDate,
+      p_operator_profile_id: input.operatorProfileId,
+      p_start_time: input.startTime,
+      p_finish_time: input.finishTime,
+      p_project_id: input.projectId,
+      p_time_remaining_start_minutes: input.timeRemainingStartMinutes,
+      p_time_remaining_end_minutes: input.timeRemainingEndMinutes,
+      p_actual_volume_cut_m3: input.actualVolumeCutM3,
+      p_run_through_break: input.runThroughBreak,
+      p_downtime_reasons: toReasonRpcRows(input.downtimeReasons ?? []),
+      p_interruption_reasons: toReasonRpcRows(input.interruptionReasons ?? []),
     }),
   });
   if (!response.ok) throw new Error("Failed to update production entry");
-  const [record] = (await response.json()) as ProductionEntryRecord[];
-  if (!record) throw new Error("Production entry not found");
-  if (input.downtimeReasons) await syncReasonRows({ supabase, table: "production_entry_downtime_reasons", entryId, rows: input.downtimeReasons });
-  if (input.interruptionReasons) await syncReasonRows({ supabase, table: "production_entry_interruption_reasons", entryId, rows: input.interruptionReasons });
-  return record;
+  return (await response.json()) as ProductionEntryRecord;
 };
 
 export const deleteProductionEntry = async ({ session, accessContext, entryId }: ProductionActor & { entryId: string }): Promise<void> => {

@@ -7,7 +7,7 @@ import { withServerTiming } from "@/src/lib/server-timing";
 
 export type AccountStatus = "pending" | "approved" | "disabled";
 
-export type AppRole = "admin" | "supervisor" | "operator";
+export type AppRole = "admin" | "initial-admin" | "supervisor" | "operator";
 
 export type StaffGroup = "factory" | "site" | "office";
 
