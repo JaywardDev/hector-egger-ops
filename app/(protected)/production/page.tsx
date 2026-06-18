@@ -42,12 +42,10 @@ export default async function ProductionPage() {
           <p className="text-xl font-semibold text-zinc-900">{recentEntries.length}</p>
         </Card>
         <Card>
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Open project work</p>
+          <p className="text-xs uppercase tracking-wide text-zinc-500">Active projects</p>
           <p className="text-xl font-semibold text-zinc-900">
             {
-              projectSummaries.filter(
-                (project) => (project.latest_file_minutes_left ?? 0) > 0,
-              ).length
+              projectSummaries.filter((project) => !project.is_archived).length
             }
           </p>
         </Card>
@@ -68,8 +66,8 @@ export default async function ProductionPage() {
           <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/projects/new">
             Create new project
           </Link>
-          <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/import">
-            Import registries
+          <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/reasons">
+            Manage reasons
           </Link>
         </div>
       </Card>
@@ -83,7 +81,7 @@ export default async function ProductionPage() {
             {recentEntries.map((entry) => (
               <li key={entry.id}>
                 <Link href={`/production/entries/${entry.id}`} className="underline">
-                  {formatNzDate(entry.work_date)} · {entry.operator_name} · {entry.project_file} #{entry.project_sequence}
+                  {formatNzDate(entry.entry_date)} · {entry.operator_name} · {entry.project_file} #{entry.project_sequence}
                 </Link>
               </li>
             ))}

@@ -20,8 +20,6 @@ type EntriesPageProps = {
   }>;
 };
 
-const formatPct = (value: number | null) => (value === null ? "—" : `${(value * 100).toFixed(1)}%`);
-
 export default async function ProductionEntriesPage({ searchParams }: EntriesPageProps) {
   const route = "/production/entries";
   const { session, roles } = await requireProtectedAccess(route);
@@ -50,7 +48,7 @@ export default async function ProductionEntriesPage({ searchParams }: EntriesPag
 
   return (
     <PageContainer>
-      <PageHeader title="Production entries" description="Operational daily registry scaffold with filters and metrics table.">
+      <PageHeader title="Production entries" description="Manual Daily Production Entries with simple totals.">
         <div className="pt-2">
           <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/entries/new">
             Add entry
@@ -85,13 +83,13 @@ export default async function ProductionEntriesPage({ searchParams }: EntriesPag
         <table className="min-w-[1400px] text-left text-xs">
           <thead>
             <tr className="border-b border-zinc-200 text-zinc-500">
-              <th className="px-2 py-1">Work date</th><th className="px-2 py-1">Operator</th><th className="px-2 py-1">Project file</th><th className="px-2 py-1">Sequence</th><th className="px-2 py-1">Project name</th><th className="px-2 py-1">Shift start</th><th className="px-2 py-1">Shift end</th><th className="px-2 py-1">Operational minutes</th><th className="px-2 py-1">File left start</th><th className="px-2 py-1">File left end</th><th className="px-2 py-1">File done minutes</th><th className="px-2 py-1">Actual volume</th><th className="px-2 py-1">Machine efficiency</th><th className="px-2 py-1">Project efficiency</th><th className="px-2 py-1">Downtime</th><th className="px-2 py-1">Interruption</th><th className="px-2 py-1">Actions</th>
+              <th className="px-2 py-1">Date</th><th className="px-2 py-1">Operator</th><th className="px-2 py-1">Project File</th><th className="px-2 py-1">Sequence</th><th className="px-2 py-1">Project Name</th><th className="px-2 py-1">Start Time</th><th className="px-2 py-1">Finish Time</th><th className="px-2 py-1">Operational minutes</th><th className="px-2 py-1">Time Remaining Start</th><th className="px-2 py-1">Time Remaining End</th><th className="px-2 py-1">Actual Volume Cut</th><th className="px-2 py-1">Run Through Break</th><th className="px-2 py-1">Downtime</th><th className="px-2 py-1">Interruption</th><th className="px-2 py-1">Actions</th>
             </tr>
           </thead>
           <tbody>
             {entries.map((entry) => (
               <tr key={entry.id} className="border-b border-zinc-100">
-                <td className="px-2 py-1">{formatNzDate(entry.work_date)}</td><td className="px-2 py-1">{entry.operator_name}</td><td className="px-2 py-1">{entry.project_file}</td><td className="px-2 py-1">{entry.project_sequence}</td><td className="px-2 py-1">{entry.project_name}</td><td className="px-2 py-1">{entry.shift_start_time}</td><td className="px-2 py-1">{entry.shift_end_time}</td><td className="px-2 py-1">{entry.operational_minutes}</td><td className="px-2 py-1">{entry.file_minutes_left_start}</td><td className="px-2 py-1">{entry.file_minutes_left_end}</td><td className="px-2 py-1">{entry.project_file_done_minutes}</td><td className="px-2 py-1">{entry.actual_volume_cut_m3}</td><td className="px-2 py-1">{formatPct(entry.machine_efficiency_pct)}</td><td className="px-2 py-1">{formatPct(entry.project_efficiency_pct)}</td><td className="px-2 py-1">{entry.downtime_minutes}</td><td className="px-2 py-1">{entry.interruption_minutes}</td><td className="px-2 py-1"><Link className="underline" href={`/production/entries/${entry.id}`}>Open</Link></td>
+                <td className="px-2 py-1">{formatNzDate(entry.entry_date)}</td><td className="px-2 py-1">{entry.operator_name}</td><td className="px-2 py-1">{entry.project_file}</td><td className="px-2 py-1">{entry.project_sequence}</td><td className="px-2 py-1">{entry.project_name}</td><td className="px-2 py-1">{entry.start_time}</td><td className="px-2 py-1">{entry.finish_time}</td><td className="px-2 py-1">{entry.operational_minutes}</td><td className="px-2 py-1">{entry.time_remaining_start_minutes}</td><td className="px-2 py-1">{entry.time_remaining_end_minutes}</td><td className="px-2 py-1">{entry.actual_volume_cut_m3}</td><td className="px-2 py-1">{entry.run_through_break ? "Yes" : "No"}</td><td className="px-2 py-1">{entry.downtime_minutes}</td><td className="px-2 py-1">{entry.interruption_minutes}</td><td className="px-2 py-1"><Link className="underline" href={`/production/entries/${entry.id}`}>Open</Link></td>
               </tr>
             ))}
           </tbody>
