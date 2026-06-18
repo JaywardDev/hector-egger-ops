@@ -54,9 +54,9 @@ export const assertProductionReasonWriteAccess = async (actor: ProductionActor) 
   const { accountStatus, roles } = await resolveActor(actor);
   if (
     accountStatus !== "approved" ||
-    (!roles.includes("admin") && !roles.includes("supervisor"))
+    !roles.includes("admin")
   ) {
-    throw new Error("Supervisor or admin access is required for reason writes");
+    throw new Error("Admin access is required for reason writes");
   }
 };
 

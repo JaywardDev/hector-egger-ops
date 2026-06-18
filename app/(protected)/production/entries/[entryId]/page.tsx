@@ -3,7 +3,6 @@ import {
   deleteProductionEntryAction,
   updateProductionEntryFormAction,
 } from "@/app/(protected)/production/actions";
-import { EntryMetricsPreview } from "@/app/(protected)/production/components/entry-metrics-preview";
 import { ProductionEntryForm } from "@/app/(protected)/production/components/production-entry-form";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
@@ -66,10 +65,9 @@ export default async function ProductionEntryDetailPage({ params, searchParams }
 
   return (
     <PageContainer>
-      <PageHeader title={`Entry ${formatNzDate(entry.work_date)}`} description={`${entry.operator_name} · ${entry.project_file} #${entry.project_sequence}`} />
+      <PageHeader title={`Entry ${formatNzDate(entry.entry_date)}`} description={`${entry.operator_name} · ${entry.project_file} #${entry.project_sequence}`} />
       {messages.success ? <Alert variant="success">{messages.success}</Alert> : null}
       {messages.error ? <Alert variant="error">{messages.error}</Alert> : null}
-      <EntryMetricsPreview />
       <Card>
         <ProductionEntryForm
           formAction={updateProductionEntryFormAction}
@@ -81,19 +79,17 @@ export default async function ProductionEntryDetailPage({ params, searchParams }
           interruptionReasons={interruptionReasons}
           initialValues={{
             entryId: entry.id,
-            workDate: entry.work_date,
+            entryDate: entry.entry_date,
             operatorProfileId: selectedOperatorId,
             projectId: entry.project_id,
-            shiftStartTime: entry.shift_start_time.slice(0, 5),
-            shiftEndTime: entry.shift_end_time.slice(0, 5),
-            fileMinutesLeftStart: entry.file_minutes_left_start,
-            fileMinutesLeftEnd: entry.file_minutes_left_end,
+            startTime: entry.start_time.slice(0, 5),
+            finishTime: entry.finish_time.slice(0, 5),
+            timeRemainingStartMinutes: entry.time_remaining_start_minutes,
+            timeRemainingEndMinutes: entry.time_remaining_end_minutes,
             actualVolumeCutM3: entry.actual_volume_cut_m3,
-            downtimeMinutes: entry.downtime_minutes,
-            downtimeReasonId: entry.downtime_reason_id,
-            interruptionMinutes: entry.interruption_minutes,
-            interruptionReasonId: entry.interruption_reason_id,
-            notes: entry.notes,
+            runThroughBreak: entry.run_through_break,
+            downtimeReasons: entry.downtime_reasons.map((row) => ({ reasonId: row.reason_id, durationMinutes: String(row.duration_minutes) })),
+            interruptionReasons: entry.interruption_reasons.map((row) => ({ reasonId: row.reason_id, durationMinutes: String(row.duration_minutes) })),
           }}
         />
       </Card>
@@ -112,6 +108,7 @@ export default async function ProductionEntryDetailPage({ params, searchParams }
             await deleteProductionEntryAction(entry.id);
           }}
         >
+          <p className="mb-2 text-sm text-zinc-600">Confirm deletion by pressing Delete entry. This cannot be undone.</p>
           <Button type="submit" variant="danger">Delete entry</Button>
         </form>
         <p className="mt-2">

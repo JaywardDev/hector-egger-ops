@@ -1,5 +1,4 @@
 import { createProductionEntryFormAction } from "@/app/(protected)/production/actions";
-import { EntryMetricsPreview } from "@/app/(protected)/production/components/entry-metrics-preview";
 import { ProductionEntryForm } from "@/app/(protected)/production/components/production-entry-form";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
@@ -43,14 +42,13 @@ export default async function NewProductionEntryPage({ searchParams }: NewEntryP
       <PageHeader title="New production entry" description="Create a daily production entry." />
       {params.error ? <Alert variant="error">{params.error}</Alert> : null}
       {params.warn ? <Alert>{params.warn}</Alert> : null}
-      <EntryMetricsPreview />
       <Card>
         <ProductionEntryForm
           formAction={createProductionEntryFormAction}
           submitLabel="Create entry"
           operators={operators}
           canAssignOtherOperator={canAssignOtherOperator}
-          projects={projects}
+          projects={projects.filter((project) => !project.is_archived)}
           downtimeReasons={downtimeReasons}
           interruptionReasons={interruptionReasons}
           initialValues={{

@@ -11,7 +11,6 @@ import {
 } from "@/src/lib/production/access";
 import type {
   ProductionProjectRecord,
-  ProductionProjectStatus,
   ProductionProjectSummaryRecord,
 } from "@/src/lib/production/types";
 
@@ -19,16 +18,15 @@ type ProductionProjectInput = {
   projectFile: string;
   projectName: string;
   projectSequence: number;
-  totalOperationalMinutes: number | null;
-  estimatedTotalVolumeM3: number | null;
-  notes: string | null;
-  status?: ProductionProjectStatus;
+  totalTimeMinutes: number | null;
+  totalVolumeM3: number | null;
+  isArchived?: boolean;
 };
 
 const normalizeProjectKeyText = (value: string) => value.trim();
 
 const projectSelect =
-  "id,project_file,project_name,project_sequence,total_operational_minutes,estimated_total_volume_m3,status,notes,created_at,updated_at";
+  "id,project_sequence,project_name,project_file,total_time_minutes,total_volume_m3,is_archived,created_at,updated_at";
 
 export const listProductionProjects = async ({
   session,
@@ -43,7 +41,7 @@ export const listProductionProjects = async ({
 
       const supabase = createServerSupabaseClient();
       const response = await supabase.request(
-        `/rest/v1/production_projects?select=${projectSelect}&order=project_file.asc,project_sequence.asc`,
+        `/rest/v1/production_projects?select=${projectSelect}&order=is_archived.asc,project_file.asc,project_sequence.asc`,
         {
           cache: "no-store",
           headers: createSessionHeaders(session),
@@ -77,13 +75,12 @@ export const createProductionProject = async ({
         Prefer: "return=representation",
       },
       body: JSON.stringify({
-        project_file: input.projectFile,
-        project_name: input.projectName,
         project_sequence: input.projectSequence,
-        total_operational_minutes: input.totalOperationalMinutes,
-        estimated_total_volume_m3: input.estimatedTotalVolumeM3,
-        status: input.status ?? "active",
-        notes: input.notes,
+        project_name: input.projectName,
+        project_file: input.projectFile,
+        total_time_minutes: input.totalTimeMinutes,
+        total_volume_m3: input.totalVolumeM3,
+        is_archived: input.isArchived ?? false,
       }),
     },
   );
@@ -117,13 +114,12 @@ export const updateProductionProject = async ({
         Prefer: "return=representation",
       },
       body: JSON.stringify({
-        project_file: input.projectFile,
-        project_name: input.projectName,
         project_sequence: input.projectSequence,
-        total_operational_minutes: input.totalOperationalMinutes,
-        estimated_total_volume_m3: input.estimatedTotalVolumeM3,
-        status: input.status,
-        notes: input.notes,
+        project_name: input.projectName,
+        project_file: input.projectFile,
+        total_time_minutes: input.totalTimeMinutes,
+        total_volume_m3: input.totalVolumeM3,
+        is_archived: input.isArchived,
       }),
     },
   );
@@ -152,7 +148,7 @@ export const archiveProductionProject = async ({
     accessContext,
     projectId,
     input: {
-      status: "archived",
+      isArchived: true,
     },
   });
 
@@ -239,7 +235,7 @@ export const upsertProductionProjectByFileAndSequence = async ({
   const existing = await findProductionProjectByFileAndSequence({
     session,
     accessContext,
-    route: "/production/import",
+    route: "/production/projects",
     projectFile: normalizedProjectFile,
     projectSequence: input.projectSequence,
   });
@@ -262,8 +258,9 @@ export const upsertProductionProjectByFileAndSequence = async ({
     projectId: existing.id,
     input: {
       projectName: input.projectName,
-      totalOperationalMinutes: input.totalOperationalMinutes,
-      estimatedTotalVolumeM3: input.estimatedTotalVolumeM3,
+      totalTimeMinutes: input.totalTimeMinutes,
+      totalVolumeM3: input.totalVolumeM3,
+      isArchived: input.isArchived,
     },
   });
 

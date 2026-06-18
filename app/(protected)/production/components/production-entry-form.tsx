@@ -6,248 +6,48 @@ import { Button } from "@/src/components/ui/button";
 import { FormField } from "@/src/components/ui/form-field";
 import { Input } from "@/src/components/ui/input";
 import { Select } from "@/src/components/ui/select";
-import { Textarea } from "@/src/components/ui/textarea";
-import type {
-  ProductionDowntimeReasonRecord,
-  ProductionInterruptionReasonRecord,
-  ProductionOperatorOption,
-  ProductionProjectRecord,
-} from "@/src/lib/production/types";
+import type { ProductionDowntimeReasonRecord, ProductionInterruptionReasonRecord, ProductionOperatorOption, ProductionProjectRecord } from "@/src/lib/production/types";
 
-type ProductionEntryFormProps = {
-  formAction: (formData: FormData) => void | Promise<void>;
-  submitLabel: string;
-  operators: ProductionOperatorOption[];
-  canAssignOtherOperator: boolean;
-  projects: ProductionProjectRecord[];
-  downtimeReasons: ProductionDowntimeReasonRecord[];
-  interruptionReasons: ProductionInterruptionReasonRecord[];
-  initialValues?: {
-    entryId?: string;
-    workDate?: string;
-    operatorProfileId?: string;
-    projectId?: string;
-    shiftStartTime?: string;
-    shiftEndTime?: string;
-    fileMinutesLeftStart?: number;
-    fileMinutesLeftEnd?: number;
-    actualVolumeCutM3?: number;
-    downtimeMinutes?: number;
-    downtimeReasonId?: string | null;
-    interruptionMinutes?: number;
-    interruptionReasonId?: string | null;
-    notes?: string | null;
-  };
-};
+type ReasonRow = { reasonId: string; durationMinutes: string };
+type Props = { formAction: (formData: FormData) => void | Promise<void>; submitLabel: string; operators: ProductionOperatorOption[]; canAssignOtherOperator: boolean; projects: ProductionProjectRecord[]; downtimeReasons: ProductionDowntimeReasonRecord[]; interruptionReasons: ProductionInterruptionReasonRecord[]; initialValues?: { entryId?: string; entryDate?: string; operatorProfileId?: string; projectId?: string; startTime?: string; finishTime?: string; timeRemainingStartMinutes?: number; timeRemainingEndMinutes?: number; actualVolumeCutM3?: number; runThroughBreak?: boolean; downtimeReasons?: ReasonRow[]; interruptionReasons?: ReasonRow[] } };
+const parseTimeToMinutes = (time: string) => { const [hours, minutes] = time.split(":").map(Number); return Number.isFinite(hours) && Number.isFinite(minutes) ? hours * 60 + minutes : Number.NaN; };
+const ReasonRows = ({ kind, rows, setRows, reasons }: { kind: "downtime" | "interruption"; rows: ReasonRow[]; setRows: (rows: ReasonRow[]) => void; reasons: Array<{ id: string; label: string; is_active: boolean }> }) => (
+  <div className="grid gap-2 rounded-md border border-zinc-200 p-3 sm:col-span-2">
+    <div className="flex items-center justify-between gap-2"><p className="font-medium text-zinc-900">{kind === "downtime" ? "Downtime" : "Interruption"} reasons</p><Button type="button" variant="secondary" onClick={() => setRows([...rows, { reasonId: "", durationMinutes: "" }])}>Add row</Button></div>
+    {rows.length === 0 ? <p className="text-sm text-zinc-500">No rows added.</p> : null}
+    {rows.map((row, index) => <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
+      <Select name={`${kind}_reason_id`} value={row.reasonId} onChange={(event) => setRows(rows.map((item, i) => i === index ? { ...item, reasonId: event.currentTarget.value } : item))} required>
+        <option value="">Select reason</option>{reasons.filter((reason) => reason.is_active || reason.id === row.reasonId).map((reason) => <option key={reason.id} value={reason.id}>{reason.label}</option>)}
+      </Select>
+      <Input name={`${kind}_duration_minutes`} type="number" min={1} value={row.durationMinutes} onChange={(event) => setRows(rows.map((item, i) => i === index ? { ...item, durationMinutes: event.currentTarget.value } : item))} required />
+      <Button type="button" variant="secondary" onClick={() => setRows(rows.filter((_, i) => i !== index))}>Remove</Button>
+    </div>)}
+  </div>
+);
 
-const parseTimeToMinutes = (time: string) => {
-  const [hours, minutes] = time.split(":").map((value) => Number(value));
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-    return Number.NaN;
-  }
-  return hours * 60 + minutes;
-};
-
-export function ProductionEntryForm({
-  formAction,
-  submitLabel,
-  operators,
-  canAssignOtherOperator,
-  projects,
-  downtimeReasons,
-  interruptionReasons,
-  initialValues,
-}: ProductionEntryFormProps) {
-  const [shiftStartTime, setShiftStartTime] = useState(initialValues?.shiftStartTime ?? "");
-  const [shiftEndTime, setShiftEndTime] = useState(initialValues?.shiftEndTime ?? "");
-  const [fileMinutesLeftStart, setFileMinutesLeftStart] = useState(
-    String(initialValues?.fileMinutesLeftStart ?? 0),
-  );
-  const [fileMinutesLeftEnd, setFileMinutesLeftEnd] = useState(
-    String(initialValues?.fileMinutesLeftEnd ?? 0),
-  );
-  const [downtimeMinutes, setDowntimeMinutes] = useState(
-    String(initialValues?.downtimeMinutes ?? 0),
-  );
-  const [interruptionMinutes, setInterruptionMinutes] = useState(
-    String(initialValues?.interruptionMinutes ?? 0),
-  );
-
-  const warnings = useMemo(() => {
-    const leftStart = Number(fileMinutesLeftStart);
-    const leftEnd = Number(fileMinutesLeftEnd);
-    const downtime = Number(downtimeMinutes);
-    const interruption = Number(interruptionMinutes);
-
-    const start = parseTimeToMinutes(shiftStartTime);
-    const end = parseTimeToMinutes(shiftEndTime);
-    const operational = end - start;
-
-    return {
-      remainingMinutesIncreased:
-        Number.isFinite(leftStart) && Number.isFinite(leftEnd) && leftEnd > leftStart,
-      allocationExceedsOperational:
-        Number.isFinite(downtime) &&
-        Number.isFinite(interruption) &&
-        Number.isFinite(operational) &&
-        operational >= 0 &&
-        downtime + interruption > operational,
-    };
-  }, [downtimeMinutes, fileMinutesLeftEnd, fileMinutesLeftStart, interruptionMinutes, shiftEndTime, shiftStartTime]);
-
-  return (
-    <form action={formAction} className="grid gap-3 sm:grid-cols-2">
-      {initialValues?.entryId ? <input type="hidden" name="entry_id" value={initialValues.entryId} /> : null}
-      <FormField label="Work date" htmlFor="work_date">
-        <Input id="work_date" name="work_date" type="date" defaultValue={initialValues?.workDate ?? ""} required />
-      </FormField>
-      <FormField label="Operator" htmlFor="operator_profile_id">
-        <Select
-          id="operator_profile_id"
-          name="operator_profile_id"
-          defaultValue={initialValues?.operatorProfileId ?? ""}
-          disabled={!canAssignOtherOperator}
-          required
-        >
-          {operators.length === 0 ? <option value="">No operators available</option> : null}
-          {operators.map((operator) => (
-            <option key={operator.profile_id} value={operator.profile_id}>
-              {operator.display_name}
-            </option>
-          ))}
-        </Select>
-      </FormField>
-      <FormField label="Project" htmlFor="project_id">
-        <Select id="project_id" name="project_id" defaultValue={initialValues?.projectId ?? ""} required>
-          <option value="">Select project</option>
-          {projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.project_file} #{project.project_sequence} · {project.project_name}
-            </option>
-          ))}
-        </Select>
-      </FormField>
-      <FormField label="Shift start" htmlFor="shift_start_time">
-        <Input
-          id="shift_start_time"
-          name="shift_start_time"
-          type="time"
-          defaultValue={initialValues?.shiftStartTime ?? ""}
-          onChange={(event) => setShiftStartTime(event.currentTarget.value)}
-          required
-        />
-      </FormField>
-      <FormField label="Shift end" htmlFor="shift_end_time">
-        <Input
-          id="shift_end_time"
-          name="shift_end_time"
-          type="time"
-          defaultValue={initialValues?.shiftEndTime ?? ""}
-          onChange={(event) => setShiftEndTime(event.currentTarget.value)}
-          required
-        />
-      </FormField>
-      <FormField label="File minutes left start" htmlFor="file_minutes_left_start">
-        <Input
-          id="file_minutes_left_start"
-          name="file_minutes_left_start"
-          type="number"
-          min={0}
-          defaultValue={String(initialValues?.fileMinutesLeftStart ?? 0)}
-          onChange={(event) => setFileMinutesLeftStart(event.currentTarget.value)}
-          required
-        />
-      </FormField>
-      <FormField label="File minutes left end" htmlFor="file_minutes_left_end">
-        <Input
-          id="file_minutes_left_end"
-          name="file_minutes_left_end"
-          type="number"
-          min={0}
-          defaultValue={String(initialValues?.fileMinutesLeftEnd ?? 0)}
-          onChange={(event) => setFileMinutesLeftEnd(event.currentTarget.value)}
-          required
-        />
-      </FormField>
-      <FormField label="Actual volume cut m³" htmlFor="actual_volume_cut_m3">
-        <Input
-          id="actual_volume_cut_m3"
-          name="actual_volume_cut_m3"
-          type="number"
-          min={0}
-          step="0.001"
-          defaultValue={String(initialValues?.actualVolumeCutM3 ?? 0)}
-        />
-      </FormField>
-      <FormField label="Downtime minutes" htmlFor="downtime_minutes">
-        <Input
-          id="downtime_minutes"
-          name="downtime_minutes"
-          type="number"
-          min={0}
-          defaultValue={String(initialValues?.downtimeMinutes ?? 0)}
-          onChange={(event) => setDowntimeMinutes(event.currentTarget.value)}
-        />
-      </FormField>
-      <FormField label="Downtime reason" htmlFor="downtime_reason_id">
-        <Select
-          id="downtime_reason_id"
-          name="downtime_reason_id"
-          defaultValue={initialValues?.downtimeReasonId ?? ""}
-        >
-          <option value="">None</option>
-          {downtimeReasons.map((reason) => (
-            <option key={reason.id} value={reason.id}>
-              {reason.label}
-            </option>
-          ))}
-        </Select>
-      </FormField>
-      <FormField label="Interruption minutes" htmlFor="interruption_minutes">
-        <Input
-          id="interruption_minutes"
-          name="interruption_minutes"
-          type="number"
-          min={0}
-          defaultValue={String(initialValues?.interruptionMinutes ?? 0)}
-          onChange={(event) => setInterruptionMinutes(event.currentTarget.value)}
-        />
-      </FormField>
-      <FormField label="Interruption reason" htmlFor="interruption_reason_id">
-        <Select
-          id="interruption_reason_id"
-          name="interruption_reason_id"
-          defaultValue={initialValues?.interruptionReasonId ?? ""}
-        >
-          <option value="">None</option>
-          {interruptionReasons.map((reason) => (
-            <option key={reason.id} value={reason.id}>
-              {reason.label}
-            </option>
-          ))}
-        </Select>
-      </FormField>
-      {warnings.remainingMinutesIncreased ? (
-        <Alert className="sm:col-span-2" variant="warning">
-          Remaining file minutes increased during this shift. Please confirm this is correct.
-        </Alert>
-      ) : null}
-      {warnings.allocationExceedsOperational ? (
-        <Alert className="sm:col-span-2" variant="warning">
-          Downtime and interruption exceed the shift&apos;s operational time. Please review the entry.
-        </Alert>
-      ) : null}
-      <FormField className="sm:col-span-2" label="Notes" htmlFor="notes">
-        <Textarea id="notes" name="notes" rows={4} defaultValue={initialValues?.notes ?? ""} />
-      </FormField>
-      {!canAssignOtherOperator && operators.length > 0 ? (
-        <input type="hidden" name="operator_profile_id" value={operators[0].profile_id} />
-      ) : null}
-      <div className="sm:col-span-2">
-        <Button type="submit" disabled={operators.length === 0}>
-          {submitLabel}
-        </Button>
-      </div>
-    </form>
-  );
+export function ProductionEntryForm({ formAction, submitLabel, operators, canAssignOtherOperator, projects, downtimeReasons, interruptionReasons, initialValues }: Props) {
+  const [startTime, setStartTime] = useState(initialValues?.startTime ?? ""); const [finishTime, setFinishTime] = useState(initialValues?.finishTime ?? "");
+  const [timeRemainingStart, setTimeRemainingStart] = useState(String(initialValues?.timeRemainingStartMinutes ?? 0)); const [timeRemainingEnd, setTimeRemainingEnd] = useState(String(initialValues?.timeRemainingEndMinutes ?? 0));
+  const [downtimeRows, setDowntimeRows] = useState<ReasonRow[]>(initialValues?.downtimeReasons ?? []); const [interruptionRows, setInterruptionRows] = useState<ReasonRow[]>(initialValues?.interruptionReasons ?? []);
+  const warnings = useMemo(() => { const start = parseTimeToMinutes(startTime); const end = parseTimeToMinutes(finishTime); const operational = end - start; const downtime = downtimeRows.reduce((sum, row) => sum + Number(row.durationMinutes || 0), 0); const interruption = interruptionRows.reduce((sum, row) => sum + Number(row.durationMinutes || 0), 0); return { remainingMinutesIncreased: Number(timeRemainingEnd) > Number(timeRemainingStart), allocationExceedsOperational: Number.isFinite(operational) && operational >= 0 && downtime + interruption > operational, operational }; }, [downtimeRows, finishTime, interruptionRows, startTime, timeRemainingEnd, timeRemainingStart]);
+  const activeProjects = projects.filter((project) => !project.is_archived || project.id === initialValues?.projectId);
+  return <form action={formAction} className="grid gap-3 sm:grid-cols-2">
+    {initialValues?.entryId ? <input type="hidden" name="entry_id" value={initialValues.entryId} /> : null}
+    <FormField label="Date" htmlFor="entry_date"><Input id="entry_date" name="entry_date" type="date" defaultValue={initialValues?.entryDate ?? ""} required /></FormField>
+    <FormField label="Operator" htmlFor="operator_profile_id"><Select id="operator_profile_id" name="operator_profile_id" defaultValue={initialValues?.operatorProfileId ?? ""} disabled={!canAssignOtherOperator} required>{operators.length === 0 ? <option value="">No operators available</option> : null}{operators.map((operator) => <option key={operator.profile_id} value={operator.profile_id}>{operator.display_name}</option>)}</Select></FormField>
+    <FormField label="Project" htmlFor="project_id"><Select id="project_id" name="project_id" defaultValue={initialValues?.projectId ?? ""} required><option value="">Select project</option>{activeProjects.map((project) => <option key={project.id} value={project.id}>{project.project_file} #{project.project_sequence} · {project.project_name}</option>)}</Select></FormField>
+    <FormField label="Start Time" htmlFor="start_time"><Input id="start_time" name="start_time" type="time" defaultValue={initialValues?.startTime ?? ""} onChange={(event) => setStartTime(event.currentTarget.value)} required /></FormField>
+    <FormField label="Finish Time" htmlFor="finish_time"><Input id="finish_time" name="finish_time" type="time" defaultValue={initialValues?.finishTime ?? ""} onChange={(event) => setFinishTime(event.currentTarget.value)} required /></FormField>
+    <FormField label="Operational Hours"><Input readOnly value={Number.isFinite(warnings.operational) && warnings.operational > 0 ? (warnings.operational / 60).toFixed(2) : ""} /></FormField>
+    <FormField label="Time Remaining Start" htmlFor="time_remaining_start_minutes"><Input id="time_remaining_start_minutes" name="time_remaining_start_minutes" type="number" min={0} defaultValue={String(initialValues?.timeRemainingStartMinutes ?? 0)} onChange={(event) => setTimeRemainingStart(event.currentTarget.value)} required /></FormField>
+    <FormField label="Time Remaining End" htmlFor="time_remaining_end_minutes"><Input id="time_remaining_end_minutes" name="time_remaining_end_minutes" type="number" min={0} defaultValue={String(initialValues?.timeRemainingEndMinutes ?? 0)} onChange={(event) => setTimeRemainingEnd(event.currentTarget.value)} required /></FormField>
+    <FormField label="Actual Volume Cut m³" htmlFor="actual_volume_cut_m3"><Input id="actual_volume_cut_m3" name="actual_volume_cut_m3" type="number" min={0} step="0.001" defaultValue={String(initialValues?.actualVolumeCutM3 ?? 0)} required /></FormField>
+    <label className="flex items-center gap-2 rounded-md border border-zinc-200 px-3 py-2"><input name="run_through_break" type="checkbox" defaultChecked={initialValues?.runThroughBreak ?? false} /> Run Through Break</label>
+    <ReasonRows kind="downtime" rows={downtimeRows} setRows={setDowntimeRows} reasons={downtimeReasons} />
+    <ReasonRows kind="interruption" rows={interruptionRows} setRows={setInterruptionRows} reasons={interruptionReasons} />
+    {warnings.remainingMinutesIncreased ? <Alert className="sm:col-span-2" variant="warning">Time Remaining End is greater than Time Remaining Start. Please confirm this is correct.</Alert> : null}
+    {warnings.allocationExceedsOperational ? <Alert className="sm:col-span-2" variant="warning">Downtime and interruption exceed operational time. Please review the entry.</Alert> : null}
+    {!canAssignOtherOperator && operators.length > 0 ? <input type="hidden" name="operator_profile_id" value={operators[0].profile_id} /> : null}
+    <div className="sm:col-span-2"><Button type="submit" disabled={operators.length === 0}>{submitLabel}</Button></div>
+  </form>;
 }

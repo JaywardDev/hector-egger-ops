@@ -17,8 +17,6 @@ type ProjectsPageProps = {
   }>;
 };
 
-const formatPct = (value: number | null) => (value === null ? "—" : `${(value * 100).toFixed(1)}%`);
-
 export default async function ProductionProjectsPage({ searchParams }: ProjectsPageProps) {
   const route = "/production/projects";
   const { session, roles } = await requireProtectedAccess(route);
@@ -37,9 +35,9 @@ export default async function ProductionProjectsPage({ searchParams }: ProjectsP
   ]);
 
   const q = (params.q ?? "").trim().toLowerCase();
-  const status = (params.status ?? "all").trim().toLowerCase();
+  const status = (params.status ?? "active").trim().toLowerCase();
 
-  const statusById = new Map(projects.map((project) => [project.id, project.status]));
+  const archivedById = new Map(projects.map((project) => [project.id, project.is_archived]));
 
   const filtered = summaries.filter((project) => {
     const matchesSearch =
@@ -47,8 +45,8 @@ export default async function ProductionProjectsPage({ searchParams }: ProjectsP
       `${project.project_file} ${project.project_name} ${project.project_sequence}`
         .toLowerCase()
         .includes(q);
-    const projectStatus = statusById.get(project.project_id);
-    const matchesStatus = status === "all" || projectStatus === status;
+    const archived = archivedById.get(project.project_id) ?? project.is_archived;
+    const matchesStatus = status === "all" || (status === "archived" ? archived : !archived);
     return matchesSearch && matchesStatus;
   });
 
@@ -56,7 +54,7 @@ export default async function ProductionProjectsPage({ searchParams }: ProjectsP
     <PageContainer>
       <PageHeader
         title="Production Projects"
-        description="Project registry scaffold with filters, summary metrics, and quick actions."
+        description="Manual Project Registry for production work."
       >
         <div className="pt-2">
           <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/projects/new">
@@ -76,10 +74,9 @@ export default async function ProductionProjectsPage({ searchParams }: ProjectsP
             name="status"
             defaultValue={params.status ?? "all"}
           >
-            <option value="all">All statuses</option>
-            <option value="active">active</option>
-            <option value="completed">completed</option>
-            <option value="archived">archived</option>
+            <option value="active">Active</option>
+            <option value="archived">Archived</option>
+            <option value="all">All</option>
           </select>
           <button className="rounded-md border border-zinc-200 px-3 py-1" type="submit">
             Apply
@@ -92,10 +89,9 @@ export default async function ProductionProjectsPage({ searchParams }: ProjectsP
           <thead>
             <tr className="border-b border-zinc-200 text-zinc-500">
               <th className="px-2 py-1">Project file</th><th className="px-2 py-1">Project name</th><th className="px-2 py-1">Sequence</th>
-              <th className="px-2 py-1">Total planned minutes</th><th className="px-2 py-1">Latest minutes left</th>
-              <th className="px-2 py-1">Remaining %</th><th className="px-2 py-1">Progress %</th>
-              <th className="px-2 py-1">Total logged volume</th><th className="px-2 py-1">Avg machine efficiency</th>
-              <th className="px-2 py-1">Avg project efficiency</th><th className="px-2 py-1">Status</th><th className="px-2 py-1">Actions</th>
+              <th className="px-2 py-1">Total Time</th><th className="px-2 py-1">Latest Time Remaining</th>
+              <th className="px-2 py-1">Total Volume</th><th className="px-2 py-1">Volume Cut</th>
+              <th className="px-2 py-1">Downtime</th><th className="px-2 py-1">Interruption</th><th className="px-2 py-1">Archived</th><th className="px-2 py-1">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -104,14 +100,13 @@ export default async function ProductionProjectsPage({ searchParams }: ProjectsP
                 <td className="px-2 py-1">{project.project_file}</td>
                 <td className="px-2 py-1">{project.project_name}</td>
                 <td className="px-2 py-1">{project.project_sequence}</td>
-                <td className="px-2 py-1">{project.total_operational_minutes ?? "—"}</td>
-                <td className="px-2 py-1">{project.latest_file_minutes_left ?? "—"}</td>
-                <td className="px-2 py-1">{formatPct(project.remaining_pct)}</td>
-                <td className="px-2 py-1">{formatPct(project.progress_pct)}</td>
+                <td className="px-2 py-1">{project.total_time_minutes ?? "—"}</td>
+                <td className="px-2 py-1">{project.latest_time_remaining_minutes ?? "—"}</td>
+                <td className="px-2 py-1">{project.total_volume_m3 ?? "—"}</td>
                 <td className="px-2 py-1">{project.total_volume_cut_m3}</td>
-                <td className="px-2 py-1">{formatPct(project.avg_machine_efficiency_pct)}</td>
-                <td className="px-2 py-1">{formatPct(project.avg_project_efficiency_pct)}</td>
-                <td className="px-2 py-1">{statusById.get(project.project_id) ?? "active"}</td>
+                <td className="px-2 py-1">{project.total_downtime_minutes}</td>
+                <td className="px-2 py-1">{project.total_interruption_minutes}</td>
+                <td className="px-2 py-1">{(archivedById.get(project.project_id) ?? project.is_archived) ? "Yes" : "No"}</td>
                 <td className="px-2 py-1">
                   <Link href={`/production/projects/${project.project_id}`} className="underline">Open</Link>
                 </td>
