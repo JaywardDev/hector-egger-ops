@@ -50,11 +50,13 @@ export const assertProductionProjectWriteAccess = async (actor: ProductionActor)
   }
 };
 
+export const hasProductionReasonAdminRole = (roles: string[]) => roles.includes("admin") || roles.includes("initial-admin");
+
 export const assertProductionReasonWriteAccess = async (actor: ProductionActor) => {
   const { accountStatus, roles } = await resolveActor(actor);
   if (
     accountStatus !== "approved" ||
-    !roles.includes("admin")
+    !hasProductionReasonAdminRole(roles)
   ) {
     throw new Error("Admin access is required for reason writes");
   }

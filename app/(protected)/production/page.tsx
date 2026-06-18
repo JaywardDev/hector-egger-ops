@@ -3,6 +3,7 @@ import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { Card } from "@/src/components/ui/card";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
+import { hasProductionReasonAdminRole } from "@/src/lib/production/access";
 import { formatNzDate } from "@/src/lib/dateTime";
 import { listProductionEntries } from "@/src/lib/production/entries";
 import { listProductionProjectSummaries } from "@/src/lib/production/dashboard";
@@ -10,6 +11,7 @@ import { listProductionProjectSummaries } from "@/src/lib/production/dashboard";
 export default async function ProductionPage() {
   const route = "/production";
   const { session, roles } = await requireProtectedAccess(route);
+  const canManageReasons = hasProductionReasonAdminRole(roles);
 
   const [projectSummaries, recentEntries] = await Promise.all([
     listProductionProjectSummaries({
@@ -66,9 +68,11 @@ export default async function ProductionPage() {
           <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/projects/new">
             Create new project
           </Link>
-          <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/reasons">
-            Manage reasons
-          </Link>
+          {canManageReasons ? (
+            <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/reasons">
+              Manage reasons
+            </Link>
+          ) : null}
         </div>
       </Card>
 

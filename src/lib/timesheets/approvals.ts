@@ -49,7 +49,7 @@ type ApprovalActorScope = {
 };
 
 const validStaffGroups: StaffGroup[] = ["factory", "site", "office"];
-const roleRank: Record<AppRole, number> = { operator: 0, supervisor: 1, admin: 2 };
+const roleRank: Record<AppRole, number> = { operator: 0, supervisor: 1, admin: 2, "initial-admin": 2 };
 const reviewableRoles: AppRole[] = ["operator", "supervisor", "admin"];
 
 const inList = (values: string[]) => values.join(",");
