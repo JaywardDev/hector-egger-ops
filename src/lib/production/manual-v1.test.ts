@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import type { ProductionEntryWithMetricsRecord } from "@/src/lib/production/types";
 import { join } from "node:path";
 
 const repoRoot = process.cwd();
@@ -330,4 +331,49 @@ test("project detail keeps project-file controls and labels project totals as fi
   assert.match(page, /createProductionProjectFileFormAction/);
   assert.match(page, /<Button type="submit">Save file<\/Button>/);
   assert.match(page, /<Button type="submit">Add file<\/Button>/);
+});
+
+test("production performance dashboard helpers calculate safe KPIs, grouped chart data, and filters", async () => {
+  const { buildProductionDashboard, formatRate, formatVolume, formatPercent } = await import("@/src/lib/production/performance-dashboard");
+  const entries: ProductionEntryWithMetricsRecord[] = [
+    { id: "e1", entry_date: "2026-06-01", operator_profile_id: "op1", operator_name: "Jayward", project_id: "p1", project_file_id: "f1", project_file: "A", project_name: "Alpine", project_sequence: 105, actual_volume_cut_m3: 6, operational_minutes: 120, downtime_minutes: 30, interruption_minutes: 0, start_time: "07:00", finish_time: "09:00", time_remaining_start_minutes: 120, time_remaining_end_minutes: 0, run_through_break: false, created_by_profile_id: "u1", created_at: "2026-06-01", updated_at: "2026-06-01", project_file_done_minutes: 120, downtime_reasons: [], interruption_reasons: [] },
+    { id: "e2", entry_date: "2026-06-02", operator_profile_id: "op1", operator_name: "Jayward", project_id: "p1", project_file_id: "f1", project_file: "A", project_name: "Alpine", project_sequence: 105, actual_volume_cut_m3: 4, operational_minutes: 0, downtime_minutes: 0, interruption_minutes: 0, start_time: "09:00", finish_time: "09:00", time_remaining_start_minutes: 0, time_remaining_end_minutes: 0, run_through_break: false, created_by_profile_id: "u1", created_at: "2026-06-02", updated_at: "2026-06-02", project_file_done_minutes: 120, downtime_reasons: [], interruption_reasons: [] },
+    { id: "e3", entry_date: "2026-05-31", operator_profile_id: "op2", operator_name: "Angel", project_id: "p2", project_file_id: "f2", project_file: "B", project_name: "Beta", project_sequence: 108, actual_volume_cut_m3: 3, operational_minutes: 60, downtime_minutes: 0, interruption_minutes: 30, start_time: "10:00", finish_time: "11:00", time_remaining_start_minutes: 60, time_remaining_end_minutes: 0, run_through_break: false, created_by_profile_id: "u2", created_at: "2026-05-31", updated_at: "2026-05-31", project_file_done_minutes: 60, downtime_reasons: [], interruption_reasons: [] },
+  ];
+  const files = [
+    { project_file_id: "f1", project_id: "p1", project_file: "A", project_name: "Alpine", project_sequence: 105, total_time_minutes: 100, total_volume_m3: 10, total_logged_operational_minutes: 120, total_volume_cut_m3: 10, total_downtime_minutes: 30, total_interruption_minutes: 0, latest_time_remaining_minutes: 0, is_archived: false },
+    { project_file_id: "f2", project_id: "p2", project_file: "B", project_name: "Beta", project_sequence: 108, total_time_minutes: null, total_volume_m3: 3, total_logged_operational_minutes: 0, total_volume_cut_m3: 3, total_downtime_minutes: 0, total_interruption_minutes: 0, latest_time_remaining_minutes: null, is_archived: false },
+  ];
+  const dashboard = buildProductionDashboard(entries, files, { dateFrom: "2026-06-01", dateTo: "2026-06-30", project: "p1", month: "2026-06" });
+  assert.equal(formatVolume(dashboard.kpis.totalVolume), "10.00 m³");
+  assert.equal(formatRate(dashboard.kpis.cuttingRate), "5.00 m³/h");
+  assert.equal(dashboard.kpis.dailyOutput, 5);
+  assert.equal(dashboard.kpis.projectCount, 1);
+  assert.equal(dashboard.dailyPerformance.length, 2);
+  assert.equal(dashboard.dailyVolume[0].date, "2026-06-01");
+  assert.equal(dashboard.monthlyVolume[0].month, "2026-06");
+  assert.equal(formatPercent(dashboard.projectRows[0].performance), "83.3%");
+  assert.equal(dashboard.projectRows.some((row) => row.project_id === "p2"), false);
+  assert.equal(dashboard.operators[0].shiftCount, 2);
+  assert.doesNotMatch(JSON.stringify(dashboard), /NaN|Infinity/);
+});
+
+test("production dashboard page exposes required sections and does not reintroduce import links", () => {
+  const page = readFileSync(join(repoRoot, "app/(protected)/production/page.tsx"), "utf8");
+  assert.match(page, /Production Performance Dashboard/);
+  assert.match(page, /Total Volume Cut/);
+  assert.match(page, /Monthly Volume/);
+  assert.match(page, /Daily Output/);
+  assert.match(page, /Cutting Rate/);
+  assert.match(page, /Project Summary/);
+  assert.match(page, /Daily Performance/);
+  assert.match(page, /Daily Volume/);
+  assert.match(page, /Monthly Volume Produced/);
+  assert.match(page, /Operational Duration vs Downtime/);
+  assert.match(page, /Operators Summary/);
+  assert.match(page, /formatMinutesAsDuration/);
+  assert.match(page, /formatVolume/);
+  assert.match(page, /formatRate/);
+  assert.match(page, /formatPercent/);
+  assert.doesNotMatch(page, /\/production\/import/);
 });

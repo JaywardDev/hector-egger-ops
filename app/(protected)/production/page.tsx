@@ -2,96 +2,56 @@ import Link from "next/link";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { Card } from "@/src/components/ui/card";
+import { Input } from "@/src/components/ui/input";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import { hasProductionReasonAdminRole } from "@/src/lib/production/access";
-import { formatNzDate } from "@/src/lib/dateTime";
 import { listProductionEntries } from "@/src/lib/production/entries";
-import { listProductionProjectSummaries } from "@/src/lib/production/dashboard";
+import { formatMinutesAsDuration } from "@/src/lib/production/format";
+import { listProductionOperatorSummaries, listProductionProjectFileSummaries, listProductionProjectSummaries } from "@/src/lib/production/dashboard";
+import { buildProductionDashboard, formatPercent, formatRate, formatVolume } from "@/src/lib/production/performance-dashboard";
 
-export default async function ProductionPage() {
+type ProductionPageProps = { searchParams: Promise<{ dateFrom?: string; dateTo?: string; project?: string; projectFile?: string; operator?: string; month?: string }> };
+const barHeight = (value: number | null, max = 100) => `${Math.max(2, Math.min(100, ((value ?? 0) / max) * 100))}%`;
+const segmentWidth = (value: number, total: number) => (total > 0 ? `${(value / total) * 100}%` : "0%");
+
+export default async function ProductionPage({ searchParams }: ProductionPageProps) {
   const route = "/production";
   const { session, roles } = await requireProtectedAccess(route);
+  const params = await searchParams;
   const canManageReasons = hasProductionReasonAdminRole(roles);
-
-  const [projectSummaries, recentEntries] = await Promise.all([
-    listProductionProjectSummaries({
-      session,
-      accessContext: { accountStatus: "approved", roles },
-      route,
-    }),
-    listProductionEntries({
-      session,
-      accessContext: { accountStatus: "approved", roles },
-      route,
-      limit: 5,
-    }),
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const month = params.month || currentMonth;
+  const [projectSummaries, projectFiles, operators, allEntries] = await Promise.all([
+    listProductionProjectSummaries({ session, accessContext: { accountStatus: "approved", roles }, route }),
+    listProductionProjectFileSummaries({ session, accessContext: { accountStatus: "approved", roles }, route }),
+    listProductionOperatorSummaries({ session, accessContext: { accountStatus: "approved", roles }, route }),
+    listProductionEntries({ session, accessContext: { accountStatus: "approved", roles }, route, limit: 1000 }),
   ]);
+  const dashboard = buildProductionDashboard(allEntries, projectFiles, { ...params, month });
+  const maxDailyVolume = Math.max(1, ...dashboard.dailyVolume.map((day) => day.volume));
+  const maxMonthlyVolume = Math.max(1, ...dashboard.monthlyVolume.map((row) => row.volume));
 
   return (
     <PageContainer>
-      <PageHeader
-        title="Production"
-        description="Operational home for production projects and daily production entries."
-      />
+      <PageHeader title="Production Performance Dashboard" description="App-native production performance, volume, utilization, downtime, and operator summaries.">
+        <div className="flex flex-wrap gap-2 pt-2"><Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/entries">Production entries</Link><Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/entries/new">Create new entry</Link><Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/projects">Projects</Link>{canManageReasons ? (
+            <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/reasons">Manage reasons</Link>
+          ) : null}</div>
+      </PageHeader>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Projects</p>
-          <p className="text-xl font-semibold text-zinc-900">{projectSummaries.length}</p>
-        </Card>
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Recent entries</p>
-          <p className="text-xl font-semibold text-zinc-900">{recentEntries.length}</p>
-        </Card>
-        <Card>
-          <p className="text-xs uppercase tracking-wide text-zinc-500">Active projects</p>
-          <p className="text-xl font-semibold text-zinc-900">
-            {
-              projectSummaries.filter((project) => !project.is_archived).length
-            }
-          </p>
-        </Card>
-      </div>
+      <Card><form className="grid gap-2 md:grid-cols-6"><Input type="date" name="dateFrom" defaultValue={params.dateFrom ?? ""} /><Input type="date" name="dateTo" defaultValue={params.dateTo ?? ""} /><Input type="month" name="month" defaultValue={month} /><select className="rounded-md border border-zinc-200 px-2 py-1" name="project" defaultValue={params.project ?? ""}><option value="">All projects</option>{projectSummaries.map((project) => <option key={project.project_id} value={project.project_id}>{project.project_name}</option>)}</select><select className="rounded-md border border-zinc-200 px-2 py-1" name="operator" defaultValue={params.operator ?? ""}><option value="">All operators</option>{operators.map((operator) => <option key={operator.operator_profile_id} value={operator.operator_profile_id}>{operator.operator_name}</option>)}</select><button className="rounded-md border border-zinc-200 px-3 py-1" type="submit">Apply filters</button></form></Card>
 
-      <Card>
-        <p className="font-medium text-zinc-900">Quick links</p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/entries">
-            Production entries
-          </Link>
-          <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/projects">
-            Projects
-          </Link>
-          <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/entries/new">
-            Create new entry
-          </Link>
-          <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/projects/new">
-            Create new project
-          </Link>
-          {canManageReasons ? (
-            <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/reasons">
-              Manage reasons
-            </Link>
-          ) : null}
-        </div>
-      </Card>
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{[["Total Volume Cut", formatVolume(dashboard.kpis.totalVolume)], ["Monthly Volume", formatVolume(dashboard.kpis.monthlyVolume)], ["Daily Output", formatVolume(dashboard.kpis.dailyOutput)], ["Projects with entries", String(dashboard.kpis.projectCount)], ["Cutting Rate", formatRate(dashboard.kpis.cuttingRate)], ["Total Operational Duration", formatMinutesAsDuration(dashboard.kpis.totalOperationalMinutes)], ["Total Downtime", formatMinutesAsDuration(dashboard.kpis.totalDowntimeMinutes)], ["Machine Utilization", formatPercent(dashboard.kpis.machineUtilization)]].map(([label, value]) => <Card key={label}><p className="text-xs uppercase tracking-wide text-zinc-500">{label}</p><p className="text-xl font-semibold text-zinc-900">{value}</p></Card>)}</section>
 
-      <Card>
-        <p className="font-medium text-zinc-900">Recent activity</p>
-        {recentEntries.length === 0 ? (
-          <p className="mt-2">No production entries yet.</p>
-        ) : (
-          <ul className="mt-2 space-y-1">
-            {recentEntries.map((entry) => (
-              <li key={entry.id}>
-                <Link href={`/production/entries/${entry.id}`} className="underline">
-                  {formatNzDate(entry.entry_date)} · {entry.operator_name} · {entry.project_file} #{entry.project_sequence}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
+      <Card><h2 className="font-medium text-zinc-900">Project Performance vs Machine Utilization</h2><p className="text-xs text-zinc-500">Project Performance = planned time ÷ logged operational time. Machine Utilization = operational ÷ (operational + downtime + interruption).</p>{dashboard.projectRows.length ? <div className="mt-4 flex h-56 items-end gap-2 overflow-x-auto border-b border-zinc-200 pb-2">{dashboard.projectRows.slice(0, 24).map((row) => <div key={row.project_file_id} className="flex min-w-14 flex-col items-center gap-1 text-[10px]"><div className="flex h-40 w-8 items-end gap-1"><div title={formatPercent(row.performance)} className="w-3 rounded-t bg-zinc-700" style={{ height: barHeight(row.performance) }} /><div title={formatPercent(row.utilization)} className="w-3 rounded-t bg-red-500" style={{ height: barHeight(row.utilization) }} /></div><span className="truncate">{row.project_sequence ?? row.project_file}</span></div>)}</div> : <p className="mt-2 text-sm text-zinc-500">No project-file summaries found.</p>}<p className="mt-2 text-xs"><span className="text-zinc-700">■</span> Project Performance <span className="ml-3 text-red-500">■</span> Machine Utilization</p></Card>
+
+      <div className="grid gap-3 lg:grid-cols-2"><Card><h2 className="font-medium">Daily Performance</h2><p className="text-xs text-zinc-500">Daily utilization with mean line: {formatPercent(dashboard.meanDailyUtilization)}</p><div className="mt-3 flex h-44 items-end gap-1 overflow-x-auto">{dashboard.dailyPerformance.map((day) => <div key={day.date} title={`${day.date}: ${formatPercent(day.utilization)}`} className="min-w-3 rounded-t bg-blue-500" style={{ height: barHeight(day.utilization) }} />)}</div>{dashboard.dailyPerformance.length === 0 ? <p className="text-sm text-zinc-500">No entries in selected period.</p> : null}</Card><Card><h2 className="font-medium">Daily Volume</h2><div className="mt-3 flex h-44 items-end gap-1 overflow-x-auto">{dashboard.dailyVolume.map((day) => <div key={day.date} title={`${day.date}: ${formatVolume(day.volume)}`} className="min-w-3 rounded-t bg-emerald-500" style={{ height: barHeight(day.volume, maxDailyVolume) }} />)}</div>{dashboard.dailyVolume.length === 0 ? <p className="text-sm text-zinc-500">No daily volume yet.</p> : null}</Card></div>
+
+      <div className="grid gap-3 lg:grid-cols-3"><Card className="lg:col-span-2"><h2 className="font-medium">Monthly Volume Produced</h2><div className="mt-3 flex h-44 items-end gap-3 overflow-x-auto">{dashboard.monthlyVolume.map((row) => <div key={row.month} className="flex min-w-12 flex-col items-center text-[10px]"><div title={`${row.month}: ${formatVolume(row.volume)}`} className="w-8 rounded-t bg-yellow-400" style={{ height: barHeight(row.volume, maxMonthlyVolume) }} /><span>{row.month}</span></div>)}</div>{dashboard.monthlyVolume.length === 0 ? <p className="text-sm text-zinc-500">No monthly volume yet.</p> : null}</Card><Card><h2 className="font-medium">Operational Duration vs Downtime</h2><div className="mt-4 space-y-2 text-sm"><p>Operational: {formatMinutesAsDuration(dashboard.kpis.totalOperationalMinutes)}</p><p>Downtime: {formatMinutesAsDuration(dashboard.kpis.totalDowntimeMinutes)}</p><p>Interruption: {formatMinutesAsDuration(dashboard.kpis.totalInterruptionMinutes)}</p><div className="flex h-5 overflow-hidden rounded-full bg-zinc-100"><div className="bg-emerald-600" style={{ width: segmentWidth(dashboard.kpis.totalOperationalMinutes, dashboard.kpis.totalOperationalMinutes + dashboard.kpis.totalDowntimeMinutes + dashboard.kpis.totalInterruptionMinutes) }} /><div className="bg-red-500" style={{ width: segmentWidth(dashboard.kpis.totalDowntimeMinutes, dashboard.kpis.totalOperationalMinutes + dashboard.kpis.totalDowntimeMinutes + dashboard.kpis.totalInterruptionMinutes) }} /><div className="bg-amber-400" style={{ width: segmentWidth(dashboard.kpis.totalInterruptionMinutes, dashboard.kpis.totalOperationalMinutes + dashboard.kpis.totalDowntimeMinutes + dashboard.kpis.totalInterruptionMinutes) }} /></div></div></Card></div>
+
+      <Card className="overflow-x-auto"><h2 className="font-medium">Project Summary</h2><table className="mt-2 min-w-[1000px] text-left text-xs"><thead><tr className="border-b text-zinc-500"><th>Project / Project File</th><th>Seq</th><th>Performance</th><th>Utilization</th><th>Planned Time</th><th>Logged Operational</th><th>Actual Volume Cut</th><th>Downtime</th><th>Interruption</th><th>Status</th></tr></thead><tbody>{dashboard.projectRows.map((row) => <tr key={row.project_file_id} className="border-b border-zinc-100"><td className="py-1"><Link className="underline" href={`/production/projects/${row.project_id}`}>{row.project_name} / {row.project_file}</Link></td><td>{row.project_sequence ?? "—"}</td><td>{formatPercent(row.performance)}</td><td>{formatPercent(row.utilization)}</td><td>{formatMinutesAsDuration(row.total_time_minutes)}</td><td>{formatMinutesAsDuration(row.total_logged_operational_minutes)}</td><td>{formatVolume(row.total_volume_cut_m3)}</td><td>{formatMinutesAsDuration(row.total_downtime_minutes)}</td><td>{formatMinutesAsDuration(row.total_interruption_minutes)}</td><td>{row.is_archived ? "Archived" : "Active"}</td></tr>)}</tbody></table>{dashboard.projectRows.length === 0 ? <p className="mt-2 text-sm text-zinc-500">No project-file summaries match the current filters.</p> : null}</Card>
+
+      <Card className="overflow-x-auto"><h2 className="font-medium">Operators Summary</h2><table className="mt-2 min-w-[760px] text-left text-xs"><thead><tr className="border-b text-zinc-500"><th>Operator</th><th>Utilization</th><th># of shifts</th><th>Operational Duration</th><th>Actual Volume Cut</th><th>Cutting Rate</th><th>Downtime</th><th>Interruption</th></tr></thead><tbody>{dashboard.operators.map((operator) => <tr key={operator.operatorId} className="border-b border-zinc-100"><td className="py-1"><Link className="underline" href={`/production/entries?operator=${operator.operatorId}`}>{operator.operator}</Link></td><td>{formatPercent(operator.utilization)}</td><td>{operator.shiftCount}</td><td>{formatMinutesAsDuration(operator.operational)}</td><td>{formatVolume(operator.volume)}</td><td>{formatRate(operator.cuttingRate)}</td><td>{formatMinutesAsDuration(operator.downtime)}</td><td>{formatMinutesAsDuration(operator.interruption)}</td></tr>)}</tbody></table>{dashboard.operators.length === 0 ? <p className="mt-2 text-sm text-zinc-500">No operator data for the current filters.</p> : null}</Card>
     </PageContainer>
   );
 }
