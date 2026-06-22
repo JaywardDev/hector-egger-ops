@@ -11,6 +11,7 @@ import {
 } from "@/src/lib/production/access";
 import type {
   ProductionProjectFileRecord,
+  ProductionProjectFileSummaryRecord,
   ProductionProjectRecord,
   ProductionProjectSummaryRecord,
 } from "@/src/lib/production/types";
@@ -75,6 +76,27 @@ export const listProductionProjectFiles = async ({ session, accessContext, route
       });
       if (!response.ok) throw new Error("Failed to load production project files");
       return ((await response.json()) as ProductionProjectFileApiRecord[]).map(normalizeProjectFileRecord);
+    },
+  });
+
+export const listProductionProjectFileSummaries = async ({ session, accessContext, route, projectId }: ProductionActor & { projectId: string }): Promise<ProductionProjectFileSummaryRecord[]> =>
+  withServerTiming({
+    name: "listProductionProjectFileSummaries",
+    route,
+    meta: { projectId },
+    operation: async () => {
+      await assertProductionReadAccess({ session, accessContext, route });
+      const params = new URLSearchParams({
+        project_id: `eq.${projectId}`,
+        select: "*",
+        order: "is_archived.asc,project_file.asc,project_sequence.asc",
+      });
+      const response = await createServerSupabaseClient().request(`/rest/v1/production_project_file_summaries?${params.toString()}`, {
+        cache: "no-store",
+        headers: createSessionHeaders(session),
+      });
+      if (!response.ok) throw new Error("Failed to load production project file summaries");
+      return (await response.json()) as ProductionProjectFileSummaryRecord[];
     },
   });
 

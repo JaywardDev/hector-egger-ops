@@ -23,6 +23,22 @@ export type ProductionProjectFileRecord = {
   updated_at: string;
 };
 
+export type ProductionProjectFileSummaryRecord = {
+  project_file_id: string;
+  project_id: string;
+  project_file: string;
+  project_name: string;
+  project_sequence: number | null;
+  total_time_minutes: number | null;
+  total_volume_m3: number | null;
+  total_logged_operational_minutes: number;
+  total_volume_cut_m3: number;
+  total_downtime_minutes: number;
+  total_interruption_minutes: number;
+  latest_time_remaining_minutes: number | null;
+  is_archived: boolean;
+};
+
 export type ProductionDowntimeReasonRecord = {
   id: string;
   code: string;

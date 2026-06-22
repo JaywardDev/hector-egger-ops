@@ -176,7 +176,7 @@ test("project detail loads and edits project files without reintroducing product
   const page = readFileSync(join(repoRoot, "app/(protected)/production/projects/[projectId]/page.tsx"), "utf8");
   const projects = readFileSync(join(repoRoot, "src/lib/production/projects.ts"), "utf8");
   const productionTree = productionFiles.map((file) => readFileSync(join(repoRoot, file), "utf8")).join("\n");
-  assert.match(page, /listProductionProjectFiles/);
+  assert.match(page, /listProductionProjectFileSummaries/);
   assert.match(page, /Project files/);
   assert.match(projects, /createProductionProjectFile/);
   assert.match(projects, /updateProductionProjectFile/);
@@ -284,4 +284,50 @@ test("production new entry prefill uses project_file_id latest end and preserves
   assert.match(form, /latestTimeRemainingEndByProjectFile\[nextProjectFileId\]/);
   assert.match(form, /timeRemainingStartTouched/);
   assert.match(form, /initialValues\?\.entryId \? undefined : latestTimeRemainingEndByProjectFile/);
+});
+
+test("project detail shows project-file progress from file summaries with display-only calculations", () => {
+  const page = readFileSync(join(repoRoot, "app/(protected)/production/projects/[projectId]/page.tsx"), "utf8");
+  const projects = readFileSync(join(repoRoot, "src/lib/production/projects.ts"), "utf8");
+  const types = readFileSync(join(repoRoot, "src/lib/production/types.ts"), "utf8");
+  assert.match(projects, /listProductionProjectFileSummaries/);
+  assert.match(projects, /production_project_file_summaries/);
+  assert.match(types, /ProductionProjectFileSummaryRecord/);
+  assert.match(page, /listProductionProjectFileSummaries/);
+  assert.match(page, /Planned time: \{formatMinutesAsDuration\(file\.total_time_minutes\)\}/);
+  assert.match(page, /Logged duration: \{formatMinutesAsDuration\(file\.total_logged_operational_minutes\)\}/);
+  assert.match(page, /Downtime duration: \{formatMinutesAsDuration\(file\.total_downtime_minutes\)\}/);
+  assert.match(page, /Interruption duration: \{formatMinutesAsDuration\(file\.total_interruption_minutes\)\}/);
+  assert.match(page, /Latest Time Remaining End: \{formatMinutesAsDuration\(file\.latest_time_remaining_minutes\)\}/);
+  assert.match(page, /Planned volume: \{formatCubicMetres\(file\.total_volume_m3\)\}/);
+  assert.match(page, /Actual volume cut: \{formatCubicMetres\(file\.total_volume_cut_m3\)\}/);
+});
+
+test("project detail calculates remaining and overrun states without negative or NaN displays", () => {
+  const page = readFileSync(join(repoRoot, "app/(protected)/production/projects/[projectId]/page.tsx"), "utf8");
+  assert.match(page, /const getRemainingValue/);
+  assert.match(page, /Math\.max\(0, planned - \(logged \?\? 0\)\)/);
+  assert.match(page, /const getOverValue/);
+  assert.match(page, /Math\.max\(0, \(logged \?\? 0\) - planned\)/);
+  assert.match(page, /Over planned by: \$\{formatMinutesAsDuration\(overPlannedTime\)\}/);
+  assert.match(page, /Remaining planned time: \$\{formatMinutesAsDuration\(remainingTime\)\}/);
+  assert.match(page, /Over volume by: \$\{formatCubicMetres\(overVolume\)\}/);
+  assert.match(page, /Remaining volume: \$\{formatCubicMetres\(remainingVolume\)\}/);
+  assert.match(page, /planned == null \|\| planned <= 0 \|\| !Number\.isFinite\(planned\)/);
+  assert.match(page, /return "—"/);
+  assert.match(page, /Time progress: \{timeProgress\}/);
+  assert.match(page, /Volume progress: \{volumeProgress\}/);
+});
+
+test("project detail keeps project-file controls and labels project totals as file-derived", () => {
+  const page = readFileSync(join(repoRoot, "app/(protected)/production/projects/[projectId]/page.tsx"), "utf8");
+  assert.match(page, /Total planned time from files/);
+  assert.match(page, /Total planned volume from files/);
+  assert.match(page, /Total logged duration/);
+  assert.match(page, /Total actual volume/);
+  assert.match(page, /file\.is_archived \? "Archived" : "Active"/);
+  assert.match(page, /updateProductionProjectFileFormAction/);
+  assert.match(page, /createProductionProjectFileFormAction/);
+  assert.match(page, /<Button type="submit">Save file<\/Button>/);
+  assert.match(page, /<Button type="submit">Add file<\/Button>/);
 });
