@@ -66,27 +66,21 @@ test("level sorting is numeric ascending with stable fallback for blanks and wor
 });
 
 
-test("working-list search input is rendered above the bay selector", () => {
+test("working-list timber filter select is rendered above the bay selector", () => {
   const source = readFileSync("app/(protected)/stock-take/components/stock-take-client.tsx", "utf8");
 
-  assert.ok(source.indexOf('label="Search working list"') < source.indexOf('role="tablist" aria-label="Bay tabs"'));
+  assert.ok(source.indexOf('label="Timber filter"') < source.indexOf('role="tablist" aria-label="Bay tabs"'));
 });
 
-test("working-list area search derives match badges for non-active bays without changing inline totals", async () => {
-  const { deriveBayTabs, deriveSearchMatchCountByBay } = await getStockTakeClientHelpers();
+test("working-list material filter derives match badges for non-active bays without changing inline totals", async () => {
+  const { deriveBayTabs, deriveMaterialMatchCountByBay } = await getStockTakeClientHelpers();
   const draftRows = [
     { key: "row-1", timberMaterialId: "timber-1", bay: "1", level: "Top", quantity: "2", persisted: true },
     { key: "row-2", timberMaterialId: "timber-2", bay: "1", level: "Lower", quantity: "3", persisted: true },
     { key: "row-3", timberMaterialId: "timber-3", bay: "2", level: "Top", quantity: "4", persisted: true },
   ];
-  const namesById = new Map([
-    ["timber-1", "45x90 SG8 H1.2 6.0m"],
-    ["timber-2", "90x90 SG10 H3.2 4.8m"],
-    ["timber-3", "140x45 LVL H1.2 6.0m"],
-  ]);
-
   const bayTabs = deriveBayTabs(draftRows);
-  const searchMatchCountByBay = deriveSearchMatchCountByBay(draftRows, namesById, "lvl");
+  const searchMatchCountByBay = deriveMaterialMatchCountByBay(draftRows, "timber-3");
 
   assert.deepEqual(bayTabs, [
     { key: "1", label: "Bay 1", count: 2 },
@@ -96,31 +90,25 @@ test("working-list area search derives match badges for non-active bays without 
   assert.equal(searchMatchCountByBay.get("2"), 1);
 });
 
-test("working-list search derives match badges across non-active areas", async () => {
-  const { deriveSearchMatchCountByArea } = await getStockTakeClientHelpers();
-  const namesById = new Map([
-    ["timber-1", "45x90 SG8 H1.2 6.0m"],
-    ["timber-2", "90x90 LVL11 H1.2 4.8m"],
-  ]);
+test("working-list material filter derives match badges across non-active areas", async () => {
+  const { deriveMaterialMatchCountByArea } = await getStockTakeClientHelpers();
   const rowsByAreaId = {
     "area-1": [{ key: "row-1", timberMaterialId: "timber-1", bay: "1", level: "Top", quantity: "2", persisted: true }],
     "area-2": [{ key: "row-2", timberMaterialId: "timber-2", bay: "1", level: "Lower", quantity: "3", persisted: true }],
   };
 
-  const counts = deriveSearchMatchCountByArea(rowsByAreaId, namesById, "lvl");
+  const counts = deriveMaterialMatchCountByArea(rowsByAreaId, "timber-2");
 
   assert.equal(counts.get("area-1") ?? 0, 0);
   assert.equal(counts.get("area-2"), 1);
-  assert.equal(deriveSearchMatchCountByArea(rowsByAreaId, namesById, "").size, 0);
+  assert.equal(deriveMaterialMatchCountByArea(rowsByAreaId, "").size, 0);
 });
 
-test("clearing working-list area search removes derived floating badge counts", async () => {
-  const { deriveSearchMatchCountByBay } = await getStockTakeClientHelpers();
+test("clearing working-list material filter removes derived floating badge counts", async () => {
+  const { deriveMaterialMatchCountByBay } = await getStockTakeClientHelpers();
   const draftRows = [{ key: "row-1", timberMaterialId: "timber-1", bay: "2", level: "Top", quantity: "2", persisted: true }];
-  const namesById = new Map([["timber-1", "45x90 SG8 H1.2 6.0m"]]);
-
-  assert.equal(deriveSearchMatchCountByBay(draftRows, namesById, "sg8").get("2"), 1);
-  assert.equal(deriveSearchMatchCountByBay(draftRows, namesById, "").size, 0);
+  assert.equal(deriveMaterialMatchCountByBay(draftRows, "timber-1").get("2"), 1);
+  assert.equal(deriveMaterialMatchCountByBay(draftRows, "").size, 0);
 });
 
 test("active bay display is filtered by area search while update payload still includes every row", () => {

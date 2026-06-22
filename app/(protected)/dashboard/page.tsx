@@ -7,7 +7,7 @@ import { hasProductionReasonAdminRole } from "@/src/lib/production/access";
 import { listProductionEntries } from "@/src/lib/production/entries";
 import { listProductionProjectSummaries } from "@/src/lib/production/dashboard";
 
-const formatHours = (minutes: number) => `${(minutes / 60).toFixed(1)} h`;
+import { formatMinutesAsDuration } from "@/src/lib/production/format";
 
 export default async function DashboardPage() {
   const route = "/dashboard";
@@ -24,9 +24,9 @@ export default async function DashboardPage() {
   return <PageContainer><PageHeader title="Dashboard" description="Manual production V1 overview with safe operational totals." />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Card><p className="text-xs text-zinc-500">Total volume cut</p><p className="text-lg font-semibold text-zinc-900">{totalVolumeCutM3.toFixed(3)} m³</p></Card>
-      <Card><p className="text-xs text-zinc-500">Total operational hours</p><p className="text-lg font-semibold text-zinc-900">{formatHours(totalOperationalMinutes)}</p></Card>
-      <Card><p className="text-xs text-zinc-500">Total downtime minutes</p><p className="text-lg font-semibold text-zinc-900">{totalDowntimeMinutes} min</p></Card>
-      <Card><p className="text-xs text-zinc-500">Total interruption minutes</p><p className="text-lg font-semibold text-zinc-900">{totalInterruptionMinutes} min</p></Card>
+      <Card><p className="text-xs text-zinc-500">Total operational duration</p><p className="text-lg font-semibold text-zinc-900">{formatMinutesAsDuration(totalOperationalMinutes)}</p></Card>
+      <Card><p className="text-xs text-zinc-500">Total downtime duration</p><p className="text-lg font-semibold text-zinc-900">{formatMinutesAsDuration(totalDowntimeMinutes)}</p></Card>
+      <Card><p className="text-xs text-zinc-500">Total interruption duration</p><p className="text-lg font-semibold text-zinc-900">{formatMinutesAsDuration(totalInterruptionMinutes)}</p></Card>
     </div>
     <Card><p className="font-medium text-zinc-900">Production workflow</p><div className="mt-2 flex flex-wrap gap-2"><Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/entries">Daily Entries</Link><Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/projects">Project Registry</Link>{canManageReasons ? <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/reasons">Reason Management</Link> : null}</div></Card>
     <Card><p className="font-medium text-zinc-900">Project Registry</p><p className="mt-1 text-sm text-zinc-600">{projects.filter((project) => !project.is_archived).length} active projects, {projects.filter((project) => project.is_archived).length} archived projects.</p></Card>

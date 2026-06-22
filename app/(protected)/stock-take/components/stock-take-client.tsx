@@ -19,7 +19,6 @@ import {
   compareTimberMaterialsBySize,
   countChangedStockTakeRows,
   generateTimberMaterialName,
-  rowMatchesStockTakeSearch,
 } from "@/src/lib/stock-take/validation";
 import type {
   StockAreaRecord,
@@ -187,29 +186,18 @@ export const deriveBayTabs = (rows: readonly Pick<DraftRow, "bay">[], addedBays:
 };
 
 
-export const deriveSearchMatchCountByBay = (
+export const deriveMaterialMatchCountByBay = (
   rows: readonly DraftRow[],
-  namesById: ReadonlyMap<string, string>,
-  search: string,
+  materialFilterId: string,
 ) => {
-  const term = search.trim();
   const counts = new Map<string, number>();
 
-  if (!term) {
+  if (!materialFilterId) {
     return counts;
   }
 
   for (const row of rows) {
-    if (
-      rowMatchesStockTakeSearch(
-        {
-          timberName: namesById.get(row.timberMaterialId) ?? "Timber material",
-          bay: row.bay,
-          level: row.level,
-        },
-        term,
-      )
-    ) {
+    if (row.timberMaterialId === materialFilterId) {
       const bayKey = getRowBayTabKey(row.bay);
       counts.set(bayKey, (counts.get(bayKey) ?? 0) + 1);
     }
@@ -218,34 +206,18 @@ export const deriveSearchMatchCountByBay = (
   return counts;
 };
 
-export const deriveSearchMatchCountByArea = (
+export const deriveMaterialMatchCountByArea = (
   rowsByAreaId: Readonly<Record<string, readonly DraftRow[]>>,
-  namesById: ReadonlyMap<string, string>,
-  search: string,
+  materialFilterId: string,
 ) => {
-  const term = search.trim();
   const counts = new Map<string, number>();
 
-  if (!term) {
+  if (!materialFilterId) {
     return counts;
   }
 
   for (const [areaId, rows] of Object.entries(rowsByAreaId)) {
-    let matches = 0;
-    for (const row of rows) {
-      if (
-        rowMatchesStockTakeSearch(
-          {
-            timberName: namesById.get(row.timberMaterialId) ?? "Timber material",
-            bay: row.bay,
-            level: row.level,
-          },
-          term,
-        )
-      ) {
-        matches += 1;
-      }
-    }
+    const matches = rows.filter((row) => row.timberMaterialId === materialFilterId).length;
     if (matches > 0) {
       counts.set(areaId, matches);
     }
@@ -301,17 +273,15 @@ const sortMaterialsBySize = (materials: readonly TimberMaterialRecord[]) =>
 const materialNameById = (materials: TimberMaterialRecord[]) =>
   new Map(materials.map((material) => [material.id, material.name]));
 
-const firstBayWithMatches = (
+const firstBayWithMaterialMatches = (
   rows: readonly DraftRow[],
   addedBays: readonly string[],
-  namesById: ReadonlyMap<string, string>,
-  search: string,
+  materialFilterId: string,
 ) => {
-  const term = search.trim();
-  if (!term) {
+  if (!materialFilterId) {
     return "1";
   }
-  const counts = deriveSearchMatchCountByBay(rows, namesById, term);
+  const counts = deriveMaterialMatchCountByBay(rows, materialFilterId);
   const tabs = deriveBayTabs(rows, addedBays);
   for (const tab of tabs) {
     if ((counts.get(tab.key) ?? 0) > 0) {
@@ -378,7 +348,7 @@ export function StockTakeClient({
   const [rows, setRows] = useState<DraftRow[]>(() => toDraftRows(initialRowsByAreaId[initialAreaId] ?? []));
   const [loadedRows, setLoadedRows] = useState<DraftRow[]>(() => toDraftRows(initialRowsByAreaId[initialAreaId] ?? []));
   // Every area's rows are preloaded into client caches so switching tabs is instant and
-  // search badges can be derived across areas without refetching.
+  // filter badges can be derived across areas without refetching.
   const [draftCacheByAreaId, setDraftCacheByAreaId] = useState<Record<string, DraftRow[]>>(() =>
     buildDraftRowsByAreaId(initialRowsByAreaId),
   );
@@ -388,7 +358,7 @@ export function StockTakeClient({
   const [addedBaysCacheByAreaId, setAddedBaysCacheByAreaId] = useState<Record<string, string[]>>({});
   const [localMaterials, setLocalMaterials] = useState<TimberMaterialRecord[]>(() => sortMaterialsBySize(materials));
   const [lastUsedMaterialId, setLastUsedMaterialId] = useState("");
-  const [search, setSearch] = useState("");
+  const [materialFilterId, setMaterialFilterId] = useState("");
   const [activeBay, setActiveBay] = useState("1");
   const [addedBays, setAddedBays] = useState<string[]>([]);
   const [focusTarget, setFocusTarget] = useState<{ rowKey: string; field: "timber" | "level" | "quantity" } | null>(null);
@@ -420,19 +390,19 @@ export function StockTakeClient({
   const changedRowCount = useMemo(() => countChangedStockTakeRows(loadedRows, rows), [loadedRows, rows]);
   const hasUnsavedChanges = useMemo(() => changedRowCount > 0, [changedRowCount]);
   const bayTabs = useMemo(() => deriveBayTabs(rows, addedBays), [addedBays, rows]);
-  const searchMatchCountByBay = useMemo(
-    () => deriveSearchMatchCountByBay(rows, namesById, search),
-    [namesById, rows, search],
+  const materialMatchCountByBay = useMemo(
+    () => deriveMaterialMatchCountByBay(rows, materialFilterId),
+    [materialFilterId, rows],
   );
   // Merge the live active-area draft over the cached snapshots so the active area's
-  // unsaved edits are reflected in the cross-area search badges.
+  // unsaved edits are reflected in the cross-area filter badges.
   const rowsByAreaIdForSearch = useMemo(
     () => ({ ...draftCacheByAreaId, [selectedAreaId]: rows }),
     [draftCacheByAreaId, rows, selectedAreaId],
   );
-  const searchMatchCountByArea = useMemo(
-    () => deriveSearchMatchCountByArea(rowsByAreaIdForSearch, namesById, search),
-    [namesById, rowsByAreaIdForSearch, search],
+  const materialMatchCountByArea = useMemo(
+    () => deriveMaterialMatchCountByArea(rowsByAreaIdForSearch, materialFilterId),
+    [materialFilterId, rowsByAreaIdForSearch],
   );
   const preview = useMemo(() => {
     try {
@@ -483,7 +453,7 @@ export function StockTakeClient({
         persisted: false,
       },
     ]);
-    setSearch("");
+    setMaterialFilterId("");
     setIsMaterialModalOpen(false);
     setEditingRowKey(newKey);
     setEditSessionStartRow({
@@ -569,20 +539,11 @@ export function StockTakeClient({
     () =>
       rows
         .filter((row) => getRowBayTabKey(row.bay) === activeBay)
-        .filter((row) =>
-          rowMatchesStockTakeSearch(
-            {
-              timberName: namesById.get(row.timberMaterialId) ?? "Timber material",
-              bay: row.bay,
-              level: row.level,
-            },
-            search,
-          ),
-        )
+        .filter((row) => !materialFilterId || row.timberMaterialId === materialFilterId)
         .map((row, index) => ({ row, index }))
         .sort((left, right) => compareStockTakeLevels(left.row, right.row) || left.index - right.index)
         .map(({ row }) => row),
-    [activeBay, namesById, rows, search],
+    [activeBay, materialFilterId, rows],
   );
 
   const editingRow = useMemo(
@@ -650,7 +611,7 @@ export function StockTakeClient({
       ...currentRows,
       newRow,
     ]);
-    setSearch("");
+    setMaterialFilterId("");
     setOpenRowActionsKey(null);
     setEditingRowKey(newKey);
     setEditSessionStartRow(newRow);
@@ -661,7 +622,7 @@ export function StockTakeClient({
     const nextBay = getLowestMissingPositiveNumericBay(bayTabs.map((tab) => tab.key));
     setAddedBays((currentBays) => (currentBays.includes(nextBay) ? currentBays : [...currentBays, nextBay]));
     setActiveBay(nextBay);
-    setSearch("");
+    setMaterialFilterId("");
   };
 
   const stockRowsPayload = useMemo(
@@ -694,7 +655,7 @@ export function StockTakeClient({
     setRows(targetDraft);
     setLoadedRows(targetLoaded);
     setAddedBays(targetAddedBays);
-    setActiveBay(firstBayWithMatches(targetDraft, targetAddedBays, namesById, search));
+    setActiveBay(firstBayWithMaterialMatches(targetDraft, targetAddedBays, materialFilterId));
     setSelectedAreaId(areaId);
     setOpenRowActionsKey(null);
     setEditingRowKey(null);
@@ -721,13 +682,17 @@ export function StockTakeClient({
     <div className="space-y-4">
       <div className="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-3 shadow-sm sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0 flex-1 sm:max-w-md">
-          <FormField label="Search working list" htmlFor="stock_take_search">
-            <Input
-              id="stock_take_search"
-              value={search}
-              onChange={(event) => setSearch(readStockTakeChangeValue(event))}
-              placeholder="Search timber, bay, or level in this area..."
-            />
+          <FormField label="Timber filter" htmlFor="stock_take_material_filter">
+            <Select
+              id="stock_take_material_filter"
+              value={materialFilterId}
+              onChange={(event) => setMaterialFilterId(readStockTakeChangeValue(event))}
+            >
+              <option value="">All timber</option>
+              {localMaterials.filter((material) => rows.some((row) => row.timberMaterialId === material.id)).map((material) => (
+                <option key={material.id} value={material.id}>{material.name}</option>
+              ))}
+            </Select>
           </FormField>
         </div>
         <div className="grid grid-cols-1 gap-2 sm:flex sm:shrink-0 sm:items-center">
@@ -770,7 +735,7 @@ export function StockTakeClient({
               >
                 {areas.map((area) => {
                   const isActive = area.id === selectedAreaId;
-                  const areaMatchCount = searchMatchCountByArea.get(area.id) ?? 0;
+                  const areaMatchCount = materialMatchCountByArea.get(area.id) ?? 0;
 
                   return (
                     <ExcelTab
@@ -778,7 +743,7 @@ export function StockTakeClient({
                       active={isActive}
                       onClick={() => switchArea(area.id)}
                       badgeCount={areaMatchCount}
-                      badgeLabel={`${areaMatchCount} search ${areaMatchCount === 1 ? "match" : "matches"} in ${area.name}`}
+                      badgeLabel={`${areaMatchCount} filter ${areaMatchCount === 1 ? "match" : "matches"} in ${area.name}`}
                       ariaLabel={`Show ${area.name}`}
                     >
                       {area.name}
@@ -815,7 +780,7 @@ export function StockTakeClient({
                   <div className="flex w-max min-w-full flex-nowrap items-end gap-0.5 border-b border-zinc-300 pt-2" role="tablist" aria-label="Bay tabs">
                     {bayTabs.map((tab) => {
                       const isActive = tab.key === activeBay;
-                      const searchMatchCount = searchMatchCountByBay.get(tab.key) ?? 0;
+                      const materialMatchCount = materialMatchCountByBay.get(tab.key) ?? 0;
 
                       return (
                         <ExcelTab
@@ -825,8 +790,8 @@ export function StockTakeClient({
                             setActiveBay(tab.key);
                           }}
                           size="sm"
-                          badgeCount={searchMatchCount}
-                          badgeLabel={`${searchMatchCount} search ${searchMatchCount === 1 ? "match" : "matches"} in ${tab.label}`}
+                          badgeCount={materialMatchCount}
+                          badgeLabel={`${materialMatchCount} filter ${materialMatchCount === 1 ? "match" : "matches"} in ${tab.label}`}
                         >
                           {tab.label} <span className={isActive ? "text-zinc-500" : "text-zinc-400"}>({tab.count})</span>
                         </ExcelTab>
@@ -863,7 +828,7 @@ export function StockTakeClient({
               <ul ref={rowActionsRef} className="divide-y divide-zinc-100 border-y border-zinc-100">
                 {visibleRows.length === 0 ? (
                   <li className="py-6 text-center text-sm text-zinc-600">
-                    {search.trim() ? "No matching timber rows in this bay." : "No timber rows in this bay yet."}
+                    {materialFilterId ? "No matching timber rows in this bay." : "No timber rows in this bay yet."}
                   </li>
                 ) : null}
                 {visibleRows.map((row) => {

@@ -186,7 +186,7 @@ test("stock-take client isolates add-material typing from working-list dirty com
   );
   assert.match(source, /const visibleRows = useMemo\(/);
   assert.match(source, /getRowBayTabKey\(row\.bay\) === activeBay/);
-  assert.match(source, /\[activeBay, namesById, rows, search\]/);
+  assert.match(source, /\[activeBay, materialFilterId, rows\]/);
   assert.match(source, /const stockRowsPayload = useMemo\(/);
   assert.match(source, /const stockRowsPayloadJson = useMemo\(\(\) => JSON\.stringify\(stockRowsPayload\), \[stockRowsPayload\]\)/);
   assert.match(source, /name="rows" value=\{stockRowsPayloadJson\}/);
@@ -219,7 +219,7 @@ test("stock-take client renders default bay tabs and removes Bay from row header
   assert.match(html, /Bay 1/);
   assert.match(html, /Bay 2/);
   assert.match(html, /aria-label="Add next bay"/);
-  assert.match(html, /Search timber, bay, or level in this area/);
+  assert.match(html, /Timber filter/);
   assert.match(html, /No timber rows in this bay yet\./);
   assert.match(html, /aria-label="Add row to Bay 1"/);
   assert.doesNotMatch(html, /<th/);
