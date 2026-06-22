@@ -36,7 +36,8 @@ const normalizeProjectKeyText = (value: string) => value.trim();
 
 const projectSelect =
   "id,project_sequence,project_name,project_file,total_time_minutes,total_volume_m3,is_archived,created_at,updated_at";
-const projectFileSelect = "id,project_id,project_file,project_sequence,total_time_minutes,total_volume_m3,is_archived,created_at,updated_at";
+const projectFileBaseSelect = "id,project_id,project_file,project_sequence,total_time_minutes,total_volume_m3,is_archived,created_at,updated_at";
+const projectFileSelect = `${projectFileBaseSelect},production_projects(project_name)`;
 
 export const listProductionProjects = async ({ session, accessContext, route }: ProductionActor): Promise<ProductionProjectRecord[]> =>
   withServerTiming({
@@ -53,6 +54,13 @@ export const listProductionProjects = async ({ session, accessContext, route }: 
     },
   });
 
+type ProductionProjectFileApiRecord = Omit<ProductionProjectFileRecord, "project_name"> & { production_projects?: { project_name?: string } | null };
+
+const normalizeProjectFileRecord = (record: ProductionProjectFileApiRecord): ProductionProjectFileRecord => {
+  const { production_projects: project, ...projectFile } = record;
+  return { ...projectFile, project_name: project?.project_name ?? "" };
+};
+
 export const listProductionProjectFiles = async ({ session, accessContext, route, projectId }: ProductionActor & { projectId?: string }): Promise<ProductionProjectFileRecord[]> =>
   withServerTiming({
     name: "listProductionProjectFiles",
@@ -66,13 +74,13 @@ export const listProductionProjectFiles = async ({ session, accessContext, route
         headers: createSessionHeaders(session),
       });
       if (!response.ok) throw new Error("Failed to load production project files");
-      return (await response.json()) as ProductionProjectFileRecord[];
+      return ((await response.json()) as ProductionProjectFileApiRecord[]).map(normalizeProjectFileRecord);
     },
   });
 
 export const createProductionProjectFile = async ({ session, accessContext, projectId, input }: ProductionActor & { projectId: string; input: ProductionProjectFileInput }): Promise<ProductionProjectFileRecord> => {
   await assertProductionProjectWriteAccess({ session, accessContext });
-  const response = await createServiceRoleSupabaseClient().request(`/rest/v1/production_project_files?select=${projectFileSelect}`, {
+  const response = await createServiceRoleSupabaseClient().request(`/rest/v1/production_project_files?select=${projectFileBaseSelect}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Prefer: "return=representation" },
     body: JSON.stringify({
@@ -86,12 +94,12 @@ export const createProductionProjectFile = async ({ session, accessContext, proj
   });
   if (!response.ok) throw new Error("Failed to create production project file");
   const [record] = (await response.json()) as ProductionProjectFileRecord[];
-  return record;
+  return { ...record, project_name: "" };
 };
 
 export const updateProductionProjectFile = async ({ session, accessContext, projectFileId, input }: ProductionActor & { projectFileId: string; input: Partial<ProductionProjectFileInput> }): Promise<ProductionProjectFileRecord> => {
   await assertProductionProjectWriteAccess({ session, accessContext });
-  const response = await createServiceRoleSupabaseClient().request(`/rest/v1/production_project_files?id=eq.${projectFileId}&select=${projectFileSelect}`, {
+  const response = await createServiceRoleSupabaseClient().request(`/rest/v1/production_project_files?id=eq.${projectFileId}&select=${projectFileBaseSelect}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json", Prefer: "return=representation" },
     body: JSON.stringify({
@@ -105,28 +113,25 @@ export const updateProductionProjectFile = async ({ session, accessContext, proj
   if (!response.ok) throw new Error("Failed to update production project file");
   const [record] = (await response.json()) as ProductionProjectFileRecord[];
   if (!record) throw new Error("Production project file not found");
-  return record;
+  return { ...record, project_name: "" };
 };
 
 export const createProductionProject = async ({ session, accessContext, input }: ProductionActor & { input: ProductionProjectInput }): Promise<ProductionProjectRecord> => {
   await assertProductionProjectWriteAccess({ session, accessContext });
-  const supabase = createServiceRoleSupabaseClient();
-  const response = await supabase.request(`/rest/v1/production_projects?select=${projectSelect}`, {
+  const response = await createServerSupabaseClient().request("/rest/v1/rpc/create_production_project_with_file", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Prefer: "return=representation" },
+    headers: { "Content-Type": "application/json", ...createSessionHeaders(session) },
     body: JSON.stringify({
-      project_sequence: input.projectSequence,
-      project_name: input.projectName,
-      project_file: input.projectFile,
-      total_time_minutes: input.totalTimeMinutes,
-      total_volume_m3: input.totalVolumeM3,
-      is_archived: input.isArchived ?? false,
+      p_project_sequence: input.projectSequence,
+      p_project_name: input.projectName,
+      p_project_file: input.projectFile,
+      p_total_time_minutes: input.totalTimeMinutes,
+      p_total_volume_m3: input.totalVolumeM3,
+      p_is_archived: input.isArchived ?? false,
     }),
   });
   if (!response.ok) throw new Error("Failed to create production project");
-  const [record] = (await response.json()) as ProductionProjectRecord[];
-  await createProductionProjectFile({ session, accessContext, projectId: record.id, input });
-  return record;
+  return (await response.json()) as ProductionProjectRecord;
 };
 
 export const updateProductionProject = async ({ session, accessContext, projectId, input }: ProductionActor & { projectId: string; input: Partial<ProductionProjectInput> }): Promise<ProductionProjectRecord> => {
