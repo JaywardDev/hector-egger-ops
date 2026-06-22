@@ -196,6 +196,21 @@ begin
 end;
 $$;
 
+drop function if exists public.create_production_entry_with_reasons(
+date,
+uuid,
+time without time zone,
+time without time zone,
+uuid,
+integer,
+integer,
+numeric,
+boolean,
+uuid,
+jsonb,
+jsonb
+);
+
 create or replace function public.create_production_entry_with_reasons(
   p_entry_date date,
   p_operator_profile_id uuid,
@@ -236,6 +251,21 @@ begin
   return created_entry;
 end;
 $$;
+
+drop function if exists public.update_production_entry_with_reasons(
+uuid,
+date,
+uuid,
+time without time zone,
+time without time zone,
+uuid,
+integer,
+integer,
+numeric,
+boolean,
+jsonb,
+jsonb
+);
 
 create or replace function public.update_production_entry_with_reasons(
   p_entry_id uuid,
