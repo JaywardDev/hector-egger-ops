@@ -5,7 +5,7 @@ import { PageHeader } from "@/src/components/layout/page-header";
 import { Alert } from "@/src/components/ui/alert";
 import { Card } from "@/src/components/ui/card";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
-import { listAssignableProductionOperators } from "@/src/lib/production/entries";
+import { listAssignableProductionOperators, listLatestTimeRemainingEndByProjectFile } from "@/src/lib/production/entries";
 import { listProductionDowntimeReasons, listProductionInterruptionReasons } from "@/src/lib/production/reasons";
 import { listProductionProjectFiles } from "@/src/lib/production/projects";
 
@@ -18,7 +18,7 @@ export default async function NewProductionEntryPage({ searchParams }: NewEntryP
   const { session, roles, profile } = await requireProtectedAccess(route);
   const canAssignOtherOperator = roles.includes("admin") || roles.includes("supervisor");
 
-  const [params, projectFiles, downtimeReasons, interruptionReasons, assignableOperators] = await Promise.all([
+  const [params, projectFiles, downtimeReasons, interruptionReasons, assignableOperators, latestTimeRemainingEndByProjectFile] = await Promise.all([
     searchParams,
     listProductionProjectFiles({ session, accessContext: { accountStatus: "approved", roles }, route }),
     listProductionDowntimeReasons({ session, accessContext: { accountStatus: "approved", roles }, route }),
@@ -30,11 +30,15 @@ export default async function NewProductionEntryPage({ searchParams }: NewEntryP
           route,
         })
       : Promise.resolve([]),
+    listLatestTimeRemainingEndByProjectFile({ session, accessContext: { accountStatus: "approved", roles }, route }),
   ]);
+  const currentOperator = profile ? { profile_id: profile.id, display_name: profile.full_name ?? profile.email } : null;
   const operators = canAssignOtherOperator
-    ? assignableOperators
-    : profile
-      ? [{ profile_id: profile.id, display_name: profile.full_name ?? profile.email }]
+    ? currentOperator && !assignableOperators.some((operator) => operator.profile_id === currentOperator.profile_id)
+      ? [currentOperator, ...assignableOperators]
+      : assignableOperators
+    : currentOperator
+      ? [currentOperator]
       : [];
 
   return (
@@ -51,8 +55,9 @@ export default async function NewProductionEntryPage({ searchParams }: NewEntryP
           projectFiles={projectFiles.filter((projectFile) => !projectFile.is_archived)}
           downtimeReasons={downtimeReasons}
           interruptionReasons={interruptionReasons}
+          latestTimeRemainingEndByProjectFile={latestTimeRemainingEndByProjectFile}
           initialValues={{
-            operatorProfileId: operators[0]?.profile_id ?? "",
+            operatorProfileId: profile?.id ?? operators[0]?.profile_id ?? "",
           }}
         />
       </Card>

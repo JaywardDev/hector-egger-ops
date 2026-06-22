@@ -10,6 +10,7 @@ import { Input } from "@/src/components/ui/input";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import { formatNzDate } from "@/src/lib/dateTime";
 import { listProductionEntries } from "@/src/lib/production/entries";
+import { formatMinutesAsDuration } from "@/src/lib/production/format";
 import { getProductionProjectDetail, listProductionProjectFiles, listProductionProjects } from "@/src/lib/production/projects";
 
 type ProjectDetailPageProps = {
@@ -64,17 +65,17 @@ export default async function ProductionProjectDetailPage({ params, searchParams
       <Card>
         <p className="font-medium text-zinc-900">Core details</p>
         <div className="mt-2 grid gap-1 sm:grid-cols-2">
-          <p>Total Time from files: {summary.total_time_minutes ?? "—"}</p>
+          <p>Total Duration from files: {formatMinutesAsDuration(summary.total_time_minutes)}</p>
           <p>Total Volume m³ from files: {summary.total_volume_m3 ?? "—"}</p>
           <p>Archived: {project.is_archived ? "yes" : "no"}</p>
-          <p>Latest Time Remaining: {summary.latest_time_remaining_minutes ?? "—"}</p>
+          <p>Latest Time Remaining: {formatMinutesAsDuration(summary.latest_time_remaining_minutes)}</p>
         </div>
       </Card>
 
       <Card>
         <p className="font-medium text-zinc-900">Metrics snapshot</p>
         <div className="mt-2 grid gap-1 sm:grid-cols-2">
-          <p>Total logged operational minutes: {summary.total_logged_operational_minutes}</p>
+          <p>Total logged operational duration: {formatMinutesAsDuration(summary.total_logged_operational_minutes)}</p>
           <p>Total volume cut m³: {summary.total_volume_cut_m3}</p>
         </div>
       </Card>

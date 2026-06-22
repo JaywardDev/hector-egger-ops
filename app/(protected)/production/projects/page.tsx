@@ -7,6 +7,7 @@ import { Input } from "@/src/components/ui/input";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import { listProductionProjectSummaries } from "@/src/lib/production/dashboard";
 import { listProductionProjects } from "@/src/lib/production/projects";
+import { formatMinutesAsDuration } from "@/src/lib/production/format";
 
 type ProjectsPageProps = {
   searchParams: Promise<{
@@ -89,7 +90,7 @@ export default async function ProductionProjectsPage({ searchParams }: ProjectsP
           <thead>
             <tr className="border-b border-zinc-200 text-zinc-500">
               <th className="px-2 py-1">Project file</th><th className="px-2 py-1">Project name</th><th className="px-2 py-1">Sequence</th>
-              <th className="px-2 py-1">Total Time</th><th className="px-2 py-1">Latest Time Remaining</th>
+              <th className="px-2 py-1">Total Duration</th><th className="px-2 py-1">Latest Time Remaining</th>
               <th className="px-2 py-1">Total Volume</th><th className="px-2 py-1">Volume Cut</th>
               <th className="px-2 py-1">Downtime</th><th className="px-2 py-1">Interruption</th><th className="px-2 py-1">Archived</th><th className="px-2 py-1">Actions</th>
             </tr>
@@ -100,12 +101,12 @@ export default async function ProductionProjectsPage({ searchParams }: ProjectsP
                 <td className="px-2 py-1">{project.project_file}</td>
                 <td className="px-2 py-1">{project.project_name}</td>
                 <td className="px-2 py-1">{project.project_sequence}</td>
-                <td className="px-2 py-1">{project.total_time_minutes ?? "—"}</td>
-                <td className="px-2 py-1">{project.latest_time_remaining_minutes ?? "—"}</td>
+                <td className="px-2 py-1">{formatMinutesAsDuration(project.total_time_minutes)}</td>
+                <td className="px-2 py-1">{formatMinutesAsDuration(project.latest_time_remaining_minutes)}</td>
                 <td className="px-2 py-1">{project.total_volume_m3 ?? "—"}</td>
                 <td className="px-2 py-1">{project.total_volume_cut_m3}</td>
-                <td className="px-2 py-1">{project.total_downtime_minutes}</td>
-                <td className="px-2 py-1">{project.total_interruption_minutes}</td>
+                <td className="px-2 py-1">{formatMinutesAsDuration(project.total_downtime_minutes)}</td>
+                <td className="px-2 py-1">{formatMinutesAsDuration(project.total_interruption_minutes)}</td>
                 <td className="px-2 py-1">{(archivedById.get(project.project_id) ?? project.is_archived) ? "Yes" : "No"}</td>
                 <td className="px-2 py-1">
                   <Link href={`/production/projects/${project.project_id}`} className="underline">Open</Link>

@@ -243,3 +243,45 @@ test("project-file dropdown labels include project name", () => {
   assert.match(projects, /production_projects\(project_name\)/);
   assert.match(form, /project\.project_name} — \{project\.project_file/);
 });
+
+test("formatMinutesAsDuration renders HH:MM durations without wrapping at 24 hours", async () => {
+  const { formatMinutesAsDuration } = await import("@/src/lib/production/format");
+  assert.equal(formatMinutesAsDuration(0), "00:00");
+  assert.equal(formatMinutesAsDuration(30), "00:30");
+  assert.equal(formatMinutesAsDuration(75), "01:15");
+  assert.equal(formatMinutesAsDuration(4200), "70:00");
+  assert.equal(formatMinutesAsDuration(4235), "70:35");
+});
+
+test("production UI uses duration formatting instead of decimal operational hours", () => {
+  const form = readFileSync("app/(protected)/production/components/production-entry-form.tsx", "utf8");
+  const dashboard = readFileSync("app/(protected)/dashboard/page.tsx", "utf8");
+  const entries = readFileSync("app/(protected)/production/entries/page.tsx", "utf8");
+  assert.match(form, /formatMinutesAsDuration\(warnings\.operational\)/);
+  assert.match(form, /Operational Duration/);
+  assert.doesNotMatch(form, /toFixed\(2\)/);
+  assert.match(dashboard, /formatMinutesAsDuration\(totalOperationalMinutes\)/);
+  assert.match(entries, /formatMinutesAsDuration\(entry\.operational_minutes\)/);
+});
+
+test("new production entry defaults operator to current profile while edit preserves existing operator", () => {
+  const newPage = readFileSync("app/(protected)/production/entries/new/page.tsx", "utf8");
+  const editPage = readFileSync("app/(protected)/production/entries/[entryId]/page.tsx", "utf8");
+  assert.match(newPage, /operatorProfileId: profile\?\.id \?\? operators\[0\]\?\.profile_id/);
+  assert.match(editPage, /operatorProfileId: selectedOperatorId/);
+});
+
+test("production new entry prefill uses project_file_id latest end and preserves manual or edit values", () => {
+  const entriesData = readFileSync("src/lib/production/entries.ts", "utf8");
+  const form = readFileSync("app/(protected)/production/components/production-entry-form.tsx", "utf8");
+  const newPage = readFileSync("app/(protected)/production/entries/new/page.tsx", "utf8");
+  assert.match(entriesData, /listLatestTimeRemainingEndByProjectFile/);
+  assert.match(entriesData, /select: "project_file_id,time_remaining_end_minutes/);
+  assert.match(entriesData, /order: "entry_date\.desc,created_at\.desc,updated_at\.desc,id\.desc"/);
+  assert.doesNotMatch(entriesData, /project_id=eq/);
+  assert.match(newPage, /latestTimeRemainingEndByProjectFile=\{latestTimeRemainingEndByProjectFile\}/);
+  assert.match(form, /latestTimeRemainingEndByProjectFile\[initialProjectFileId\]/);
+  assert.match(form, /latestTimeRemainingEndByProjectFile\[nextProjectFileId\]/);
+  assert.match(form, /timeRemainingStartTouched/);
+  assert.match(form, /initialValues\?\.entryId \? undefined : latestTimeRemainingEndByProjectFile/);
+});

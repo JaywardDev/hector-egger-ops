@@ -147,6 +147,37 @@ export const getProductionEntryDetail = async ({ session, accessContext, route, 
     },
   });
 
+export const listLatestTimeRemainingEndByProjectFile = async ({
+  session,
+  accessContext,
+  route,
+}: ProductionActor): Promise<Record<string, number>> =>
+  withServerTiming({
+    name: "listLatestTimeRemainingEndByProjectFile",
+    route,
+    operation: async () => {
+      await assertProductionReadAccess({ session, accessContext, route });
+      const searchParams = new URLSearchParams({
+        select: "project_file_id,time_remaining_end_minutes,entry_date,created_at,updated_at,id",
+        order: "entry_date.desc,created_at.desc,updated_at.desc,id.desc",
+      });
+      const supabase = createServerSupabaseClient();
+      const response = await supabase.request(`/rest/v1/production_entries?${searchParams.toString()}`, {
+        cache: "no-store",
+        headers: createSessionHeaders(session),
+      });
+      if (!response.ok) throw new Error("Failed to load latest project-file time remaining values");
+      const rows = (await response.json()) as Array<{ project_file_id: string | null; time_remaining_end_minutes: number | null }>;
+      const latestByProjectFile: Record<string, number> = {};
+      for (const row of rows) {
+        if (row.project_file_id && row.time_remaining_end_minutes != null && latestByProjectFile[row.project_file_id] == null) {
+          latestByProjectFile[row.project_file_id] = row.time_remaining_end_minutes;
+        }
+      }
+      return latestByProjectFile;
+    },
+  });
+
 export const listAssignableProductionOperators = async ({ session, accessContext, route }: ProductionActor): Promise<ProductionOperatorOption[]> =>
   withServerTiming({
     name: "listAssignableProductionOperators",
