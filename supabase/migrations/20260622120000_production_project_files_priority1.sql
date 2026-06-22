@@ -17,18 +17,18 @@ create table if not exists public.production_project_files (
   constraint production_project_files_project_file_nonempty check (length(btrim(project_file)) > 0),
   constraint production_project_files_project_sequence_check check (project_sequence is null or project_sequence >= 0),
   constraint production_project_files_total_time_minutes_check check (total_time_minutes is null or total_time_minutes >= 0),
-  constraint production_project_files_total_volume_m3_check check (total_volume_m3 is null or total_volume_m3 >= 0),
-  constraint production_project_files_project_file_sequence_unique unique (project_id, project_file, project_sequence)
+  constraint production_project_files_total_volume_m3_check check (total_volume_m3 is null or total_volume_m3 >= 0)
 );
 
 create index if not exists production_project_files_project_idx on public.production_project_files (project_id);
 create index if not exists production_project_files_archived_idx on public.production_project_files (is_archived);
 create index if not exists production_project_files_file_sequence_idx on public.production_project_files (project_file, project_sequence);
+create unique index if not exists production_project_files_project_file_sequence_unique_idx on public.production_project_files (project_id, project_file, project_sequence) nulls not distinct;
 
 drop trigger if exists production_project_files_set_updated_at on public.production_project_files;
 create trigger production_project_files_set_updated_at
 before update on public.production_project_files
-for each row execute function public.set_updated_at();
+for each row execute function public.set_current_timestamp_updated_at();
 
 alter table public.production_project_files enable row level security;
 
@@ -36,10 +36,13 @@ drop policy if exists "production_project_files_select_approved" on public.produ
 drop policy if exists "production_project_files_insert_operational" on public.production_project_files;
 drop policy if exists "production_project_files_update_operational" on public.production_project_files;
 drop policy if exists "production_project_files_delete_operational" on public.production_project_files;
+drop policy if exists "production_project_files_insert_admin_or_supervisor" on public.production_project_files;
+drop policy if exists "production_project_files_update_admin_or_supervisor" on public.production_project_files;
+drop policy if exists "production_project_files_delete_admin_or_supervisor" on public.production_project_files;
 create policy "production_project_files_select_approved" on public.production_project_files for select to authenticated using (public.is_current_user_approved());
-create policy "production_project_files_insert_operational" on public.production_project_files for insert to authenticated with check (public.is_current_user_approved());
-create policy "production_project_files_update_operational" on public.production_project_files for update to authenticated using (public.is_current_user_approved()) with check (public.is_current_user_approved());
-create policy "production_project_files_delete_operational" on public.production_project_files for delete to authenticated using (public.is_current_user_approved());
+create policy "production_project_files_insert_admin_or_supervisor" on public.production_project_files for insert to authenticated with check (public.is_current_user_admin_or_supervisor());
+create policy "production_project_files_update_admin_or_supervisor" on public.production_project_files for update to authenticated using (public.is_current_user_admin_or_supervisor()) with check (public.is_current_user_admin_or_supervisor());
+create policy "production_project_files_delete_admin_or_supervisor" on public.production_project_files for delete to authenticated using (public.is_current_user_admin_or_supervisor());
 
 insert into public.production_project_files (project_id, project_file, project_sequence, total_time_minutes, total_volume_m3, is_archived, created_at, updated_at)
 select p.id, p.project_file, p.project_sequence, p.total_time_minutes, p.total_volume_m3, p.is_archived, p.created_at, p.updated_at
@@ -157,6 +160,42 @@ select m.operator_profile_id, m.operator_name, count(m.id)::integer as shift_cou
 from public.production_entries_with_metrics m
 group by m.operator_profile_id, m.operator_name;
 
+create or replace function public.create_production_project_with_file(
+  p_project_file text,
+  p_project_name text,
+  p_project_sequence integer,
+  p_total_time_minutes integer default null,
+  p_total_volume_m3 numeric default null,
+  p_is_archived boolean default false
+) returns public.production_projects
+language plpgsql
+security invoker
+set search_path = public
+as $$
+declare
+  created_project public.production_projects;
+begin
+  if not public.is_current_user_admin_or_supervisor() then
+    raise exception 'Admin or supervisor access is required for production project writes';
+  end if;
+  if p_project_file is null or length(btrim(p_project_file)) = 0 or p_project_name is null or length(btrim(p_project_name)) = 0 or p_project_sequence is null then
+    raise exception 'Project File, Project Name, and Project Sequence are required';
+  end if;
+  if p_project_sequence < 0 or (p_total_time_minutes is not null and p_total_time_minutes < 0) or (p_total_volume_m3 is not null and p_total_volume_m3 < 0) then
+    raise exception 'Production project numeric fields must be non-negative';
+  end if;
+
+  insert into public.production_projects (project_sequence, project_name, project_file, total_time_minutes, total_volume_m3, is_archived)
+  values (p_project_sequence, btrim(p_project_name), btrim(p_project_file), p_total_time_minutes, p_total_volume_m3, coalesce(p_is_archived, false))
+  returning * into created_project;
+
+  insert into public.production_project_files (project_id, project_file, project_sequence, total_time_minutes, total_volume_m3, is_archived)
+  values (created_project.id, btrim(p_project_file), p_project_sequence, p_total_time_minutes, p_total_volume_m3, coalesce(p_is_archived, false));
+
+  return created_project;
+end;
+$$;
+
 create or replace function public.create_production_entry_with_reasons(
   p_entry_date date,
   p_operator_profile_id uuid,
@@ -248,5 +287,6 @@ end;
 $$;
 
 grant select, insert, update, delete on public.production_project_files to authenticated;
+grant execute on function public.create_production_project_with_file(text, text, integer, integer, numeric, boolean) to authenticated;
 grant execute on function public.create_production_entry_with_reasons(date, uuid, time, time, uuid, integer, integer, numeric, boolean, uuid, jsonb, jsonb) to service_role;
 grant execute on function public.update_production_entry_with_reasons(uuid, date, uuid, time, time, uuid, integer, integer, numeric, boolean, jsonb, jsonb) to service_role;

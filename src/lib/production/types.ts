@@ -13,6 +13,7 @@ export type ProductionProjectRecord = {
 export type ProductionProjectFileRecord = {
   id: string;
   project_id: string;
+  project_name: string;
   project_file: string;
   project_sequence: number | null;
   total_time_minutes: number | null;

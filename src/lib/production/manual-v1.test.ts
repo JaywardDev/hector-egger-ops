@@ -168,3 +168,45 @@ test("project-level planned totals are derived from project files", () => {
   assert.match(migration, /sum\(pf\.total_volume_m3\)::numeric\(12,3\) as total_volume_m3/);
   assert.doesNotMatch(migration, /select p\.id as project_id[\s\S]{0,120}p\.total_time_minutes/);
 });
+
+test("project-file priority 1 migration uses existing updated_at trigger helper", () => {
+  const migration = readFileSync(join(repoRoot, projectFilesMigrationPath), "utf8");
+  assert.match(migration, /execute function public\.set_current_timestamp_updated_at\(\)/);
+  assert.doesNotMatch(migration, /public\.set_updated_at\(\)/);
+});
+
+test("production project-file write RLS matches project admin-or-supervisor write access", () => {
+  const migration = readFileSync(join(repoRoot, projectFilesMigrationPath), "utf8");
+  assert.match(migration, /production_project_files_insert_admin_or_supervisor[\s\S]*public\.is_current_user_admin_or_supervisor\(\)/);
+  assert.match(migration, /production_project_files_update_admin_or_supervisor[\s\S]*public\.is_current_user_admin_or_supervisor\(\)/);
+  assert.match(migration, /production_project_files_delete_admin_or_supervisor[\s\S]*public\.is_current_user_admin_or_supervisor\(\)/);
+  assert.doesNotMatch(migration, /production_project_files_insert_operational[\s\S]{0,180}with check \(public\.is_current_user_approved\(\)\)/);
+  assert.doesNotMatch(migration, /production_project_files_update_operational[\s\S]{0,220}public\.is_current_user_approved\(\)/);
+  assert.doesNotMatch(migration, /production_project_files_delete_operational[\s\S]{0,180}using \(public\.is_current_user_approved\(\)\)/);
+});
+
+test("initial project creation uses atomic project-with-file RPC", () => {
+  const migration = readFileSync(join(repoRoot, projectFilesMigrationPath), "utf8");
+  const projects = readFileSync(join(repoRoot, "src/lib/production/projects.ts"), "utf8");
+  assert.match(migration, /create or replace function public\.create_production_project_with_file/);
+  assert.match(migration, /insert into public\.production_projects[\s\S]*returning \* into created_project[\s\S]*insert into public\.production_project_files/);
+  assert.match(projects, /\/rest\/v1\/rpc\/create_production_project_with_file/);
+  const createProjectBody = projects.slice(projects.indexOf("export const createProductionProject"), projects.indexOf("export const updateProductionProject"));
+  assert.doesNotMatch(createProjectBody, /\/rest\/v1\/production_projects\?select/);
+  assert.doesNotMatch(createProjectBody, /createProductionProjectFile\(/);
+});
+
+test("project-file uniqueness treats null project_sequence as not distinct per project and file", () => {
+  const migration = readFileSync(join(repoRoot, projectFilesMigrationPath), "utf8");
+  assert.match(migration, /create unique index if not exists production_project_files_project_file_sequence_unique_idx on public\.production_project_files \(project_id, project_file, project_sequence\) nulls not distinct/);
+  assert.match(migration, /pf\.project_sequence is not distinct from p\.project_sequence/);
+});
+
+test("project-file dropdown labels include project name", () => {
+  const form = readFileSync(join(repoRoot, "app/(protected)/production/components/production-entry-form.tsx"), "utf8");
+  const types = readFileSync(join(repoRoot, "src/lib/production/types.ts"), "utf8");
+  const projects = readFileSync(join(repoRoot, "src/lib/production/projects.ts"), "utf8");
+  assert.match(types, /project_name: string/);
+  assert.match(projects, /production_projects\(project_name\)/);
+  assert.match(form, /project\.project_name} — \{project\.project_file/);
+});
