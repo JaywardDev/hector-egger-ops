@@ -139,6 +139,39 @@ test("production entries are linked to project files and new writes use project_
   assert.doesNotMatch(entries, /p_project_id: input\.projectId/);
 });
 
+test("project-file entry RPC migration drops old project_id signatures before recreation", () => {
+  const migration = readFileSync(join(repoRoot, projectFilesMigrationPath), "utf8");
+  const createDrop = /drop function if exists public\.create_production_entry_with_reasons\(\s*date,\s*uuid,\s*time without time zone,\s*time without time zone,\s*uuid,\s*integer,\s*integer,\s*numeric,\s*boolean,\s*uuid,\s*jsonb,\s*jsonb\s*\);/;
+  const updateDrop = /drop function if exists public\.update_production_entry_with_reasons\(\s*uuid,\s*date,\s*uuid,\s*time without time zone,\s*time without time zone,\s*uuid,\s*integer,\s*integer,\s*numeric,\s*boolean,\s*jsonb,\s*jsonb\s*\);/;
+  assert.match(migration, createDrop);
+  assert.match(migration, updateDrop);
+  assert.ok(migration.search(createDrop) < migration.indexOf("create or replace function public.create_production_entry_with_reasons"));
+  assert.ok(migration.search(updateDrop) < migration.indexOf("create or replace function public.update_production_entry_with_reasons"));
+  assert.doesNotMatch(migration, /drop function if exists public\.(create|update)_production_entry_with_reasons[\s\S]{0,240}cascade/i);
+});
+
+test("project-file entry RPCs expose project_file_id as caller input and restore grants", () => {
+  const migration = readFileSync(join(repoRoot, projectFilesMigrationPath), "utf8");
+  const createFunction = migration.slice(
+    migration.indexOf("create or replace function public.create_production_entry_with_reasons"),
+    migration.indexOf("create or replace function public.update_production_entry_with_reasons"),
+  );
+  const updateFunction = migration.slice(
+    migration.indexOf("create or replace function public.update_production_entry_with_reasons"),
+    migration.indexOf("grant select, insert, update, delete on public.production_project_files"),
+  );
+  assert.match(createFunction, /p_project_file_id uuid/);
+  assert.match(updateFunction, /p_project_file_id uuid/);
+  assert.doesNotMatch(createFunction, /p_project_id uuid/);
+  assert.doesNotMatch(updateFunction, /p_project_id uuid/);
+  assert.match(createFunction, /select project_id into resolved_project_id from public\.production_project_files where id = p_project_file_id/);
+  assert.match(updateFunction, /select project_id into resolved_project_id from public\.production_project_files where id = p_project_file_id/);
+  assert.match(createFunction, /insert into public\.production_entries[\s\S]*resolved_project_id, p_project_file_id/);
+  assert.match(updateFunction, /project_id = resolved_project_id, project_file_id = p_project_file_id/);
+  assert.match(migration, /grant execute on function public\.create_production_entry_with_reasons\(date, uuid, time, time, uuid, integer, integer, numeric, boolean, uuid, jsonb, jsonb\) to service_role;/);
+  assert.match(migration, /grant execute on function public\.update_production_entry_with_reasons\(uuid, date, uuid, time, time, uuid, integer, integer, numeric, boolean, jsonb, jsonb\) to service_role;/);
+});
+
 test("project detail loads and edits project files without reintroducing production import", () => {
   const page = readFileSync(join(repoRoot, "app/(protected)/production/projects/[projectId]/page.tsx"), "utf8");
   const projects = readFileSync(join(repoRoot, "src/lib/production/projects.ts"), "utf8");
