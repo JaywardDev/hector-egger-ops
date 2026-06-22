@@ -7,7 +7,7 @@ import { Card } from "@/src/components/ui/card";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import { listAssignableProductionOperators } from "@/src/lib/production/entries";
 import { listProductionDowntimeReasons, listProductionInterruptionReasons } from "@/src/lib/production/reasons";
-import { listProductionProjects } from "@/src/lib/production/projects";
+import { listProductionProjectFiles } from "@/src/lib/production/projects";
 
 type NewEntryPageProps = {
   searchParams: Promise<{ error?: string; warn?: string }>;
@@ -18,9 +18,9 @@ export default async function NewProductionEntryPage({ searchParams }: NewEntryP
   const { session, roles, profile } = await requireProtectedAccess(route);
   const canAssignOtherOperator = roles.includes("admin") || roles.includes("supervisor");
 
-  const [params, projects, downtimeReasons, interruptionReasons, assignableOperators] = await Promise.all([
+  const [params, projectFiles, downtimeReasons, interruptionReasons, assignableOperators] = await Promise.all([
     searchParams,
-    listProductionProjects({ session, accessContext: { accountStatus: "approved", roles }, route }),
+    listProductionProjectFiles({ session, accessContext: { accountStatus: "approved", roles }, route }),
     listProductionDowntimeReasons({ session, accessContext: { accountStatus: "approved", roles }, route }),
     listProductionInterruptionReasons({ session, accessContext: { accountStatus: "approved", roles }, route }),
     canAssignOtherOperator
@@ -48,7 +48,7 @@ export default async function NewProductionEntryPage({ searchParams }: NewEntryP
           submitLabel="Create entry"
           operators={operators}
           canAssignOtherOperator={canAssignOtherOperator}
-          projects={projects.filter((project) => !project.is_archived)}
+          projectFiles={projectFiles.filter((projectFile) => !projectFile.is_archived)}
           downtimeReasons={downtimeReasons}
           interruptionReasons={interruptionReasons}
           initialValues={{
