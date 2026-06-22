@@ -22,7 +22,7 @@ type ProductionEntryInput = {
   operatorProfileId: string;
   startTime: string;
   finishTime: string;
-  projectId: string;
+  projectFileId: string;
   timeRemainingStartMinutes: number;
   timeRemainingEndMinutes: number;
   actualVolumeCutM3: number;
@@ -86,7 +86,7 @@ export const createProductionEntry = async ({ session, accessContext, input }: P
       p_operator_profile_id: input.operatorProfileId,
       p_start_time: input.startTime,
       p_finish_time: input.finishTime,
-      p_project_id: input.projectId,
+      p_project_file_id: input.projectFileId,
       p_time_remaining_start_minutes: input.timeRemainingStartMinutes,
       p_time_remaining_end_minutes: input.timeRemainingEndMinutes,
       p_actual_volume_cut_m3: input.actualVolumeCutM3,
@@ -112,7 +112,7 @@ export const updateProductionEntry = async ({ session, accessContext, entryId, i
       p_operator_profile_id: input.operatorProfileId,
       p_start_time: input.startTime,
       p_finish_time: input.finishTime,
-      p_project_id: input.projectId,
+      p_project_file_id: input.projectFileId,
       p_time_remaining_start_minutes: input.timeRemainingStartMinutes,
       p_time_remaining_end_minutes: input.timeRemainingEndMinutes,
       p_actual_volume_cut_m3: input.actualVolumeCutM3,

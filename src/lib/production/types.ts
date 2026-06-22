@@ -10,6 +10,18 @@ export type ProductionProjectRecord = {
   updated_at: string;
 };
 
+export type ProductionProjectFileRecord = {
+  id: string;
+  project_id: string;
+  project_file: string;
+  project_sequence: number | null;
+  total_time_minutes: number | null;
+  total_volume_m3: number | null;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ProductionDowntimeReasonRecord = {
   id: string;
   code: string;
@@ -44,6 +56,7 @@ export type ProductionEntryRecord = {
   start_time: string;
   finish_time: string;
   project_id: string;
+  project_file_id: string;
   time_remaining_start_minutes: number;
   time_remaining_end_minutes: number;
   actual_volume_cut_m3: number;
@@ -57,7 +70,7 @@ export type ProductionEntryWithMetricsRecord = ProductionEntryRecord & {
   operator_name: string;
   project_file: string;
   project_name: string;
-  project_sequence: number;
+  project_sequence: number | null;
   operational_minutes: number;
   downtime_minutes: number;
   interruption_minutes: number;
@@ -68,9 +81,10 @@ export type ProductionEntryWithMetricsRecord = ProductionEntryRecord & {
 
 export type ProductionProjectSummaryRecord = {
   project_id: string;
+  project_file_count: number;
   project_file: string;
   project_name: string;
-  project_sequence: number;
+  project_sequence: number | null;
   total_time_minutes: number | null;
   total_volume_m3: number | null;
   total_logged_operational_minutes: number;

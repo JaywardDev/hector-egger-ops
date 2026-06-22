@@ -12,7 +12,7 @@ import { Card } from "@/src/components/ui/card";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import { formatNzDate, formatNzDateTime } from "@/src/lib/dateTime";
 import { getProductionEntryDetail, listAssignableProductionOperators } from "@/src/lib/production/entries";
-import { listProductionProjects } from "@/src/lib/production/projects";
+import { listProductionProjectFiles } from "@/src/lib/production/projects";
 import { listProductionDowntimeReasons, listProductionInterruptionReasons } from "@/src/lib/production/reasons";
 
 type EntryDetailPageProps = {
@@ -26,7 +26,7 @@ export default async function ProductionEntryDetailPage({ params, searchParams }
   const { session, roles, profile } = await requireProtectedAccess(route);
   const canAssignOtherOperator = roles.includes("admin") || roles.includes("supervisor");
 
-  const [messages, entry, projects, downtimeReasons, interruptionReasons, assignableOperators] = await Promise.all([
+  const [messages, entry, projectFiles, downtimeReasons, interruptionReasons, assignableOperators] = await Promise.all([
     searchParams,
     getProductionEntryDetail({
       session,
@@ -34,7 +34,7 @@ export default async function ProductionEntryDetailPage({ params, searchParams }
       route,
       entryId,
     }),
-    listProductionProjects({ session, accessContext: { accountStatus: "approved", roles }, route }),
+    listProductionProjectFiles({ session, accessContext: { accountStatus: "approved", roles }, route }),
     listProductionDowntimeReasons({ session, accessContext: { accountStatus: "approved", roles }, route }),
     listProductionInterruptionReasons({ session, accessContext: { accountStatus: "approved", roles }, route }),
     canAssignOtherOperator
@@ -74,14 +74,14 @@ export default async function ProductionEntryDetailPage({ params, searchParams }
           submitLabel="Save entry"
           operators={operators}
           canAssignOtherOperator={canAssignOtherOperator}
-          projects={projects}
+          projectFiles={projectFiles}
           downtimeReasons={downtimeReasons}
           interruptionReasons={interruptionReasons}
           initialValues={{
             entryId: entry.id,
             entryDate: entry.entry_date,
             operatorProfileId: selectedOperatorId,
-            projectId: entry.project_id,
+            projectFileId: entry.project_file_id,
             startTime: entry.start_time.slice(0, 5),
             finishTime: entry.finish_time.slice(0, 5),
             timeRemainingStartMinutes: entry.time_remaining_start_minutes,

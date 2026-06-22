@@ -112,3 +112,59 @@ test("dashboard avoids forbidden Manual V1 efficiency and progress formulas", ()
   const dashboardPage = readFileSync(join(repoRoot, "app/(protected)/dashboard/page.tsx"), "utf8");
   assert.doesNotMatch(dashboardPage, /Machine Efficiency|Project Efficiency|Project Progress/i);
 });
+
+const projectFilesMigrationPath = "supabase/migrations/20260622120000_production_project_files_priority1.sql";
+
+test("production project files migration creates table and backfills projects safely", () => {
+  const migration = readFileSync(join(repoRoot, projectFilesMigrationPath), "utf8");
+  assert.match(migration, /create table if not exists public\.production_project_files/);
+  assert.match(migration, /project_id uuid not null references public\.production_projects/);
+  assert.match(migration, /project_file text not null/);
+  assert.match(migration, /total_time_minutes integer/);
+  assert.match(migration, /total_volume_m3 numeric\(12,3\)/);
+  assert.match(migration, /insert into public\.production_project_files[\s\S]*from public\.production_projects p/);
+  assert.doesNotMatch(migration, /group by p\.project_name/i);
+  assert.doesNotMatch(migration, /delete from public\.production_projects/i);
+});
+
+test("production entries are linked to project files and new writes use project_file_id", () => {
+  const migration = readFileSync(join(repoRoot, projectFilesMigrationPath), "utf8");
+  const entries = readFileSync(join(repoRoot, "src/lib/production/entries.ts"), "utf8");
+  const actions = readFileSync(join(repoRoot, "app/(protected)/production/actions.ts"), "utf8");
+  assert.match(migration, /alter table public\.production_entries add column if not exists project_file_id/);
+  assert.match(migration, /update public\.production_entries e[\s\S]*set project_file_id = pf\.id/);
+  assert.match(migration, /alter table public\.production_entries alter column project_file_id set not null/);
+  assert.match(entries, /p_project_file_id: input\.projectFileId/);
+  assert.match(actions, /project_file_id/);
+  assert.doesNotMatch(entries, /p_project_id: input\.projectId/);
+});
+
+test("project detail loads and edits project files without reintroducing production import", () => {
+  const page = readFileSync(join(repoRoot, "app/(protected)/production/projects/[projectId]/page.tsx"), "utf8");
+  const projects = readFileSync(join(repoRoot, "src/lib/production/projects.ts"), "utf8");
+  const productionTree = productionFiles.map((file) => readFileSync(join(repoRoot, file), "utf8")).join("\n");
+  assert.match(page, /listProductionProjectFiles/);
+  assert.match(page, /Project files/);
+  assert.match(projects, /createProductionProjectFile/);
+  assert.match(projects, /updateProductionProjectFile/);
+  assert.doesNotMatch(productionTree, /\/production\/import/);
+  assert.doesNotMatch(productionTree, /apply_production_import\(/);
+});
+
+test("entry form selects project files and preserves archived selections on edit", () => {
+  const form = readFileSync(join(repoRoot, "app/(protected)/production/components/production-entry-form.tsx"), "utf8");
+  const newPage = readFileSync(join(repoRoot, "app/(protected)/production/entries/new/page.tsx"), "utf8");
+  const editPage = readFileSync(join(repoRoot, "app/(protected)/production/entries/[entryId]/page.tsx"), "utf8");
+  assert.match(form, /name="project_file_id"/);
+  assert.match(form, /activeProjectFiles = projectFiles\.filter\(\(project\) => !project\.is_archived \|\| project\.id === initialValues\?\.projectFileId\)/);
+  assert.match(newPage, /projectFiles=\{projectFiles\.filter\(\(projectFile\) => !projectFile\.is_archived\)\}/);
+  assert.match(editPage, /projectFileId: entry\.project_file_id/);
+});
+
+test("project-level planned totals are derived from project files", () => {
+  const migration = readFileSync(join(repoRoot, projectFilesMigrationPath), "utf8");
+  assert.match(migration, /create or replace view public\.production_project_summaries/);
+  assert.match(migration, /sum\(pf\.total_time_minutes\)::integer as total_time_minutes/);
+  assert.match(migration, /sum\(pf\.total_volume_m3\)::numeric\(12,3\) as total_volume_m3/);
+  assert.doesNotMatch(migration, /select p\.id as project_id[\s\S]{0,120}p\.total_time_minutes/);
+});
