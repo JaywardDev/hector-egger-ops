@@ -2,7 +2,7 @@ import type { TimesheetStatus } from "@/src/lib/timesheets/types";
 import type { StatusBadgeConfig } from "@/src/components/ui/status-badge";
 
 export const TIMESHEET_STATUS_LABELS: Record<TimesheetStatus, string> = {
-  submitted: "Submitted",
+  submitted: "Saved",
   returned: "Returned",
   supervisor_approved: "Supervisor reviewed",
   approved: "Approved",

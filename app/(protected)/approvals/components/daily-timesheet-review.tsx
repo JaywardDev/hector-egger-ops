@@ -86,7 +86,7 @@ export function DailyTimesheetReview({
       {successMessage ? <Alert variant="success">{successMessage}</Alert> : null}
 
       {!entry ? (
-        <Alert variant="warning">No timesheet entry has been submitted for this day.</Alert>
+        <Alert variant="warning">No timesheet entry has been saved for this day.</Alert>
       ) : (
         <>
           {entry.status === "returned" && entry.return_comment ? (

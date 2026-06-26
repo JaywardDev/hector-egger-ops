@@ -73,7 +73,7 @@ export async function GET(request: Request) {
     const firstName = nameById.get(sub.profile_id) ?? "there";
     const missingCount = pastWorkdays.filter((d) => !submittedSet.has(submittedKey(sub.profile_id, d))).length;
     const body = isUrgent
-      ? `Hi ${firstName} — you have ${missingCount} unsubmitted day${missingCount === 1 ? "" : "s"} this week. Submit before end of day Friday.`
+      ? `Hi ${firstName} — you have ${missingCount} unsaved day${missingCount === 1 ? "" : "s"} this week. Save before end of day Friday.`
       : `Hi ${firstName} — ${missingCount} day${missingCount === 1 ? "" : "s"} this week still need${missingCount === 1 ? "s" : ""} a timesheet entry.`;
 
     try {

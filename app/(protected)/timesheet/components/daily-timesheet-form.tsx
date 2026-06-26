@@ -100,8 +100,8 @@ export function DailyTimesheetForm({
   copyFrom,
   copyFromLabel,
   saveHandler = saveTimesheetEntryAction,
-  submitLabel = "Submit",
-  pendingLabel = "Submitting…",
+  submitLabel = "Save",
+  pendingLabel = "Saving…",
   headingText,
   showReturnedNotice = true,
   correctionComment,
@@ -386,7 +386,7 @@ export function DailyTimesheetForm({
         </div>
         {showReturnedNotice && entry?.status === "returned" ? (
           <Alert variant="warning">
-            This entry was returned for correction. {entry.return_comment ? `Comment: ${entry.return_comment}` : "Please update and resubmit."}
+            This entry was returned for correction. {entry.return_comment ? `Comment: ${entry.return_comment}` : "Please update and save."}
           </Alert>
         ) : null}
         {entry === null && copyFrom != null && canEdit ? (

@@ -225,7 +225,7 @@ export const approveEmployeeTimesheetWeek = async (
   const weekDates = getApprovalWeekDates(weekStart);
   const entries = await getSubmittedEntriesForWeek(targetProfileId, weekDates);
   const affectedEntryIds = entries.filter((entry) => entry.status === "submitted").map((entry) => entry.id);
-  if (affectedEntryIds.length === 0) throw new Error("No submitted entries are available to approve for this week.");
+  if (affectedEntryIds.length === 0) throw new Error("No saved entries are available to review for this week.");
 
   const supabase = createServiceRoleSupabaseClient();
   const now = nowUtcIso();
@@ -278,7 +278,7 @@ export const returnEmployeeTimesheetWeek = async (
   const affectedEntryIds = entries
     .filter((entry) => entry.status === "submitted" || entry.status === "supervisor_approved")
     .map((entry) => entry.id);
-  if (affectedEntryIds.length === 0) throw new Error("No submitted or approved entries are available to return for this week.");
+  if (affectedEntryIds.length === 0) throw new Error("No saved or reviewed entries are available to return for this week.");
 
   const supabase = createServiceRoleSupabaseClient();
   const updateResponse = await supabase.request(
@@ -400,9 +400,9 @@ export const saveEmployeeTimesheetCorrectionAtomic = async (
   );
   if (!existingResponse.ok) throw new Error("Failed to verify target timesheet entry");
   const [existing] = (await existingResponse.json()) as { id: string; status: string }[];
-  if (!existing) throw new Error("No submitted or returned timesheet entry exists for this day.");
+  if (!existing) throw new Error("No saved or returned timesheet entry exists for this day.");
   if (existing.status !== "submitted" && existing.status !== "returned") {
-    throw new Error("Only submitted or returned entries can be corrected.");
+    throw new Error("Only saved or returned entries can be corrected.");
   }
 
   const response = await supabase.request("/rest/v1/rpc/correct_employee_timesheet_entry_atomic", {

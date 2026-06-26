@@ -62,7 +62,7 @@ export default async function TimesheetPage() {
         eyebrow="Personal timesheet"
         description={
           <span className="hidden text-sm text-zinc-500 sm:block">
-            Track and manage your weekly work records here. Submit your timesheet for approval at the end of each week to keep your records up to date.
+            Track and manage your weekly work records here. Save each day&rsquo;s entry so your supervisor can review your timesheet at the end of the week.
           </span>
         }
         metadata={
@@ -74,7 +74,7 @@ export default async function TimesheetPage() {
       {missedDays.length > 0 && (
         <Alert variant={isUrgent ? "error" : "warning"}>
           {isUrgent
-            ? `You have ${missedDays.length} unsubmitted day${missedDays.length === 1 ? "" : "s"} this week. Please submit before end of day Friday.`
+            ? `You have ${missedDays.length} unsaved day${missedDays.length === 1 ? "" : "s"} this week. Please save before end of day Friday.`
             : `${missedDays.length} day${missedDays.length === 1 ? "" : "s"} this week still need${missedDays.length === 1 ? "s" : ""} a timesheet entry.`}
         </Alert>
       )}

@@ -342,7 +342,7 @@ export function ApprovalsClient({
                     </div>
                     <div className="flex flex-wrap gap-2 sm:justify-end">
                       <Badge variant="neutral">{person.totalHours} h</Badge>
-                      <Badge variant="info">{person.submittedCount} submitted</Badge>
+                      <Badge variant="info">{person.submittedCount} saved</Badge>
                       <Badge variant="warning">{person.returnedCount} returned</Badge>
                       <Badge variant="success">{person.supervisorApprovedCount} reviewed</Badge>
                       <Badge variant="neutral">{person.finalApprovedCount} approved</Badge>
@@ -412,7 +412,7 @@ export function ApprovalsClient({
                 <Textarea
                   value={returnComment}
                   onChange={(event) => setReturnComment(event.target.value)}
-                  placeholder="Explain what the employee needs to fix before resubmitting."
+                  placeholder="Explain what the employee needs to fix before saving again."
                   rows={3}
                 />
                 <PendingActionButton type="button" variant="danger" onClick={runReturn} isPending={isPending} disabled={returnComment.trim().length === 0} pendingLabel="Returning…">
