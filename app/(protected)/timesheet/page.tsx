@@ -1,12 +1,15 @@
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { Alert } from "@/src/components/ui/alert";
+import { PushNotificationPrompt } from "@/src/components/push-notification-prompt";
+import { ServiceWorkerRegistrar } from "@/src/components/service-worker-registrar";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import { canEditApprovedTimesheets } from "@/src/lib/timesheets/access";
 import { getNzWeekDates, formatTimesheetDisplayDate, formatTimesheetWeekday } from "@/src/lib/timesheets/date";
 import { getTimesheetPreference, listOwnTimesheetEntriesForDates } from "@/src/lib/timesheets/entries";
 import { getTimesheetLookups } from "@/src/lib/timesheets/lookups";
 import { WeeklyTimesheetClient } from "@/app/(protected)/timesheet/components/weekly-timesheet-client";
+import { getTodayNzDate } from "@/src/lib/dateTime";
 
 export default async function TimesheetPage() {
   const { session, profile, roles } = await requireProtectedAccess("/timesheet");
@@ -26,7 +29,8 @@ export default async function TimesheetPage() {
     accessContext: { accountStatus: "approved" as const, roles },
     route: "/timesheet",
   };
-  const weekDates = getNzWeekDates();
+  const todayDate = getTodayNzDate();
+  const weekDates = getNzWeekDates(todayDate);
   const [entries, preferredWorkMode, lookups] = await Promise.all([
     listOwnTimesheetEntriesForDates(actor, weekDates),
     getTimesheetPreference(actor),
@@ -46,6 +50,12 @@ export default async function TimesheetPage() {
     };
   });
 
+  // Past Mon–Fri workdays with no entry
+  const pastWorkdays = weekDates.slice(0, 5).filter((d) => d <= todayDate);
+  const missedDays = pastWorkdays.filter((d) => !entryByDate.has(d));
+  const dayOfWeek = new Date(`${todayDate}T12:00:00Z`).getUTCDay();
+  const isUrgent = dayOfWeek === 4 || dayOfWeek === 5; // Thu or Fri
+
   return (
     <PageContainer>
       <PageHeader
@@ -63,6 +73,17 @@ export default async function TimesheetPage() {
           </span>
         }
       />
+      <ServiceWorkerRegistrar />
+      <div className="space-y-3">
+        {missedDays.length > 0 && (
+          <Alert variant={isUrgent ? "error" : "warning"}>
+            {isUrgent
+              ? `You have ${missedDays.length} unsubmitted day${missedDays.length === 1 ? "" : "s"} this week. Please submit before end of day Friday.`
+              : `${missedDays.length} day${missedDays.length === 1 ? "" : "s"} this week still need${missedDays.length === 1 ? "s" : ""} a timesheet entry.`}
+          </Alert>
+        )}
+        <PushNotificationPrompt />
+      </div>
       <WeeklyTimesheetClient
         days={days}
         userName={profile.full_name ?? profile.email}
