@@ -37,7 +37,7 @@ export function PushNotificationPrompt() {
       if (!publicKey) throw new Error("VAPID public key not configured.");
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
+        applicationServerKey: publicKey,
       });
       const json = sub.toJSON();
       await fetch("/api/push/subscribe", {
@@ -105,11 +105,4 @@ export function PushNotificationPrompt() {
       </button>
     </div>
   );
-}
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-  const base64 = (base64String + padding).replaceAll("-", "+").replaceAll("_", "/");
-  const rawData = atob(base64);
-  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
 }
