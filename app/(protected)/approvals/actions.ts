@@ -88,6 +88,86 @@ export async function finalApproveEmployeeTimesheetWeekAction(
 }
 
 
+export type BulkApprovalActionResult = {
+  ok: boolean;
+  message: string;
+  succeeded: number;
+  skipped: number;
+  failed: number;
+};
+
+const runBulk = async (
+  targetProfileIds: string[],
+  weekStart: string,
+  run: (
+    actor: Awaited<ReturnType<typeof actorFromContext>>,
+    targetProfileId: string,
+    parsedWeekStart: string,
+  ) => Promise<{ affectedEntryIds: string[] }>,
+  verb: string,
+): Promise<BulkApprovalActionResult> => {
+  const uniqueIds = Array.from(new Set(targetProfileIds.filter(Boolean)));
+  if (uniqueIds.length === 0) {
+    return { ok: false, message: "Select at least one timesheet.", succeeded: 0, skipped: 0, failed: 0 };
+  }
+
+  try {
+    const parsedWeekStart = parseApprovalWeekStart(weekStart);
+    const actor = await actorFromContext();
+
+    let succeeded = 0;
+    let skipped = 0;
+    let failed = 0;
+    for (const targetProfileId of uniqueIds) {
+      try {
+        const result = await run(actor, targetProfileId, parsedWeekStart);
+        // No eligible entries this week is a skip, not a failure.
+        if (result.affectedEntryIds.length > 0) succeeded += 1;
+        else skipped += 1;
+      } catch {
+        // Per-employee errors (e.g. nothing eligible) don't fail the batch.
+        failed += 1;
+      }
+    }
+
+    revalidatePath("/approvals");
+    revalidatePath("/timesheet");
+
+    const parts = [`${succeeded} ${verb}`];
+    if (skipped > 0) parts.push(`${skipped} skipped`);
+    if (failed > 0) parts.push(`${failed} failed`);
+    return {
+      ok: succeeded > 0,
+      message: parts.join(", ") + ".",
+      succeeded,
+      skipped,
+      failed,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not run bulk action.",
+      succeeded: 0,
+      skipped: 0,
+      failed: 0,
+    };
+  }
+};
+
+export async function approveEmployeeTimesheetWeekBulkAction(
+  targetProfileIds: string[],
+  weekStart: string,
+): Promise<BulkApprovalActionResult> {
+  return runBulk(targetProfileIds, weekStart, approveEmployeeTimesheetWeek, "reviewed");
+}
+
+export async function finalApproveEmployeeTimesheetWeekBulkAction(
+  targetProfileIds: string[],
+  weekStart: string,
+): Promise<BulkApprovalActionResult> {
+  return runBulk(targetProfileIds, weekStart, finalApproveEmployeeTimesheetWeek, "final approved");
+}
+
 export async function saveEmployeeTimesheetCorrectionAction(
   targetProfileId: string,
   input: SaveTimesheetEntryInput,

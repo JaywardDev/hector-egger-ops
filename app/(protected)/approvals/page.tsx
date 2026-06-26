@@ -10,7 +10,8 @@ import {
   listTimesheetEntriesForProfileForDates,
   type ApprovalStaffProfile,
 } from "@/src/lib/timesheets/approvals";
-import { formatTimesheetDisplayDate, formatTimesheetWeekday } from "@/src/lib/timesheets/date";
+import { addDays, formatTimesheetDisplayDate, formatTimesheetWeekday } from "@/src/lib/timesheets/date";
+import { getNzWeekStart, getTodayNzDate, parseNzDate } from "@/src/lib/dateTime";
 import { getTimesheetLookups } from "@/src/lib/timesheets/lookups";
 import type { StaffGroup, TimesheetDaySummary, TimesheetEntryWithActivities, TimesheetLookupsByStaffGroup } from "@/src/lib/timesheets/types";
 
@@ -60,7 +61,11 @@ const withWeekSummaries = async (
   });
 };
 
-export default async function ApprovalsPage() {
+type ApprovalsPageProps = {
+  searchParams: Promise<{ week?: string }>;
+};
+
+export default async function ApprovalsPage({ searchParams }: ApprovalsPageProps) {
   const { session, profile, roles } = await requireTimesheetApprovalAccess();
 
   if (!profile) {
@@ -86,7 +91,18 @@ export default async function ApprovalsPage() {
 
   const canFinalApprove = canFinalApproveTimesheets({ accountStatus: "approved", roles });
 
-  const weekDates = getApprovalWeekDates();
+  // Resolve the requested week (Monday week-start). Defaults to the current NZ week.
+  // Future weeks are clamped to the current week so navigation can't run ahead of "now".
+  const currentWeekStart = getNzWeekStart(getTodayNzDate());
+  const requestedWeekParam = (await searchParams).week;
+  const parsedRequested = requestedWeekParam ? parseNzDate(requestedWeekParam) : null;
+  const requestedWeekStart = parsedRequested ? getNzWeekStart(parsedRequested) : currentWeekStart;
+  const activeWeekStart = requestedWeekStart > currentWeekStart ? currentWeekStart : requestedWeekStart;
+
+  const weekDates = getApprovalWeekDates(activeWeekStart);
+  const prevWeekStart = addDays(activeWeekStart, -7);
+  const nextWeekStart = addDays(activeWeekStart, 7);
+  const isCurrentWeek = activeWeekStart === currentWeekStart;
   const lookupsByGroup = Object.fromEntries(
     await Promise.all(
       approvalGroups.map(async (group) => [group, await getTimesheetLookups(actor, group)] as const),
@@ -114,6 +130,9 @@ export default async function ApprovalsPage() {
         weekStart={weekDates[0]}
         weekRangeLabel={weekRangeLabel}
         canFinalApprove={canFinalApprove}
+        prevWeekStart={prevWeekStart}
+        nextWeekStart={isCurrentWeek ? null : nextWeekStart}
+        isCurrentWeek={isCurrentWeek}
       />
     </PageContainer>
   );

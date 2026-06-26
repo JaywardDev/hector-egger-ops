@@ -1,8 +1,6 @@
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { Alert } from "@/src/components/ui/alert";
-import { PushNotificationPrompt } from "@/src/components/push-notification-prompt";
-import { ServiceWorkerRegistrar } from "@/src/components/service-worker-registrar";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import { canEditApprovedTimesheets } from "@/src/lib/timesheets/access";
 import { getNzWeekDates, formatTimesheetDisplayDate, formatTimesheetWeekday } from "@/src/lib/timesheets/date";
@@ -73,17 +71,13 @@ export default async function TimesheetPage() {
           </span>
         }
       />
-      <ServiceWorkerRegistrar />
-      <div className="space-y-3">
-        {missedDays.length > 0 && (
-          <Alert variant={isUrgent ? "error" : "warning"}>
-            {isUrgent
-              ? `You have ${missedDays.length} unsubmitted day${missedDays.length === 1 ? "" : "s"} this week. Please submit before end of day Friday.`
-              : `${missedDays.length} day${missedDays.length === 1 ? "" : "s"} this week still need${missedDays.length === 1 ? "s" : ""} a timesheet entry.`}
-          </Alert>
-        )}
-        <PushNotificationPrompt />
-      </div>
+      {missedDays.length > 0 && (
+        <Alert variant={isUrgent ? "error" : "warning"}>
+          {isUrgent
+            ? `You have ${missedDays.length} unsubmitted day${missedDays.length === 1 ? "" : "s"} this week. Please submit before end of day Friday.`
+            : `${missedDays.length} day${missedDays.length === 1 ? "" : "s"} this week still need${missedDays.length === 1 ? "s" : ""} a timesheet entry.`}
+        </Alert>
+      )}
       <WeeklyTimesheetClient
         days={days}
         userName={profile.full_name ?? profile.email}
