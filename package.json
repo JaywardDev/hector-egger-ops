@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test --require ./scripts/register-ts-tests.cjs src/lib/stock-take/*.test.ts src/lib/production/manual-v1.test.ts src/lib/timesheets/*.test.ts src/lib/auth/public-session.test.ts src/lib/permissions/timesheets.test.ts"
+    "test": "node --test --require ./scripts/register-ts-tests.cjs src/lib/stock-take/*.test.ts src/lib/production/manual-v1.test.ts src/lib/timesheets/activity-notes.test.ts src/lib/timesheets/daily-timesheet-ui-rules.test.ts src/lib/timesheets/final-approval-rules.test.ts src/lib/timesheets/formatting.test.ts src/lib/timesheets/lookup-shared.test.ts src/lib/timesheets/shift-completion.test.ts src/lib/timesheets/validation.test.ts src/lib/permissions/timesheets.test.ts"
   },
   "dependencies": {
     "lottie-react": "^2.4.1",

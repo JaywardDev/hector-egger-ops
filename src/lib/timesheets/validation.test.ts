@@ -47,6 +47,7 @@ test("leave and public holiday require imported costcode availability", () => {
 test("normal leave allocation uses leaveHours only with no hidden +8", () => {
   const fullDayLeave = {
     ...baseInput(),
+    timeOut: "15:00",
     leaveType: "annual" as const,
     leaveHours: 8,
     paidBreak: false,
@@ -87,7 +88,7 @@ test("inside-attendance paid break math examples hold", () => {
   assert.equal(validatedPartial.paidBreak, true);
   assert.equal(validatedPartial.allocationHours, 4.5);
 
-  const shortWithLeave = { ...baseInput(), timeOut: "09:00", unpaidBreak: false, leaveType: "annual" as const, leaveHours: 6, paidBreak: false, activities: [{ ...baseInput().activities[0], hours: 2 }] };
+  const shortWithLeave = { ...baseInput(), timeOut: "15:00", unpaidBreak: false, leaveType: "annual" as const, leaveHours: 6, paidBreak: false, activities: [{ ...baseInput().activities[0], hours: 2 }] };
   const validatedShort = validateTimesheetEntryInput(shortWithLeave, new Set(["p-f"]), new Set(["t-f"]), byLocation(["p-f"], [], []), byLocation(["t-f"], [], []), new Set(["LA"]), true);
   assert.equal(validatedShort.allocationHours, 8);
   assert.equal(validatedShort.paidBreak, false);

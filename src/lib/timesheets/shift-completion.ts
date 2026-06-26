@@ -39,7 +39,10 @@ export const calculateShiftCompletionHelper = (input: { timeIn: string | null; t
   const remainingShiftWindow = roundHours(Math.max(0, SHIFT_COMPLETION_CONFIG.shiftSpanHours - attendanceSpan));
   const suggestedLeaveHours = remainingShiftWindow === 0
     ? 0
-    : roundHours(Math.max(0, remainingShiftWindow - SHIFT_COMPLETION_CONFIG.standardUnpaidBreakHours));
+    : roundHours(Math.min(
+        Math.max(0, remainingShiftWindow - SHIFT_COMPLETION_CONFIG.standardUnpaidBreakHours),
+        SHIFT_COMPLETION_CONFIG.expectedFullDayAllocation,
+      ));
 
   return {
     attendanceSpan,
