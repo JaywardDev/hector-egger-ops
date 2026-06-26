@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Operations Platform",
-    short_name: "Operations",
-    description: "Phase 1 architecture scaffold for operations workflows.",
+    name: "Hector Egger Operations",
+    short_name: "HE Ops",
+    description: "Workforce operations platform for Hector Egger NZ.",
     start_url: "/",
     display: "standalone",
     background_color: "#ffffff",

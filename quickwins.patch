@@ -1,0 +1,303 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..0c186c1
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,40 @@
++name: CI
++
++on:
++  push:
++    branches: [main]
++  pull_request:
++    branches: [main]
++
++jobs:
++  ci:
++    name: Lint, test, build
++    runs-on: ubuntu-latest
++
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 22
++          cache: npm
++
++      - name: Install dependencies
++        run: npm ci
++
++      - name: Lint
++        run: npm run lint
++
++      - name: Test
++        run: npm test
++        env:
++          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
++          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
++          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder' }}
++
++      - name: Build
++        run: npm run build
++        env:
++          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co' }}
++          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder' }}
++          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'placeholder' }}
+diff --git a/app/(protected)/admin/error.tsx b/app/(protected)/admin/error.tsx
+new file mode 100644
+index 0000000..2394bdf
+--- /dev/null
++++ b/app/(protected)/admin/error.tsx
+@@ -0,0 +1,13 @@
++"use client";
++
++import { ErrorFallback } from "@/src/components/ui/error-fallback";
++
++export default function AdminError({
++  error,
++  reset,
++}: {
++  error: Error & { digest?: string };
++  reset: () => void;
++}) {
++  return <ErrorFallback error={error} reset={reset} message="Could not load the admin workspace." />;
++}
+diff --git a/app/(protected)/approvals/error.tsx b/app/(protected)/approvals/error.tsx
+new file mode 100644
+index 0000000..823b71e
+--- /dev/null
++++ b/app/(protected)/approvals/error.tsx
+@@ -0,0 +1,13 @@
++"use client";
++
++import { ErrorFallback } from "@/src/components/ui/error-fallback";
++
++export default function ApprovalsError({
++  error,
++  reset,
++}: {
++  error: Error & { digest?: string };
++  reset: () => void;
++}) {
++  return <ErrorFallback error={error} reset={reset} message="Could not load timesheet approvals." />;
++}
+diff --git a/app/(protected)/dashboard/error.tsx b/app/(protected)/dashboard/error.tsx
+new file mode 100644
+index 0000000..3fc61c5
+--- /dev/null
++++ b/app/(protected)/dashboard/error.tsx
+@@ -0,0 +1,13 @@
++"use client";
++
++import { ErrorFallback } from "@/src/components/ui/error-fallback";
++
++export default function DashboardError({
++  error,
++  reset,
++}: {
++  error: Error & { digest?: string };
++  reset: () => void;
++}) {
++  return <ErrorFallback error={error} reset={reset} message="Could not load the dashboard." />;
++}
+diff --git a/app/(protected)/dashboard/loading.tsx b/app/(protected)/dashboard/loading.tsx
+new file mode 100644
+index 0000000..765941c
+--- /dev/null
++++ b/app/(protected)/dashboard/loading.tsx
+@@ -0,0 +1,5 @@
++import { RouteLoadingFallback } from "@/src/components/ui/route-loading-fallback";
++
++export default function DashboardLoading() {
++  return <RouteLoadingFallback message="Loading dashboard…" />;
++}
+diff --git a/app/(protected)/production/error.tsx b/app/(protected)/production/error.tsx
+new file mode 100644
+index 0000000..1db4c41
+--- /dev/null
++++ b/app/(protected)/production/error.tsx
+@@ -0,0 +1,13 @@
++"use client";
++
++import { ErrorFallback } from "@/src/components/ui/error-fallback";
++
++export default function ProductionError({
++  error,
++  reset,
++}: {
++  error: Error & { digest?: string };
++  reset: () => void;
++}) {
++  return <ErrorFallback error={error} reset={reset} message="Could not load production data." />;
++}
+diff --git a/app/(protected)/production/loading.tsx b/app/(protected)/production/loading.tsx
+new file mode 100644
+index 0000000..614f23c
+--- /dev/null
++++ b/app/(protected)/production/loading.tsx
+@@ -0,0 +1,5 @@
++import { RouteLoadingFallback } from "@/src/components/ui/route-loading-fallback";
++
++export default function ProductionLoading() {
++  return <RouteLoadingFallback message="Loading production data…" />;
++}
+diff --git a/app/(protected)/stock-take/error.tsx b/app/(protected)/stock-take/error.tsx
+new file mode 100644
+index 0000000..01d7f38
+--- /dev/null
++++ b/app/(protected)/stock-take/error.tsx
+@@ -0,0 +1,13 @@
++"use client";
++
++import { ErrorFallback } from "@/src/components/ui/error-fallback";
++
++export default function StockTakeError({
++  error,
++  reset,
++}: {
++  error: Error & { digest?: string };
++  reset: () => void;
++}) {
++  return <ErrorFallback error={error} reset={reset} message="Could not load stock take." />;
++}
+diff --git a/app/(protected)/timesheet/error.tsx b/app/(protected)/timesheet/error.tsx
+new file mode 100644
+index 0000000..429428b
+--- /dev/null
++++ b/app/(protected)/timesheet/error.tsx
+@@ -0,0 +1,13 @@
++"use client";
++
++import { ErrorFallback } from "@/src/components/ui/error-fallback";
++
++export default function TimesheetError({
++  error,
++  reset,
++}: {
++  error: Error & { digest?: string };
++  reset: () => void;
++}) {
++  return <ErrorFallback error={error} reset={reset} message="Could not load your timesheet." />;
++}
+diff --git a/app/global-error.tsx b/app/global-error.tsx
+new file mode 100644
+index 0000000..e1caf93
+--- /dev/null
++++ b/app/global-error.tsx
+@@ -0,0 +1,36 @@
++"use client";
++
++export default function GlobalError({
++  error,
++  reset,
++}: {
++  error: Error & { digest?: string };
++  reset: () => void;
++}) {
++  return (
++    <html lang="en">
++      <body className="antialiased">
++        <div className="flex min-h-screen items-center justify-center bg-zinc-50 px-6 py-16">
++          <div className="mx-auto max-w-sm space-y-4 text-center">
++            <p className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
++              Hector Egger Operations
++            </p>
++            <h1 className="text-lg font-semibold text-zinc-900">
++              An unexpected error occurred.
++            </h1>
++            {error.digest ? (
++              <p className="text-xs text-zinc-400">Reference: {error.digest}</p>
++            ) : null}
++            <button
++              type="button"
++              onClick={reset}
++              className="inline-flex h-10 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50"
++            >
++              Try again
++            </button>
++          </div>
++        </div>
++      </body>
++    </html>
++  );
++}
+diff --git a/app/layout.tsx b/app/layout.tsx
+index 50a6073..bfaeeb1 100644
+--- a/app/layout.tsx
++++ b/app/layout.tsx
+@@ -2,8 +2,8 @@ import type { Metadata } from "next";
+ import "./globals.css";
+ 
+ export const metadata: Metadata = {
+-  title: "Operations Platform",
+-  description: "Phase 1 architecture scaffold for operations workflows.",
++  title: "Hector Egger Operations",
++  description: "Workforce operations platform for Hector Egger NZ — timesheets, approvals, stock take, and production tracking.",
+   icons: {
+     icon: [
+       {
+diff --git a/app/manifest.ts b/app/manifest.ts
+index 8ea1ecd..38f5668 100644
+--- a/app/manifest.ts
++++ b/app/manifest.ts
+@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
+ 
+ export default function manifest(): MetadataRoute.Manifest {
+   return {
+-    name: "Operations Platform",
+-    short_name: "Operations",
+-    description: "Phase 1 architecture scaffold for operations workflows.",
++    name: "Hector Egger Operations",
++    short_name: "HE Ops",
++    description: "Workforce operations platform for Hector Egger NZ.",
+     start_url: "/",
+     display: "standalone",
+     background_color: "#ffffff",
+diff --git a/package.json b/package.json
+index 81af8b8..da15d26 100644
+--- a/package.json
++++ b/package.json
+@@ -7,7 +7,7 @@
+     "build": "next build",
+     "start": "next start",
+     "lint": "eslint",
+-    "test": "node --test --require ./scripts/register-ts-tests.cjs src/lib/stock-take/*.test.ts src/lib/production/manual-v1.test.ts"
++    "test": "node --test --require ./scripts/register-ts-tests.cjs src/lib/stock-take/*.test.ts src/lib/production/manual-v1.test.ts src/lib/timesheets/*.test.ts src/lib/auth/public-session.test.ts src/lib/permissions/timesheets.test.ts"
+   },
+   "dependencies": {
+     "lottie-react": "^2.4.1",
+diff --git a/src/components/ui/error-fallback.tsx b/src/components/ui/error-fallback.tsx
+new file mode 100644
+index 0000000..ae28e8f
+--- /dev/null
++++ b/src/components/ui/error-fallback.tsx
+@@ -0,0 +1,28 @@
++"use client";
++
++type ErrorFallbackProps = {
++  error: Error & { digest?: string };
++  reset: () => void;
++  message?: string;
++};
++
++export function ErrorFallback({ error, reset, message = "Something went wrong." }: ErrorFallbackProps) {
++  return (
++    <div className="flex min-h-full items-center justify-center bg-zinc-50 px-6 py-16">
++      <div className="mx-auto max-w-sm space-y-4 text-center">
++        <p className="text-sm font-semibold uppercase tracking-wide text-zinc-400">Error</p>
++        <h2 className="text-lg font-semibold text-zinc-900">{message}</h2>
++        {error.digest ? (
++          <p className="text-xs text-zinc-400">Reference: {error.digest}</p>
++        ) : null}
++        <button
++          type="button"
++          onClick={reset}
++          className="inline-flex h-10 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)]"
++        >
++          Try again
++        </button>
++      </div>
++    </div>
++  );
++}

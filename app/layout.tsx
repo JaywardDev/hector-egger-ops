@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Operations Platform",
-  description: "Phase 1 architecture scaffold for operations workflows.",
+  title: "Hector Egger Operations",
+  description: "Workforce operations platform for Hector Egger NZ — timesheets, approvals, stock take, and production tracking.",
   icons: {
     icon: [
       {
