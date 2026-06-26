@@ -124,11 +124,27 @@ Rough order of magnitude: phases 1–3 are the bulk of the value and the safest 
 ship incrementally; phase 4–5 are smaller add-ons. Each phase is independently
 deployable behind the existing patch workflow.
 
-## Open questions for product
+## Product decisions (confirmed)
 
-- How many days back should offline entry be allowed (current week only, or
-  prior weeks now that approvals support prior-week review)?
-- Should a queued-but-not-synced day count against the "unsubmitted days"
-  reminder banner, or be treated as effectively submitted?
-- Is automatic submission-for-approval on sync desired, or should sync only save
-  the entry and leave submission as a separate explicit action?
+These were resolved with product and are binding for the Tier 3 build:
+
+1. **Scope of offline entry: current week only.** Offline draft/queue is allowed
+   only for days in the current NZ week. Prior-week edits remain online-only
+   (they go through the approvals/correction flow). The client should refuse to
+   queue, and the server endpoint should reject, a `work_date` outside the
+   current week.
+2. **Reminder banner is unaffected by queued days.** A queued-but-not-yet-synced
+   day still counts as missing in the "unsubmitted days" reminder banner and in
+   the cron push reminder. Only a day that has actually synced to the server
+   stops counting. (No client-side suppression based on the local outbox.)
+3. **Sync saves only — no auto-submit.** When a queued entry replays
+   successfully it is saved as a normal draft/saved entry; it is **not**
+   automatically submitted for approval. Submission stays a separate, explicit
+   user action performed online, exactly as today.
+
+Implications for the design above:
+- The idempotent endpoint validates `work_date ∈ current NZ week` server-side.
+- The outbox/replay path calls the same save logic the online "save" uses, never
+  the "submit" path.
+- No change is needed to the reminder banner or cron logic — they already key off
+  server-side entries, which is the desired behaviour.
