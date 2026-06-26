@@ -26,6 +26,10 @@ export function WeeklyTimesheetClient({
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [mode, setMode] = useState<WeeklyTimesheetMode>("summary");
   const selectedDay = useMemo(() => days.find((day) => day.date === selectedDate) ?? null, [days, selectedDate]);
+  const copyFromDay = useMemo(() => {
+    if (!selectedDay || selectedDay.entry !== null) return null;
+    return [...days].reverse().find((d) => d.date < selectedDay.date && d.entry !== null) ?? null;
+  }, [days, selectedDay]);
 
   const close = () => setSelectedDate(null);
   const saved = () => {
@@ -56,6 +60,8 @@ export function WeeklyTimesheetClient({
             lookups={lookups}
             canEdit={selectedDay.canEdit}
             onSaved={saved}
+            copyFrom={copyFromDay?.entry}
+            copyFromLabel={copyFromDay?.weekdayLabel}
           />
         ) : null}
       </DailyTimesheetSheet>

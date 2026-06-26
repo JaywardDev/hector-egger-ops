@@ -1,6 +1,7 @@
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
+import { isAdmin } from "@/src/lib/permissions/roles";
 import {
   listActiveStockAreas,
   listActiveTimberMaterials,
@@ -22,6 +23,7 @@ export default async function StockTakePage({ searchParams }: StockTakePageProps
   const { session, roles } = await requireProtectedAccess(route);
   const params = await searchParams;
   const actor = { session, accessContext: { accountStatus: "approved" as const, roles }, route };
+  const readOnly = !isAdmin({ roles });
 
   const [areas, materials, allRows] = await Promise.all([
     listActiveStockAreas(actor),
@@ -51,6 +53,7 @@ export default async function StockTakePage({ searchParams }: StockTakePageProps
         materials={materials}
         initialAreaId={selectedAreaId}
         initialRowsByAreaId={initialRowsByAreaId}
+        readOnly={readOnly}
       />
     </PageContainer>
   );

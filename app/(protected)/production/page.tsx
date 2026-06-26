@@ -5,6 +5,7 @@ import { Card } from "@/src/components/ui/card";
 import { Input } from "@/src/components/ui/input";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import { hasProductionReasonAdminRole } from "@/src/lib/production/access";
+import { isAdmin } from "@/src/lib/permissions/roles";
 import { listProductionEntries } from "@/src/lib/production/entries";
 import { formatMinutesAsDuration } from "@/src/lib/production/format";
 import { listProductionOperatorSummaries, listProductionProjectFileSummaries, listProductionProjectSummaries } from "@/src/lib/production/dashboard";
@@ -19,6 +20,7 @@ export default async function ProductionPage({ searchParams }: ProductionPagePro
   const { session, roles } = await requireProtectedAccess(route);
   const params = await searchParams;
   const canManageReasons = hasProductionReasonAdminRole(roles);
+  const canWrite = isAdmin({ roles });
   const currentMonth = new Date().toISOString().slice(0, 7);
   const month = params.month || currentMonth;
   const [projectSummaries, projectFiles, operators, allEntries] = await Promise.all([
@@ -34,7 +36,7 @@ export default async function ProductionPage({ searchParams }: ProductionPagePro
   return (
     <PageContainer>
       <PageHeader title="Production Performance Dashboard" description="App-native production performance, volume, utilization, downtime, and operator summaries.">
-        <div className="flex flex-wrap gap-2 pt-2"><Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/entries">Production entries</Link><Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/entries/new">Create new entry</Link><Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/projects">Projects</Link>{canManageReasons ? (
+        <div className="flex flex-wrap gap-2 pt-2"><Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/entries">Production entries</Link>{canWrite ? <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/entries/new">Create new entry</Link> : null}{canWrite ? <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/projects">Projects</Link> : null}{canManageReasons ? (
             <Link className="rounded-md border border-zinc-200 px-3 py-1" href="/production/reasons">Manage reasons</Link>
           ) : null}</div>
       </PageHeader>

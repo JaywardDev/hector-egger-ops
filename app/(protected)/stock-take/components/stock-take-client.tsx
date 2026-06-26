@@ -46,6 +46,7 @@ type StockTakeClientProps = {
   materials: TimberMaterialRecord[];
   initialAreaId: string;
   initialRowsByAreaId: Record<string, TimberStockWorkingRow[]>;
+  readOnly?: boolean;
 };
 
 const initialActionState: StockTakeActionState = { ok: false, message: "" };
@@ -343,6 +344,7 @@ export function StockTakeClient({
   materials,
   initialAreaId,
   initialRowsByAreaId,
+  readOnly = false,
 }: StockTakeClientProps) {
   const [selectedAreaId, setSelectedAreaId] = useState(initialAreaId);
   const [rows, setRows] = useState<DraftRow[]>(() => toDraftRows(initialRowsByAreaId[initialAreaId] ?? []));
@@ -703,18 +705,22 @@ export function StockTakeClient({
             >
               Export Excel
             </a>
-            {hasUnsavedChanges ? (
+            {!readOnly && hasUnsavedChanges ? (
               <p className="max-w-56 text-xs text-amber-700">
                 Export uses saved stock only. Update stock first to include your latest edits.
               </p>
             ) : null}
           </div>
-          <Button type="button" variant="secondary" size="lg" onClick={() => setIsAreaModalOpen(true)}>
-            Add area
-          </Button>
-          <Button type="button" variant="secondary" size="lg" onClick={() => setIsMaterialModalOpen(true)} disabled={!selectedAreaId}>
-            Add new material
-          </Button>
+          {!readOnly ? (
+            <>
+              <Button type="button" variant="secondary" size="lg" onClick={() => setIsAreaModalOpen(true)}>
+                Add area
+              </Button>
+              <Button type="button" variant="secondary" size="lg" onClick={() => setIsMaterialModalOpen(true)} disabled={!selectedAreaId}>
+                Add new material
+              </Button>
+            </>
+          ) : null}
         </div>
       </div>
 
@@ -762,13 +768,13 @@ export function StockTakeClient({
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-base font-semibold text-zinc-950">
-                  Working list for {selectedAreaName}
+                  {readOnly ? `Stock for ${selectedAreaName}` : `Working list for ${selectedAreaName}`}
                 </h2>
-                <p className="text-sm text-zinc-600">Enter the timber quantities in this area.</p>
+                <p className="text-sm text-zinc-600">{readOnly ? "Read-only view. Contact an admin to update quantities." : "Enter the timber quantities in this area."}</p>
               </div>
             </div>
 
-            {hasUnsavedChanges ? (
+            {!readOnly && hasUnsavedChanges ? (
               <Alert variant="warning">
                 Unsaved changes · {changedRowCount} {changedRowCount === 1 ? "row has" : "rows have"} changed.
               </Alert>
@@ -804,14 +810,16 @@ export function StockTakeClient({
                   className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-white via-white/80 to-transparent"
                 />
               </div>
-              <button
-                type="button"
-                aria-label="Add next bay"
-                className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-zinc-400 bg-white text-lg font-semibold leading-none text-zinc-700 hover:border-zinc-600"
-                onClick={addBayTab}
-              >
-                +
-              </button>
+              {!readOnly ? (
+                <button
+                  type="button"
+                  aria-label="Add next bay"
+                  className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-md border border-dashed border-zinc-400 bg-white text-lg font-semibold leading-none text-zinc-700 hover:border-zinc-600"
+                  onClick={addBayTab}
+                >
+                  +
+                </button>
+              ) : null}
             </div>
 
             <form action={updateStockAction} className="space-y-3">
@@ -838,8 +846,9 @@ export function StockTakeClient({
                     <li key={row.key} className="relative sm:flex sm:items-center">
                       <button
                         type="button"
-                        className="flex w-full items-start gap-3 py-3 pr-12 text-left transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:flex-1 sm:items-center sm:pr-3"
-                        onClick={() => startEditingRow(row)}
+                        className={cn("flex w-full items-start gap-3 py-3 text-left sm:flex-1 sm:items-center", readOnly ? "cursor-default pr-3" : "pr-12 transition-colors hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 sm:pr-3")}
+                        onClick={readOnly ? undefined : () => startEditingRow(row)}
+                        tabIndex={readOnly ? -1 : undefined}
                       >
                         <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4">
                           <p className="font-medium text-zinc-950 sm:flex-1 sm:truncate">{timberName}</p>
@@ -855,64 +864,70 @@ export function StockTakeClient({
                           </dl>
                         </div>
                       </button>
-                      <div className="absolute right-0 top-1.5 sm:relative sm:right-auto sm:top-auto sm:ml-1 sm:flex sm:w-10 sm:shrink-0 sm:justify-center">
-                        <button
-                          type="button"
-                          aria-label={`Actions for ${timberName}`}
-                          aria-haspopup="menu"
-                          aria-expanded={openRowActionsKey === row.key}
-                          className="flex min-h-10 min-w-10 items-center justify-center rounded-full text-xl leading-none text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                          onClick={() => setOpenRowActionsKey((currentKey) => (currentKey === row.key ? null : row.key))}
-                        >
-                          <span aria-hidden="true">⋯</span>
-                        </button>
-                        {openRowActionsKey === row.key ? (
-                          <div
-                            role="menu"
-                            className="absolute right-0 top-9 z-20 min-w-28 rounded-md border border-zinc-200 bg-white py-1 text-left shadow-lg"
+                      {!readOnly ? (
+                        <div className="absolute right-0 top-1.5 sm:relative sm:right-auto sm:top-auto sm:ml-1 sm:flex sm:w-10 sm:shrink-0 sm:justify-center">
+                          <button
+                            type="button"
+                            aria-label={`Actions for ${timberName}`}
+                            aria-haspopup="menu"
+                            aria-expanded={openRowActionsKey === row.key}
+                            className="flex min-h-10 min-w-10 items-center justify-center rounded-full text-xl leading-none text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                            onClick={() => setOpenRowActionsKey((currentKey) => (currentKey === row.key ? null : row.key))}
                           >
-                            <button
-                              type="button"
-                              role="menuitem"
-                              className="block w-full px-3 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-50"
-                              onClick={() => startEditingRow(row)}
+                            <span aria-hidden="true">⋯</span>
+                          </button>
+                          {openRowActionsKey === row.key ? (
+                            <div
+                              role="menu"
+                              className="absolute right-0 top-9 z-20 min-w-28 rounded-md border border-zinc-200 bg-white py-1 text-left shadow-lg"
                             >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              role="menuitem"
-                              className="block w-full px-3 py-2.5 text-left text-sm text-red-700 hover:bg-red-50"
-                              onClick={() => deleteRow(row.key)}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="block w-full px-3 py-2.5 text-left text-sm text-zinc-700 hover:bg-zinc-50"
+                                onClick={() => startEditingRow(row)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="block w-full px-3 py-2.5 text-left text-sm text-red-700 hover:bg-red-50"
+                                onClick={() => deleteRow(row.key)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
                     </li>
                   );
                 })}
               </ul>
-              <button
-                type="button"
-                aria-label={`Add row to ${formatBayTabLabel(activeBay)}`}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-dashed border-zinc-300 text-sm font-semibold text-zinc-600 transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-                onClick={addWorkingRow}
-                disabled={localMaterials.length === 0}
-              >
-                <span aria-hidden="true">+</span> Add timber row
-              </button>
-              <div className="sticky bottom-0 -mx-3 flex items-center justify-between gap-3 border-t border-zinc-200 bg-white/95 px-3 py-3 backdrop-blur sm:static sm:mx-0 sm:justify-end sm:border-t-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
-                {hasUnsavedChanges ? (
-                  <p className="text-sm font-medium text-amber-700">
-                    {changedRowCount} {changedRowCount === 1 ? "change" : "changes"}
-                  </p>
-                ) : <span />}
-                <PendingSubmitButton type="submit" variant="primary" disabled={!selectedAreaId}>
-                  {UPDATE_STOCK_LABEL}
-                </PendingSubmitButton>
-              </div>
+              {!readOnly ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label={`Add row to ${formatBayTabLabel(activeBay)}`}
+                    className="flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-dashed border-zinc-300 text-sm font-semibold text-zinc-600 transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={addWorkingRow}
+                    disabled={localMaterials.length === 0}
+                  >
+                    <span aria-hidden="true">+</span> Add timber row
+                  </button>
+                  <div className="sticky bottom-0 -mx-3 flex items-center justify-between gap-3 border-t border-zinc-200 bg-white/95 px-3 py-3 backdrop-blur sm:static sm:mx-0 sm:justify-end sm:border-t-0 sm:bg-transparent sm:px-0 sm:py-0 sm:backdrop-blur-none">
+                    {hasUnsavedChanges ? (
+                      <p className="text-sm font-medium text-amber-700">
+                        {changedRowCount} {changedRowCount === 1 ? "change" : "changes"}
+                      </p>
+                    ) : <span />}
+                    <PendingSubmitButton type="submit" variant="primary" disabled={!selectedAreaId}>
+                      {UPDATE_STOCK_LABEL}
+                    </PendingSubmitButton>
+                  </div>
+                </>
+              ) : null}
             </form>
             <ActionMessage state={updateState} />
           </Card>

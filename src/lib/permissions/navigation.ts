@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { canAccessAdmin } from "@/src/lib/permissions/admin";
 import type { PermissionAuthContext } from "@/src/lib/permissions/roles";
-import { isAdmin, isApprovedUser } from "@/src/lib/permissions/roles";
+import { isApprovedUser } from "@/src/lib/permissions/roles";
 import { canAccessTimesheetApprovals, canViewOwnTimesheets } from "@/src/lib/permissions/timesheets";
 
 export type AppNavPermission = "timesheet" | "timesheetApprovals" | "admin" | "internalTools";
@@ -83,14 +83,10 @@ export const canAccessNavigationPermission = (
 
 const resolveItem = (item: AppNavItem, authContext: PermissionAuthContext): ResolvedAppNavItem => {
   const canView = canAccessNavigationPermission(item.permission, authContext);
-  const isInternalItem = item.permission === "internalTools";
-  const canUseInternalItem = !isInternalItem || isAdmin(authContext);
-  const allowed = canView && canUseInternalItem;
-
   return {
     ...item,
-    disabled: !allowed,
-    locked: !allowed && !isInternalItem,
+    disabled: !canView,
+    locked: false,
   };
 };
 

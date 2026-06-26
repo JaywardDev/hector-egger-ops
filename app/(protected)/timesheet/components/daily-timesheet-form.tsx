@@ -97,6 +97,8 @@ export function DailyTimesheetForm({
   lookups,
   canEdit,
   onSaved,
+  copyFrom,
+  copyFromLabel,
   saveHandler = saveTimesheetEntryAction,
   submitLabel = "Submit",
   pendingLabel = "Submitting…",
@@ -113,6 +115,8 @@ export function DailyTimesheetForm({
   lookups: TimesheetLookups;
   canEdit: boolean;
   onSaved: () => void;
+  copyFrom?: TimesheetEntryWithActivities | null;
+  copyFromLabel?: string;
   saveHandler?: (input: SaveTimesheetEntryInput) => Promise<SaveHandlerResult>;
   submitLabel?: string;
   pendingLabel?: string;
@@ -317,6 +321,22 @@ export function DailyTimesheetForm({
     setActiveNotesRowId(null);
   }, [activeNotesRowId, draftNotes.clientDescription, draftNotes.internalNote, updateActivity]);
 
+  const applyCopyFrom = useCallback((source: TimesheetEntryWithActivities) => {
+    const nextWorkMode = source.work_mode;
+    setWorkMode(nextWorkMode);
+    setTimeIn((source.time_in ?? "07:00").slice(0, 5));
+    setTimeOut((source.time_out ?? "16:00").slice(0, 5));
+    setIsPublicHoliday(source.is_public_holiday);
+    setLeaveType(source.leave_type ?? "");
+    const nextIsFullDayLeave = Boolean(source.leave_type) && source.leave_hours === 8;
+    setIsFullDayLeave(nextIsFullDayLeave);
+    setLeaveHoursText(source.leave_hours ? String(source.leave_hours) : "0");
+    setUnpaidBreak(source.unpaid_break ?? true);
+    setPaidBreak(source.paid_break ?? false);
+    setActivities(entryToActivities(source, lookups, nextWorkMode));
+    setFeedback(null);
+  }, [lookups]);
+
   const submit = () => {
     setFeedback(null);
     const payload: SaveTimesheetEntryInput = {
@@ -368,6 +388,15 @@ export function DailyTimesheetForm({
           <Alert variant="warning">
             This entry was returned for correction. {entry.return_comment ? `Comment: ${entry.return_comment}` : "Please update and resubmit."}
           </Alert>
+        ) : null}
+        {entry === null && copyFrom != null && canEdit ? (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => applyCopyFrom(copyFrom)}
+          >
+            Copy from {copyFromLabel ?? "previous day"}
+          </Button>
         ) : null}
         {entry?.status === "supervisor_approved" || entry?.status === "approved" ? (
           <Alert variant="warning">
