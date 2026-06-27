@@ -22,6 +22,7 @@ export type ProfileRecord = {
   profile_completed_at: string | null;
   account_status: AccountStatus;
   staff_group: StaffGroup | null;
+  avatar_path: string | null;
   onboarding_source: string;
   invited_by_auth_user_id: string | null;
   invited_at: string | null;
@@ -81,7 +82,7 @@ const fetchCurrentProfile = cache(
       operation: async () => {
         const supabase = createServerSupabaseClient();
         const response = await supabase.request(
-          `/rest/v1/profiles?select=id,auth_user_id,email,first_name,middle_name,last_name,full_name,profile_completed_at,account_status,staff_group,onboarding_source,invited_by_auth_user_id,invited_at,approved_at,disabled_at,created_at,updated_at&auth_user_id=eq.${userId}&limit=1`,
+          `/rest/v1/profiles?select=id,auth_user_id,email,first_name,middle_name,last_name,full_name,profile_completed_at,account_status,staff_group,avatar_path,onboarding_source,invited_by_auth_user_id,invited_at,approved_at,disabled_at,created_at,updated_at&auth_user_id=eq.${userId}&limit=1`,
           {
             cache: "no-store",
             headers: {

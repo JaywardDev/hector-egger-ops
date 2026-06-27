@@ -23,6 +23,7 @@ const previewProfile: ProfileRecord = {
   profile_completed_at: "2026-01-15T09:30:00.000Z",
   account_status: "approved",
   staff_group: "office",
+  avatar_path: null,
   onboarding_source: "preview-seed",
   invited_by_auth_user_id: null,
   invited_at: null,

@@ -9,6 +9,7 @@ import {
 import { PendingSubmitButton } from "@/src/components/ui/pending-button";
 import { Card } from "@/src/components/ui/card";
 import { Badge } from "@/src/components/ui/badge";
+import { Avatar } from "@/src/components/ui/avatar";
 import { ConfirmActionForm } from "@/app/(protected)/admin/_components/confirm-action-form";
 import type { AdminUserRecord } from "@/src/lib/admin/user-approvals";
 import {
@@ -23,18 +24,10 @@ import { formatRoleList } from "@/src/lib/auth/role-labels";
 
 function UserIdentity({ user }: { user: AdminUserRecord }) {
   const name = user.full_name ?? "Unnamed user";
-  const initials = name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "U";
 
   return (
     <div className="flex items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[var(--he-yellow)]/60 bg-[var(--he-yellow)]/20 text-xs font-semibold text-zinc-900">
-        {initials}
-      </div>
+      <Avatar profileId={user.id} name={name} hasAvatar={Boolean(user.avatar_path)} size={40} />
       <UserHeader user={user} />
     </div>
   );

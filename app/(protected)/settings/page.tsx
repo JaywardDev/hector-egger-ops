@@ -4,6 +4,7 @@ import { Alert } from "@/src/components/ui/alert";
 import { Card } from "@/src/components/ui/card";
 import { PushNotificationPrompt } from "@/src/components/push-notification-prompt";
 import { ProfileNameForm } from "@/app/(protected)/settings/components/profile-name-form";
+import { AvatarUploader } from "@/app/(protected)/settings/components/avatar-uploader";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 
 export default async function SettingsPage() {
@@ -25,6 +26,20 @@ export default async function SettingsPage() {
         eyebrow="Your account"
         description="Manage your profile details and personal app preferences."
       />
+
+      <Card className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-zinc-950">Profile photo</h2>
+          <p className="mt-1 text-sm text-zinc-600">
+            Upload a photo to show across the app instead of your initials. Drag and zoom to fit the circle.
+          </p>
+        </div>
+        <AvatarUploader
+          profileId={profile.id}
+          name={profile.full_name ?? profile.email}
+          initialHasAvatar={Boolean(profile.avatar_path)}
+        />
+      </Card>
 
       <Card className="space-y-3">
         <div>
