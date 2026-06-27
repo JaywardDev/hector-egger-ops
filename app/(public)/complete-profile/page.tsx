@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PendingSubmitButton } from "@/src/components/ui/pending-button";
 import { FullScreenPendingOverlay } from "@/src/components/ui/pending-overlay";
@@ -89,6 +90,13 @@ export default async function CompleteProfilePage({ searchParams }: CompleteProf
         </PendingSubmitButton>
         <FullScreenPendingOverlay message="Saving profile…" description="Saving your profile before continuing." />
       </form>
+
+      <p className="text-center text-sm text-zinc-600">
+        Not you, or need to switch accounts?{" "}
+        <Link href="/auth/sign-out" className="font-medium text-zinc-900 underline underline-offset-2 hover:text-zinc-700">
+          Sign out
+        </Link>
+      </p>
     </Stack>
   );
 }

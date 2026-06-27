@@ -2,7 +2,7 @@
 
 import { nowUtcIso } from "@/src/lib/dateTime";
 import { redirect } from "next/navigation";
-import { getCurrentProfile, isProfileComplete } from "@/src/lib/auth/profile-access";
+import { getCurrentProfile, isProfileComplete, type ProfileRecord } from "@/src/lib/auth/profile-access";
 import { getSessionFromCookies } from "@/src/lib/auth/session";
 import { createServiceRoleSupabaseClient } from "@/src/lib/supabase/service-role";
 
@@ -12,6 +12,29 @@ const toCompleteProfileError = (message: string): never =>
 const trimNullable = (value: string | null | undefined) => {
   const trimmedValue = value?.trim() ?? "";
   return trimmedValue || null;
+};
+
+// Route the user onward based on the account status after completion.
+const redirectForStatus = (status: ProfileRecord["account_status"]): never => {
+  if (status === "approved") redirect("/timesheet");
+  if (status === "disabled") redirect("/pending?status=disabled");
+  redirect("/pending");
+};
+
+type ClaimableProfile = Pick<ProfileRecord, "id" | "auth_user_id" | "account_status">;
+
+// Find a profile by verified email that isn't yet linked to this auth user.
+// Used to claim pre-provisioned rows (e.g. accounts created out-of-band) instead
+// of inserting a duplicate, which would collide with the unique-email index.
+const findProfileByEmail = async (email: string): Promise<ClaimableProfile | null> => {
+  const supabase = createServiceRoleSupabaseClient();
+  const response = await supabase.request(
+    `/rest/v1/profiles?select=id,auth_user_id,account_status&email=ilike.${encodeURIComponent(email)}&limit=1`,
+    { cache: "no-store" },
+  );
+  if (!response.ok) return null;
+  const [row] = (await response.json()) as ClaimableProfile[];
+  return row ?? null;
 };
 
 export async function completeProfileAction(formData: FormData) {
@@ -28,7 +51,7 @@ export async function completeProfileAction(formData: FormData) {
   }
 
   if (existingProfile && isProfileComplete(existingProfile)) {
-    redirect(existingProfile.account_status === "approved" ? "/timesheet" : "/pending");
+    redirectForStatus(existingProfile.account_status);
   }
 
   const firstName = String(formData.get("firstName") ?? "").trim();
@@ -41,6 +64,18 @@ export async function completeProfileAction(formData: FormData) {
     toCompleteProfileError("First name and last name are required to complete your profile.");
   }
 
+  // If there's no profile linked to this auth user, an existing row may have been
+  // pre-provisioned for this email (e.g. an initial admin created out-of-band).
+  // Claim it rather than inserting a duplicate.
+  const emailMatch = existingProfile ? null : await findProfileByEmail(email);
+  if (emailMatch && emailMatch.auth_user_id && emailMatch.auth_user_id !== session.user.id) {
+    toCompleteProfileError(
+      "An account with this email already exists and is linked to another sign-in. Please contact an admin.",
+    );
+  }
+
+  const targetProfile = existingProfile ?? emailMatch;
+
   const supabase = createServiceRoleSupabaseClient();
   const profileCompletedAt = nowUtcIso();
   const body = {
@@ -51,12 +86,12 @@ export async function completeProfileAction(formData: FormData) {
     last_name: lastName,
     full_name: fullName,
     profile_completed_at: profileCompletedAt,
-    account_status: existingProfile?.account_status ?? "pending",
+    account_status: targetProfile?.account_status ?? "pending",
     onboarding_source: existingProfile?.onboarding_source ?? "self_registration",
   };
 
-  const response = existingProfile
-    ? await supabase.request(`/rest/v1/profiles?id=eq.${existingProfile.id}`, {
+  const response = targetProfile
+    ? await supabase.request(`/rest/v1/profiles?id=eq.${targetProfile.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -77,5 +112,5 @@ export async function completeProfileAction(formData: FormData) {
     toCompleteProfileError("Could not complete profile. Please try again.");
   }
 
-  redirect("/pending");
+  redirectForStatus((targetProfile?.account_status ?? "pending") as ProfileRecord["account_status"]);
 }
