@@ -95,12 +95,41 @@ export const getValidLookupIds = async (staffGroup: StaffGroup | null | undefine
   };
 };
 
+// Returns an already-saved entry by its client mutation id, or null. Used to make
+// the timesheet save idempotent so a replayed offline mutation never double-writes.
+export const findOwnEntryByClientMutationId = async (
+  profileId: string,
+  clientMutationId: string,
+): Promise<TimesheetEntryWithActivities | null> => {
+  const supabase = createServiceRoleSupabaseClient();
+  const response = await supabase.request(
+    `/rest/v1/timesheet_entries?select=${entrySelect}&profile_id=eq.${profileId}&client_mutation_id=eq.${clientMutationId}&limit=1`,
+  );
+  if (!response.ok) throw new Error("Failed to look up timesheet entry");
+  const [entry] = (await response.json()) as TimesheetEntryRecord[];
+  if (!entry) return null;
+  const activityResponse = await supabase.request(
+    `/rest/v1/timesheet_entry_activities?select=${activitySelect}&entry_id=eq.${entry.id}&order=sort_order.asc`,
+  );
+  if (!activityResponse.ok) throw new Error("Failed to load timesheet activities");
+  const activities = (await activityResponse.json()) as TimesheetActivityRecord[];
+  return normalizeTimesheetEntry(entry, activities);
+};
+
 export const saveOwnTimesheetEntry = async (
   actor: ActorWithRoles,
   input: SaveTimesheetEntryInput,
   staffGroup: StaffGroup | null | undefined,
+  options?: { clientMutationId?: string | null },
 ): Promise<TimesheetEntryWithActivities> => {
   await assertTimesheetWriteAccess(actor);
+  const clientMutationId = options?.clientMutationId ?? null;
+  // Idempotency: if this exact mutation already landed (e.g. a replayed offline
+  // submit), return the stored result instead of writing again.
+  if (clientMutationId) {
+    const existingByMutation = await findOwnEntryByClientMutationId(actor.profileId, clientMutationId);
+    if (existingByMutation) return existingByMutation;
+  }
   const { projectIds, taskIds, projectIdsByLocation, taskIdsByLocation, leaveTaskCodes, hasPublicHolidayTask, projectById, taskById } = await getValidLookupIds(staffGroup);
   const validated = validateTimesheetEntryInput(input, projectIds, taskIds, projectIdsByLocation, taskIdsByLocation, leaveTaskCodes, hasPublicHolidayTask);
   const existing = await getExistingEntry(actor.profileId, validated.workDate);
@@ -124,6 +153,7 @@ export const saveOwnTimesheetEntry = async (
     paid_break: input.isPublicHoliday ? false : validated.paidBreak,
     payable_hours: validated.payableHours,
     allocation_hours: validated.allocationHours,
+    client_mutation_id: clientMutationId,
     submitted_at: nowUtcIso(),
     approved_at: null,
     approved_by_profile_id: null,
