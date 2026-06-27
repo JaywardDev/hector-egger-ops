@@ -111,6 +111,7 @@ export function DailyTimesheetForm({
   correctionComment,
   onCorrectionCommentChange,
   draftKey,
+  pendingSync = false,
 }: {
   workDate: string;
   displayDate: string;
@@ -132,6 +133,10 @@ export function DailyTimesheetForm({
   // When set, in-progress edits for this day are persisted to IndexedDB and can
   // be restored after a reload. Only the user's own timesheet passes this.
   draftKey?: string;
+  // True when this day has a queued/failed offline save not yet on the server.
+  // Its stored draft is auto-applied (no restore prompt) so the user sees their
+  // unsynced data, and a notice is shown.
+  pendingSync?: boolean;
 }) {
   const [workMode, setWorkMode] = useState<TimesheetWorkMode>(
     entry?.work_mode ?? preferredWorkMode,
@@ -224,14 +229,21 @@ export function DailyTimesheetForm({
     loadTimesheetDraft(draftKey)
       .then((stored) => {
         if (stored && canEdit) {
-          setPendingDraft(stored);
-          setDraftStatus("prompt");
+          // A day with an unsynced offline save auto-applies its draft so the
+          // user sees their queued data without a manual restore step.
+          if (pendingSync) {
+            applyDraftSnapshot(stored.snapshot);
+            setDraftStatus("active");
+          } else {
+            setPendingDraft(stored);
+            setDraftStatus("prompt");
+          }
         } else {
           setDraftStatus("active");
         }
       })
       .catch(() => setDraftStatus("active"));
-  }, [draftKey, canEdit]);
+  }, [draftKey, canEdit, pendingSync, applyDraftSnapshot]);
 
   // Persist (or clear) the draft as the user edits, once any restore prompt is resolved.
   useEffect(() => {
@@ -481,6 +493,11 @@ export function DailyTimesheetForm({
         {showReturnedNotice && entry?.status === "returned" ? (
           <Alert variant="warning">
             This entry was returned for correction. {entry.return_comment ? `Comment: ${entry.return_comment}` : "Please update and save."}
+          </Alert>
+        ) : null}
+        {pendingSync ? (
+          <Alert variant="info">
+            This day is saved on this device and hasn&rsquo;t synced yet. It will sync automatically when you&rsquo;re back online.
           </Alert>
         ) : null}
         {draftStatus === "prompt" && pendingDraft ? (

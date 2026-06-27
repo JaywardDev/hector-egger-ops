@@ -49,6 +49,26 @@ const postEntry = async (
 
 const isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
 
+const OUTBOX_SYNC_TAG = "timesheet-outbox";
+
+type SyncCapableRegistration = ServiceWorkerRegistration & {
+  sync?: { register: (tag: string) => Promise<void> };
+};
+
+// Ask the service worker to replay the outbox via Background Sync when the
+// connection returns — even if the app/tab is closed. Best-effort: browsers
+// without Background Sync (e.g. iOS Safari) fall back to the in-app "online"
+// event flush in useTimesheetOutbox.
+const registerBackgroundSync = async () => {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+  try {
+    const registration = (await navigator.serviceWorker.ready) as SyncCapableRegistration;
+    if (registration.sync) await registration.sync.register(OUTBOX_SYNC_TAG);
+  } catch {
+    // Background Sync unsupported or registration failed — fallback handles it.
+  }
+};
+
 const enqueue = async (profileId: string, payload: SaveTimesheetEntryInput, clientMutationId: string) => {
   await putOutboxItem({
     clientMutationId,
@@ -59,6 +79,7 @@ const enqueue = async (profileId: string, payload: SaveTimesheetEntryInput, clie
     attempts: 0,
     status: "queued",
   });
+  await registerBackgroundSync();
 };
 
 // Save the user's own entry, queuing it for later if the device is offline or the

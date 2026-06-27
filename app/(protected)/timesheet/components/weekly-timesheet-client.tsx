@@ -55,6 +55,10 @@ export function WeeklyTimesheetClient({
 
   const pendingCount = outbox.pending.length;
   const failedCount = outbox.failed.length;
+  const unsyncedDates = useMemo(
+    () => new Set([...outbox.pending, ...outbox.failed].map((item) => item.workDate)),
+    [outbox.pending, outbox.failed],
+  );
 
   return (
     <>
@@ -118,6 +122,7 @@ export function WeeklyTimesheetClient({
             copyFrom={copyFromDay?.entry}
             copyFromLabel={copyFromDay?.weekdayLabel}
             draftKey={timesheetDraftKey(profileId, selectedDay.date)}
+            pendingSync={unsyncedDates.has(selectedDay.date)}
           />
         ) : null}
       </DailyTimesheetSheet>
