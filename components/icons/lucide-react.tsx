@@ -90,6 +90,18 @@ export const ChartColumn = createIcon([
   { tag: "path", attrs: { d: "M8 17v-3" } },
 ]);
 
+export const Factory = createIcon([
+  { tag: "path", attrs: { d: "M12 16h.01" } },
+  { tag: "path", attrs: { d: "M16 16h.01" } },
+  {
+    tag: "path",
+    attrs: {
+      d: "M3 19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9.5a.5.5 0 0 0-.769-.422l-4.462 2.844A.5.5 0 0 1 15 11.5v-2a.5.5 0 0 0-.769-.422L9.77 11.922A.5.5 0 0 1 9 11.5V5a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z",
+    },
+  },
+  { tag: "path", attrs: { d: "M8 16h.01" } },
+]);
+
 export const List = createIcon([
   { tag: "path", attrs: { d: "M8 6h13" } },
   { tag: "path", attrs: { d: "M8 12h13" } },

@@ -2,8 +2,8 @@ import {
   ChartColumn,
   CircleCheck,
   Clock3,
+  Factory,
   LayoutDashboard,
-  Settings,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -12,7 +12,7 @@ import type { PermissionAuthContext } from "@/src/lib/permissions/roles";
 import { isApprovedUser } from "@/src/lib/permissions/roles";
 import { canAccessTimesheetApprovals, canViewOwnTimesheets } from "@/src/lib/permissions/timesheets";
 
-export type AppNavPermission = "timesheet" | "timesheetApprovals" | "admin" | "internalTools" | "settings";
+export type AppNavPermission = "timesheet" | "timesheetApprovals" | "admin" | "internalTools";
 
 export type AppNavSection = "main" | "internal";
 
@@ -39,7 +39,6 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
   { label: "Timesheet", href: "/timesheet", permission: "timesheet", section: "main", icon: Clock3 },
   { label: "Approvals", href: "/approvals", permission: "timesheetApprovals", section: "main", icon: CircleCheck },
   { label: "Admin", href: "/admin", permission: "admin", section: "main", icon: User },
-  { label: "Settings", href: "/settings", permission: "settings", section: "main", icon: Settings },
   {
     label: "Dashboard",
     href: "/dashboard",
@@ -54,7 +53,7 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     permission: "internalTools",
     section: "internal",
     internal: true,
-    icon: Settings,
+    icon: Factory,
   },
   {
     label: "Stock Take",
@@ -78,8 +77,6 @@ export const canAccessNavigationPermission = (
     case "admin":
       return canAccessAdmin(authContext);
     case "internalTools":
-      return isApprovedUser(authContext);
-    case "settings":
       return isApprovedUser(authContext);
   }
 };

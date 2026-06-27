@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Check, LogOut } from "@/components/icons/lucide-react";
 import { AppSidebar } from "@/components/navigation/app-sidebar";
@@ -172,9 +173,11 @@ function AccountDisplay({ profile, session }: { profile?: ProfileRecord | null; 
   const displayName = firstAndLastInitial || profile?.full_name?.trim() || session?.user.email?.trim() || "Account";
 
   return (
-    <div
-      className="inline-flex min-w-0 items-center gap-1.5 text-sm text-zinc-600"
-      aria-label={`Signed in as ${displayName}, approved account`}
+    <Link
+      href="/settings"
+      className="inline-flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-1 text-sm text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)]"
+      aria-label={`Signed in as ${displayName}, approved account. Open profile and settings`}
+      title="Profile & settings"
     >
       <p className="max-w-48 truncate">{displayName}</p>
       <span
@@ -183,7 +186,7 @@ function AccountDisplay({ profile, session }: { profile?: ProfileRecord | null; 
       >
         <Check className="h-3 w-3 text-zinc-950" />
       </span>
-    </div>
+    </Link>
   );
 }
 
