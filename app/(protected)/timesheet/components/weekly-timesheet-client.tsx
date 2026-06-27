@@ -7,6 +7,7 @@ import { DailyTimesheetSheet } from "@/app/(protected)/timesheet/components/dail
 import { WeeklyTimesheetView } from "@/app/(protected)/timesheet/components/weekly-timesheet-view";
 import { StatusBadge } from "@/src/components/ui/status-badge";
 import { TIMESHEET_STATUS_BADGE_CONFIG } from "@/src/lib/timesheets/formatting";
+import { timesheetDraftKey } from "@/src/lib/offline/timesheet-drafts";
 import type { TimesheetDaySummary, TimesheetLookups, TimesheetWorkMode } from "@/src/lib/timesheets/types";
 
 type WeeklyTimesheetMode = "summary" | "details";
@@ -14,11 +15,13 @@ type WeeklyTimesheetMode = "summary" | "details";
 export function WeeklyTimesheetClient({
   days,
   userName,
+  profileId,
   preferredWorkMode,
   lookups,
 }: {
   days: TimesheetDaySummary[];
   userName: string;
+  profileId: string;
   preferredWorkMode: TimesheetWorkMode;
   lookups: TimesheetLookups;
 }) {
@@ -52,6 +55,7 @@ export function WeeklyTimesheetClient({
       >
         {selectedDay ? (
           <DailyTimesheetForm
+            key={selectedDay.date}
             workDate={selectedDay.date}
             displayDate={`${selectedDay.weekdayLabel}, ${selectedDay.displayDate}`}
             userName={userName}
@@ -62,6 +66,7 @@ export function WeeklyTimesheetClient({
             onSaved={saved}
             copyFrom={copyFromDay?.entry}
             copyFromLabel={copyFromDay?.weekdayLabel}
+            draftKey={timesheetDraftKey(profileId, selectedDay.date)}
           />
         ) : null}
       </DailyTimesheetSheet>

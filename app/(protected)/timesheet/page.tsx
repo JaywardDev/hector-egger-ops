@@ -81,6 +81,7 @@ export default async function TimesheetPage() {
       <WeeklyTimesheetClient
         days={days}
         userName={profile.full_name ?? profile.email}
+        profileId={profile.id}
         preferredWorkMode={preferredWorkMode}
         lookups={lookups}
       />

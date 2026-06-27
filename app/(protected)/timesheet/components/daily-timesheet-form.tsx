@@ -9,8 +9,16 @@ import { PendingActionButton } from "@/src/components/ui/pending-button";
 import { Input } from "@/src/components/ui/input";
 import { Select } from "@/src/components/ui/select";
 import { BottomSheet } from "@/src/components/ui/bottom-sheet";
-import { formatNzDate } from "@/src/lib/dateTime";
+import { formatNzDate, formatNzDateTime } from "@/src/lib/dateTime";
 import { cn } from "@/src/lib/utils";
+import {
+  deleteTimesheetDraft,
+  loadTimesheetDraft,
+  saveTimesheetDraft,
+  type StoredTimesheetDraft,
+  type TimesheetDraftActivity,
+  type TimesheetDraftSnapshot,
+} from "@/src/lib/offline/timesheet-drafts";
 import {
   calculateAllocationHours,
   calculatePayableHours,
@@ -23,7 +31,6 @@ import { calculateShiftCompletionHelper, SHIFT_COMPLETION_CONFIG } from "@/src/l
 import { shouldDisableBreakFields, shouldDisablePaidBreakControl } from "@/src/lib/timesheets/daily-timesheet-ui-rules";
 import type {
   SaveTimesheetEntryInput,
-  TimesheetActivityInput,
   TimesheetEntryWithActivities,
   TimesheetActivityMode,
   TimesheetLeaveType,
@@ -33,10 +40,7 @@ import type {
 
 type SaveHandlerResult = { ok: true; message: string } | { ok: false; message: string };
 
-type DraftActivity = TimesheetActivityInput & {
-  clientId: string;
-  hoursText: string;
-};
+type DraftActivity = TimesheetDraftActivity;
 const hasNoteContent = (value: string | null | undefined) => Boolean(value?.trim());
 
 const formatGreetingName = (fullName: string) => {
@@ -106,6 +110,7 @@ export function DailyTimesheetForm({
   showReturnedNotice = true,
   correctionComment,
   onCorrectionCommentChange,
+  draftKey,
 }: {
   workDate: string;
   displayDate: string;
@@ -124,6 +129,9 @@ export function DailyTimesheetForm({
   showReturnedNotice?: boolean;
   correctionComment?: string;
   onCorrectionCommentChange?: (comment: string) => void;
+  // When set, in-progress edits for this day are persisted to IndexedDB and can
+  // be restored after a reload. Only the user's own timesheet passes this.
+  draftKey?: string;
 }) {
   const [workMode, setWorkMode] = useState<TimesheetWorkMode>(
     entry?.work_mode ?? preferredWorkMode,
@@ -165,6 +173,90 @@ export function DailyTimesheetForm({
   const [isPending, startTransition] = useTransition();
   const [activeNotesRowId, setActiveNotesRowId] = useState<string | null>(null);
   const [draftNotes, setDraftNotes] = useState<{ clientDescription: string; internalNote: string }>({ clientDescription: "", internalNote: "" });
+
+  // --- Offline draft persistence (only active when draftKey is provided) ---
+  const currentSnapshot: TimesheetDraftSnapshot = useMemo(
+    () => ({
+      workMode,
+      timeIn,
+      timeOut,
+      leaveType,
+      isFullDayLeave,
+      leaveHoursText,
+      isPublicHoliday,
+      unpaidBreak,
+      paidBreak,
+      activities,
+    }),
+    [workMode, timeIn, timeOut, leaveType, isFullDayLeave, leaveHoursText, isPublicHoliday, unpaidBreak, paidBreak, activities],
+  );
+  const currentSnapshotJson = JSON.stringify(currentSnapshot);
+  // Snapshot of the entry-derived initial state; drafts are only written when the
+  // form differs from this, so an untouched day never produces a restore prompt.
+  const initialSnapshotJsonRef = useRef<string | null>(null);
+  if (initialSnapshotJsonRef.current === null) initialSnapshotJsonRef.current = currentSnapshotJson;
+
+  const [draftStatus, setDraftStatus] = useState<"loading" | "prompt" | "active">(
+    draftKey ? "loading" : "active",
+  );
+  const [pendingDraft, setPendingDraft] = useState<StoredTimesheetDraft | null>(null);
+  const draftLoadedRef = useRef(false);
+
+  const applyDraftSnapshot = useCallback((snapshot: TimesheetDraftSnapshot) => {
+    setWorkMode(snapshot.workMode);
+    setTimeIn(snapshot.timeIn);
+    setTimeOut(snapshot.timeOut);
+    setLeaveType(snapshot.leaveType);
+    setIsFullDayLeave(snapshot.isFullDayLeave);
+    setLeaveHoursText(snapshot.leaveHoursText);
+    setIsPublicHoliday(snapshot.isPublicHoliday);
+    setUnpaidBreak(snapshot.unpaidBreak);
+    setPaidBreak(snapshot.paidBreak);
+    setActivities(snapshot.activities);
+    setFeedback(null);
+  }, []);
+
+  // On mount: look for a saved draft for this day and offer to restore it.
+  // (When there is no draftKey, draftStatus already initialises to "active".)
+  useEffect(() => {
+    if (!draftKey || draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
+    loadTimesheetDraft(draftKey)
+      .then((stored) => {
+        if (stored && canEdit) {
+          setPendingDraft(stored);
+          setDraftStatus("prompt");
+        } else {
+          setDraftStatus("active");
+        }
+      })
+      .catch(() => setDraftStatus("active"));
+  }, [draftKey, canEdit]);
+
+  // Persist (or clear) the draft as the user edits, once any restore prompt is resolved.
+  useEffect(() => {
+    if (draftStatus !== "active" || !draftKey || !canEdit) return;
+    const handle = setTimeout(() => {
+      if (currentSnapshotJson !== initialSnapshotJsonRef.current) {
+        void saveTimesheetDraft(draftKey, currentSnapshot).catch(() => {});
+      } else {
+        void deleteTimesheetDraft(draftKey).catch(() => {});
+      }
+    }, 500);
+    return () => clearTimeout(handle);
+  }, [currentSnapshotJson, currentSnapshot, draftStatus, draftKey, canEdit]);
+
+  const restorePendingDraft = useCallback(() => {
+    if (pendingDraft) applyDraftSnapshot(pendingDraft.snapshot);
+    setPendingDraft(null);
+    setDraftStatus("active");
+  }, [applyDraftSnapshot, pendingDraft]);
+
+  const discardPendingDraft = useCallback(() => {
+    if (draftKey) void deleteTimesheetDraft(draftKey).catch(() => {});
+    setPendingDraft(null);
+    setDraftStatus("active");
+  }, [draftKey]);
 
   const isPublicHolidayMode = isPublicHoliday;
   const isFullDayLeaveMode = isFullDayLeave;
@@ -369,6 +461,7 @@ export function DailyTimesheetForm({
         return;
       }
       setFeedback({ type: "success", message: result.message });
+      if (draftKey) void deleteTimesheetDraft(draftKey).catch(() => {});
       onSaved();
     });
   };
@@ -387,6 +480,21 @@ export function DailyTimesheetForm({
         {showReturnedNotice && entry?.status === "returned" ? (
           <Alert variant="warning">
             This entry was returned for correction. {entry.return_comment ? `Comment: ${entry.return_comment}` : "Please update and save."}
+          </Alert>
+        ) : null}
+        {draftStatus === "prompt" && pendingDraft ? (
+          <Alert variant="warning">
+            <span className="block">
+              You have unsaved changes for this day from {formatNzDateTime(pendingDraft.updatedAt)}.
+            </span>
+            <span className="mt-2 flex gap-2">
+              <Button type="button" variant="brand" onClick={restorePendingDraft}>
+                Restore
+              </Button>
+              <Button type="button" variant="secondary" onClick={discardPendingDraft}>
+                Discard
+              </Button>
+            </span>
           </Alert>
         ) : null}
         {entry === null && copyFrom != null && canEdit ? (
