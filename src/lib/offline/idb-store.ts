@@ -2,8 +2,8 @@
 // Client-only: callers must be in "use client" components/effects.
 
 const DB_NAME = "he-ops-offline";
-const DB_VERSION = 1;
-const STORES = ["timesheet-drafts"] as const;
+const DB_VERSION = 2;
+const STORES = ["timesheet-drafts", "timesheet-outbox"] as const;
 
 export type OfflineStoreName = (typeof STORES)[number];
 
@@ -32,6 +32,19 @@ export const idbGet = async <T>(store: OfflineStoreName, key: string): Promise<T
     return await new Promise<T | undefined>((resolve, reject) => {
       const request = db.transaction(store, "readonly").objectStore(store).get(key);
       request.onsuccess = () => resolve(request.result as T | undefined);
+      request.onerror = () => reject(request.error);
+    });
+  } finally {
+    db.close();
+  }
+};
+
+export const idbGetAll = async <T>(store: OfflineStoreName): Promise<T[]> => {
+  const db = await openDb();
+  try {
+    return await new Promise<T[]>((resolve, reject) => {
+      const request = db.transaction(store, "readonly").objectStore(store).getAll();
+      request.onsuccess = () => resolve(request.result as T[]);
       request.onerror = () => reject(request.error);
     });
   } finally {

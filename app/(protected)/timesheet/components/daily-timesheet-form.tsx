@@ -461,7 +461,8 @@ export function DailyTimesheetForm({
         return;
       }
       setFeedback({ type: "success", message: result.message });
-      if (draftKey) void deleteTimesheetDraft(draftKey).catch(() => {});
+      // Draft cleanup is owned by the sync layer: a synced save clears the draft,
+      // a queued (offline) save keeps it so the day's data stays recoverable.
       onSaved();
     });
   };
