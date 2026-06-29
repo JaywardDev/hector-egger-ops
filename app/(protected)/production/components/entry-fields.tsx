@@ -242,3 +242,100 @@ export function ProjectFilePicker({
     </div>
   );
 }
+
+// --- Reason picker -------------------------------------------------------------
+// A dropdown whose options (and selected value) wrap, so long/detailed reason
+// labels stay readable and never overflow the row. Submits the reason id via a
+// hidden input. Inactive reasons are hidden unless they are the current value.
+
+export function ReasonSelect({
+  id,
+  name,
+  value,
+  onChange,
+  options,
+  ariaLabel,
+}: {
+  id?: string;
+  name: string;
+  value: string;
+  onChange: (reasonId: string) => void;
+  options: Array<{ id: string; label: string; is_active: boolean }>;
+  ariaLabel?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const selected = options.find((option) => option.id === value) ?? null;
+  const visible = options.filter((option) => option.is_active || option.id === value);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const onPointerDown = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div className="relative min-w-0" ref={containerRef}>
+      <input type="hidden" name={name} value={value} />
+      <button
+        type="button"
+        id={id}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={ariaLabel}
+        onClick={() => setOpen((current) => !current)}
+        className="flex w-full items-start justify-between gap-2 rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-left text-sm focus:border-zinc-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)]"
+      >
+        <span className={cn("min-w-0 whitespace-normal break-words", selected ? "text-zinc-900" : "text-zinc-400")}>
+          {selected ? selected.label : "Select reason"}
+        </span>
+        <span aria-hidden="true" className="mt-0.5 shrink-0 text-zinc-400">
+          ▾
+        </span>
+      </button>
+      {open ? (
+        <div className="absolute z-30 mt-1 w-full rounded-md border border-zinc-200 bg-white shadow-lg">
+          <ul role="listbox" className="max-h-64 overflow-y-auto py-1">
+            {visible.length === 0 ? (
+              <li className="px-3 py-2 text-sm text-zinc-500">No reasons available.</li>
+            ) : null}
+            {visible.map((option) => (
+              <li key={option.id} role="option" aria-selected={option.id === value}>
+                <button
+                  type="button"
+                  className={cn(
+                    "block w-full whitespace-normal break-words px-3 py-2 text-left text-sm transition-colors hover:bg-zinc-50",
+                    option.id === value && "bg-zinc-50",
+                  )}
+                  onClick={() => {
+                    onChange(option.id);
+                    setOpen(false);
+                  }}
+                >
+                  {option.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}

@@ -98,7 +98,7 @@ export function AppShell({
     <div className="min-h-screen bg-zinc-50 text-zinc-900 md:flex">
       <AppSidebar className="hidden w-64 shrink-0 border-r md:block" navigationSections={navigationSections} />
 
-      <div className="flex min-h-screen flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="flex h-16 items-center justify-between border-b border-zinc-200 bg-white px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <button

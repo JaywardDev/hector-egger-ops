@@ -7,7 +7,7 @@ import { FormField } from "@/src/components/ui/form-field";
 import { Input } from "@/src/components/ui/input";
 import { PendingSubmitButton } from "@/src/components/ui/pending-button";
 import { Select } from "@/src/components/ui/select";
-import { DurationInput, ProjectFilePicker } from "@/app/(protected)/production/components/entry-fields";
+import { DurationInput, ProjectFilePicker, ReasonSelect } from "@/app/(protected)/production/components/entry-fields";
 import { formatMinutesAsDuration } from "@/src/lib/production/format";
 import type { ProductionDowntimeReasonRecord, ProductionInterruptionReasonRecord, ProductionOperatorOption, ProductionProjectFileRecord } from "@/src/lib/production/types";
 
@@ -22,10 +22,8 @@ const ReasonRows = ({ kind, rows, setRows, reasons }: { kind: "downtime" | "inte
     <div className="flex items-center justify-between gap-2"><p className="font-medium text-zinc-900">{kind === "downtime" ? "Downtime" : "Interruption"} reasons</p><Button type="button" variant="secondary" onClick={() => setRows([...rows, { reasonId: "", durationMinutes: null }])}>Add row</Button></div>
     <p className="text-xs text-zinc-500">Enter each duration as hours (e.g. 1.5) or HH:MM (e.g. 01:30).</p>
     {rows.length === 0 ? <p className="text-sm text-zinc-500">No rows added.</p> : null}
-    {rows.map((row, index) => <div key={index} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
-      <Select name={`${kind}_reason_id`} value={row.reasonId} onChange={(event) => setRows(rows.map((item, i) => i === index ? { ...item, reasonId: event.currentTarget.value } : item))} required>
-        <option value="">Select reason</option>{reasons.filter((reason) => reason.is_active || reason.id === row.reasonId).map((reason) => <option key={reason.id} value={reason.id}>{reason.label}</option>)}
-      </Select>
+    {rows.map((row, index) => <div key={index} className="grid items-start gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto]">
+      <ReasonSelect name={`${kind}_reason_id`} ariaLabel="Reason" value={row.reasonId} options={reasons} onChange={(reasonId) => setRows(rows.map((item, i) => i === index ? { ...item, reasonId } : item))} />
       <DurationInput name={`${kind}_duration_minutes`} ariaLabel="Duration in hours or HH:MM" valueMinutes={row.durationMinutes} onChangeMinutes={(minutes) => setRows(rows.map((item, i) => i === index ? { ...item, durationMinutes: minutes } : item))} required />
       <Button type="button" variant="secondary" onClick={() => setRows(rows.filter((_, i) => i !== index))}>Remove</Button>
     </div>)}

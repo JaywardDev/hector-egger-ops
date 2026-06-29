@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createProductionEntryFormAction } from "@/app/(protected)/production/actions";
 import { BackLink } from "@/app/(protected)/production/components/production-ui";
 import { ProductionEntryForm } from "@/app/(protected)/production/components/production-entry-form";
@@ -11,7 +12,7 @@ import { listProductionDowntimeReasons, listProductionInterruptionReasons } from
 import { listProductionProjectFiles } from "@/src/lib/production/projects";
 
 type NewEntryPageProps = {
-  searchParams: Promise<{ error?: string; warn?: string }>;
+  searchParams: Promise<{ error?: string; warn?: string; success?: string; created?: string }>;
 };
 
 export default async function NewProductionEntryPage({ searchParams }: NewEntryPageProps) {
@@ -46,10 +47,24 @@ export default async function NewProductionEntryPage({ searchParams }: NewEntryP
     <PageContainer>
       <BackLink href="/production/entries">Back to entries</BackLink>
       <PageHeader title="New production entry" description="Create a daily production entry." />
+      {params.success ? (
+        <Alert variant="success">
+          {params.success}
+          {params.created ? (
+            <>
+              {" "}
+              <Link className="underline" href={`/production/entries/${params.created}`}>
+                View entry
+              </Link>
+            </>
+          ) : null}
+        </Alert>
+      ) : null}
       {params.error ? <Alert variant="error">{params.error}</Alert> : null}
       {params.warn ? <Alert>{params.warn}</Alert> : null}
       <Card>
         <ProductionEntryForm
+          key={params.created ?? "new"}
           formAction={createProductionEntryFormAction}
           submitLabel="Create entry"
           operators={operators}

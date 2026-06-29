@@ -1,8 +1,6 @@
-import {
-  createProductionReasonFormAction,
-  updateProductionReasonFormAction,
-} from "@/app/(protected)/production/actions";
+import { createProductionReasonFormAction } from "@/app/(protected)/production/actions";
 import { BackLink } from "@/app/(protected)/production/components/production-ui";
+import { ReasonRow } from "@/app/(protected)/production/components/reason-row";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { Alert } from "@/src/components/ui/alert";
@@ -40,22 +38,7 @@ export default async function ProductionReasonsPage({ searchParams }: Props) {
       <div className="space-y-2">
         {rows.length === 0 ? <p className="text-sm text-zinc-500">No reasons yet.</p> : null}
         {rows.map((reason) => (
-          <form
-            key={reason.id}
-            action={updateProductionReasonFormAction}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-200 p-2"
-          >
-            <input type="hidden" name="kind" value={kind} />
-            <input type="hidden" name="reason_id" value={reason.id} />
-            <span className="min-w-0 flex-1 truncate text-zinc-900">{reason.label}</span>
-            <Select name="is_active" defaultValue={reason.is_active ? "true" : "false"} className="w-auto">
-              <option value="true">Active</option>
-              <option value="false">Inactive</option>
-            </Select>
-            <PendingSubmitButton type="submit" variant="secondary">
-              Save
-            </PendingSubmitButton>
-          </form>
+          <ReasonRow key={reason.id} kind={kind} reason={reason} />
         ))}
       </div>
     </Card>
