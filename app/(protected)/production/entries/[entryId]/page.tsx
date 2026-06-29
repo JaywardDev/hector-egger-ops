@@ -1,13 +1,10 @@
 import Link from "next/link";
-import {
-  deleteProductionEntryAction,
-  updateProductionEntryFormAction,
-} from "@/app/(protected)/production/actions";
+import { updateProductionEntryFormAction } from "@/app/(protected)/production/actions";
+import { DeleteEntryButton } from "@/app/(protected)/production/components/delete-entry-button";
 import { ProductionEntryForm } from "@/app/(protected)/production/components/production-entry-form";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { Alert } from "@/src/components/ui/alert";
-import { Button } from "@/src/components/ui/button";
 import { Card } from "@/src/components/ui/card";
 import { requireProtectedAccess } from "@/src/lib/auth/guards";
 import { formatNzDate, formatNzDateTime } from "@/src/lib/dateTime";
@@ -101,18 +98,14 @@ export default async function ProductionEntryDetailPage({ params, searchParams }
         <p>Created by profile: {entry.created_by_profile_id}</p>
       </Card>
 
-      <Card>
-        <form
-          action={async () => {
-            "use server";
-            await deleteProductionEntryAction(entry.id);
-          }}
-        >
-          <p className="mb-2 text-sm text-zinc-600">Confirm deletion by pressing Delete entry. This cannot be undone.</p>
-          <Button type="submit" variant="danger">Delete entry</Button>
-        </form>
-        <p className="mt-2">
-          <Link className="underline" href="/production/entries">Back to entries</Link>
+      <Card className="space-y-3">
+        <div className="space-y-1">
+          <h3 className="font-medium text-zinc-900">Danger zone</h3>
+          <p className="text-sm text-zinc-600">Deleting an entry permanently removes it and updates the dashboard totals.</p>
+        </div>
+        <DeleteEntryButton entryId={entry.id} />
+        <p>
+          <Link className="text-zinc-900 underline" href="/production/entries">Back to entries</Link>
         </p>
       </Card>
     </PageContainer>

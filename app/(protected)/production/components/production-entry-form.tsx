@@ -5,6 +5,7 @@ import { Alert } from "@/src/components/ui/alert";
 import { Button } from "@/src/components/ui/button";
 import { FormField } from "@/src/components/ui/form-field";
 import { Input } from "@/src/components/ui/input";
+import { PendingSubmitButton } from "@/src/components/ui/pending-button";
 import { Select } from "@/src/components/ui/select";
 import { formatMinutesAsDuration } from "@/src/lib/production/format";
 import type { ProductionDowntimeReasonRecord, ProductionInterruptionReasonRecord, ProductionOperatorOption, ProductionProjectFileRecord } from "@/src/lib/production/types";
@@ -53,6 +54,6 @@ export function ProductionEntryForm({ formAction, submitLabel, operators, canAss
     {warnings.remainingMinutesIncreased ? <Alert className="sm:col-span-2" variant="warning">Time Remaining End is greater than Time Remaining Start. Please confirm this is correct.</Alert> : null}
     {warnings.allocationExceedsOperational ? <Alert className="sm:col-span-2" variant="warning">Downtime and interruption exceed operational time. Please review the entry.</Alert> : null}
     {!canAssignOtherOperator && operators.length > 0 ? <input type="hidden" name="operator_profile_id" value={operators[0].profile_id} /> : null}
-    <div className="sm:col-span-2"><Button type="submit" disabled={operators.length === 0}>{submitLabel}</Button></div>
+    <div className="sm:col-span-2"><PendingSubmitButton type="submit" disabled={operators.length === 0} pendingLabel="Saving…">{submitLabel}</PendingSubmitButton></div>
   </form>;
 }

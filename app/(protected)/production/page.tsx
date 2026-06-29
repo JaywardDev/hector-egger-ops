@@ -41,7 +41,6 @@ type ProductionPageProps = {
     project?: string;
     projectFile?: string;
     operator?: string;
-    month?: string;
   }>;
 };
 
@@ -56,9 +55,12 @@ export default async function ProductionPage({ searchParams }: ProductionPagePro
   const canManageReasons = hasProductionReasonAdminRole(roles);
   const canWrite = isAdmin({ roles });
   const currentMonth = new Date().toISOString().slice(0, 7);
-  const month = params.month || currentMonth;
+  // "Monthly Volume" tracks a single calendar month; derive it from the selected
+  // range (latest end, else start) so it stays consistent with the other filters
+  // instead of being driven by a separate, easily-conflicting month control.
+  const month = (params.dateTo || params.dateFrom || currentMonth).slice(0, 7);
   const hasActiveFilters = Boolean(
-    params.dateFrom || params.dateTo || params.project || params.operator || (params.month && params.month !== currentMonth),
+    params.dateFrom || params.dateTo || params.project || params.projectFile || params.operator,
   );
 
   const [projectSummaries, projectFiles, operators, allEntries] = await Promise.all([
@@ -111,15 +113,23 @@ export default async function ProductionPage({ searchParams }: ProductionPagePro
           <FormField label="To" htmlFor="dateTo">
             <Input id="dateTo" type="date" name="dateTo" defaultValue={params.dateTo ?? ""} />
           </FormField>
-          <FormField label="Month" htmlFor="month">
-            <Input id="month" type="month" name="month" defaultValue={month} />
-          </FormField>
           <FormField label="Project" htmlFor="project">
             <Select id="project" name="project" defaultValue={params.project ?? ""}>
               <option value="">All projects</option>
               {projectSummaries.map((project) => (
                 <option key={project.project_id} value={project.project_id}>
                   {project.project_name}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField label="Project file" htmlFor="projectFile">
+            <Select id="projectFile" name="projectFile" defaultValue={params.projectFile ?? ""}>
+              <option value="">All project files</option>
+              {projectFiles.map((file) => (
+                <option key={file.project_file_id} value={file.project_file_id}>
+                  {file.project_name} — {file.project_file}
+                  {file.project_sequence === null ? "" : ` / Seq ${file.project_sequence}`}
                 </option>
               ))}
             </Select>
