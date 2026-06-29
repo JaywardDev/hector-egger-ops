@@ -16,6 +16,7 @@ import { formatMinutesAsDuration } from "@/src/lib/production/format";
 import { listProductionOperatorSummaries, listProductionProjectSummaries } from "@/src/lib/production/dashboard";
 import {
   ActionLink,
+  BackLink,
   DataTableCard,
   Td,
   Th,
@@ -63,6 +64,7 @@ export default async function ProductionEntriesPage({ searchParams }: EntriesPag
 
   return (
     <PageContainer>
+      <BackLink href="/production">Back to dashboard</BackLink>
       <PageHeader
         accent
         eyebrow="Production"
@@ -101,7 +103,7 @@ export default async function ProductionEntriesPage({ searchParams }: EntriesPag
               <option value="">All projects</option>
               {projects.map((project) => (
                 <option key={project.project_id} value={project.project_id}>
-                  {project.project_file} #{project.project_sequence}
+                  {project.project_file} · PS {project.project_sequence}
                 </option>
               ))}
             </Select>
@@ -127,7 +129,7 @@ export default async function ProductionEntriesPage({ searchParams }: EntriesPag
                     density="dense"
                     className="rounded-md hover:bg-zinc-50"
                     title={entry.project_name}
-                    subtitle={`${formatNzDate(entry.entry_date)} · ${entry.operator_name} · ${entry.project_file} #${entry.project_sequence}`}
+                    subtitle={`${formatNzDate(entry.entry_date)} · ${entry.operator_name} · ${entry.project_file} · PS ${entry.project_sequence}`}
                     metadata={
                       <>
                         <Badge variant="muted">
@@ -150,7 +152,7 @@ export default async function ProductionEntriesPage({ searchParams }: EntriesPag
               <Th>Date</Th>
               <Th>Operator</Th>
               <Th>Project File</Th>
-              <Th align="right">Sequence</Th>
+              <Th align="right">PS</Th>
               <Th>Project Name</Th>
               <Th>Start</Th>
               <Th>Finish</Th>

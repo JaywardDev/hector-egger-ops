@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createProductionProjectFileFormAction, updateProductionProjectFileFormAction, updateProductionProjectFormAction } from "@/app/(protected)/production/actions";
+import { BackLink } from "@/app/(protected)/production/components/production-ui";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { Alert } from "@/src/components/ui/alert";
@@ -76,6 +77,7 @@ export default async function ProductionProjectDetailPage({ params, searchParams
 
   return (
     <PageContainer>
+      <BackLink href="/production/projects">Back to projects</BackLink>
       <PageHeader title={project.project_name} description={`${projectFileSummaries.length} project file${projectFileSummaries.length === 1 ? "" : "s"}`} />
       {messages.success ? <Alert variant="success">{messages.success}</Alert> : null}
       {messages.error ? <Alert variant="error">{messages.error}</Alert> : null}
@@ -132,7 +134,7 @@ export default async function ProductionProjectDetailPage({ params, searchParams
               <input type="hidden" name="project_file_id" value={file.project_file_id} />
               <div className="sm:col-span-5">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium text-zinc-900">{file.project_file}{file.project_sequence === null ? "" : ` / Sequence ${file.project_sequence}`}</p>
+                  <p className="font-medium text-zinc-900">{file.project_file}{file.project_sequence === null ? "" : ` / PS ${file.project_sequence}`}</p>
                   <span className={`rounded-full px-2 py-0.5 text-xs ${file.is_archived ? "bg-zinc-100 text-zinc-600" : "bg-emerald-50 text-emerald-700"}`}>{file.is_archived ? "Archived" : "Active"}</span>
                 </div>
                 <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
@@ -162,7 +164,7 @@ export default async function ProductionProjectDetailPage({ params, searchParams
         <form action={createProductionProjectFileFormAction} className="mt-4 grid gap-2 border-t border-zinc-200 pt-4 sm:grid-cols-5">
           <input type="hidden" name="project_id" value={project.id} />
           <Input name="project_file" placeholder="Project file" required />
-          <Input name="project_sequence" type="number" min={0} placeholder="Sequence" />
+          <Input name="project_sequence" type="number" min={0} placeholder="PS" />
           <Input name="total_time_minutes" type="number" min={0} placeholder="Total time" />
           <Input name="total_volume_m3" type="number" min={0} step="0.001" placeholder="Total volume" />
           <Button type="submit">Add file</Button>

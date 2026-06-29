@@ -129,7 +129,7 @@ export default async function ProductionPage({ searchParams }: ProductionPagePro
               {projectFiles.map((file) => (
                 <option key={file.project_file_id} value={file.project_file_id}>
                   {file.project_name} — {file.project_file}
-                  {file.project_sequence === null ? "" : ` / Seq ${file.project_sequence}`}
+                  {file.project_sequence === null ? "" : ` / PS ${file.project_sequence}`}
                 </option>
               ))}
             </Select>
@@ -314,7 +314,7 @@ export default async function ProductionPage({ searchParams }: ProductionPagePro
                     density="dense"
                     className="rounded-md hover:bg-zinc-50"
                     title={`${row.project_name} / ${row.project_file}`}
-                    subtitle={`Seq ${row.project_sequence ?? "—"} · ${row.is_archived ? "Archived" : "Active"}`}
+                    subtitle={`PS ${row.project_sequence ?? "—"} · ${row.is_archived ? "Archived" : "Active"}`}
                     metadata={
                       <>
                         <Badge variant="muted">Perf {formatPercent(row.performance)}</Badge>
@@ -333,7 +333,7 @@ export default async function ProductionPage({ searchParams }: ProductionPagePro
           <thead>
             <tr>
               <Th>Project / Project File</Th>
-              <Th align="right">Seq</Th>
+              <Th align="right">PS</Th>
               <Th align="right">Performance</Th>
               <Th align="right">Utilization</Th>
               <Th align="right">Planned Time</Th>

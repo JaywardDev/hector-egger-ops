@@ -15,6 +15,7 @@ import { listProductionProjects } from "@/src/lib/production/projects";
 import { formatMinutesAsDuration } from "@/src/lib/production/format";
 import {
   ActionLink,
+  BackLink,
   DataTableCard,
   Td,
   Th,
@@ -67,6 +68,7 @@ export default async function ProductionProjectsPage({ searchParams }: ProjectsP
 
   return (
     <PageContainer>
+      <BackLink href="/production">Back to dashboard</BackLink>
       <PageHeader
         accent
         eyebrow="Production"
@@ -117,7 +119,7 @@ export default async function ProductionProjectsPage({ searchParams }: ProjectsP
                       density="dense"
                       className="rounded-md hover:bg-zinc-50"
                       title={project.project_name}
-                      subtitle={`${project.project_file} #${project.project_sequence} · ${archived ? "Archived" : "Active"}`}
+                      subtitle={`${project.project_file} · PS ${project.project_sequence} · ${archived ? "Archived" : "Active"}`}
                       metadata={
                         <>
                           <Badge variant="muted">{formatMinutesAsDuration(project.total_time_minutes)}</Badge>
@@ -137,7 +139,7 @@ export default async function ProductionProjectsPage({ searchParams }: ProjectsP
             <tr>
               <Th>Project file</Th>
               <Th>Project name</Th>
-              <Th align="right">Sequence</Th>
+              <Th align="right">PS</Th>
               <Th align="right">Total Duration</Th>
               <Th align="right">Latest Time Remaining</Th>
               <Th align="right">Total Volume</Th>

@@ -84,7 +84,7 @@ export function DurationInput({
 // <select> where the project name is shown first.
 
 const projectFileSummary = (file: ProductionProjectFileRecord) =>
-  `${file.project_file}${file.project_sequence === null ? "" : ` · Seq ${file.project_sequence}`}`;
+  `${file.project_file}${file.project_sequence === null ? "" : ` · PS ${file.project_sequence}`}`;
 
 export function ProjectFilePicker({
   id,

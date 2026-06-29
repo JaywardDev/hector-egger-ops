@@ -1,4 +1,5 @@
 import { createProductionEntryFormAction } from "@/app/(protected)/production/actions";
+import { BackLink } from "@/app/(protected)/production/components/production-ui";
 import { ProductionEntryForm } from "@/app/(protected)/production/components/production-entry-form";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
@@ -43,6 +44,7 @@ export default async function NewProductionEntryPage({ searchParams }: NewEntryP
 
   return (
     <PageContainer>
+      <BackLink href="/production/entries">Back to entries</BackLink>
       <PageHeader title="New production entry" description="Create a daily production entry." />
       {params.error ? <Alert variant="error">{params.error}</Alert> : null}
       {params.warn ? <Alert>{params.warn}</Alert> : null}

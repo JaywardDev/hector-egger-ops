@@ -2,6 +2,7 @@ import {
   createProductionReasonFormAction,
   updateProductionReasonFormAction,
 } from "@/app/(protected)/production/actions";
+import { BackLink } from "@/app/(protected)/production/components/production-ui";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { Alert } from "@/src/components/ui/alert";
@@ -62,6 +63,7 @@ export default async function ProductionReasonsPage({ searchParams }: Props) {
 
   return (
     <PageContainer>
+      <BackLink href="/production">Back to dashboard</BackLink>
       <PageHeader
         accent
         eyebrow="Production"

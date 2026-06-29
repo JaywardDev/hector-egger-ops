@@ -40,6 +40,19 @@ export function ActionLink({
   );
 }
 
+// Compact "back" affordance placed above the page header on sub-pages so users
+// can step back to the parent screen without relying on the sidebar.
+export function BackLink({ href, children = "Back" }: { href: string; children?: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex items-center gap-1 text-sm font-medium text-zinc-600 transition-colors hover:text-zinc-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)]"
+    >
+      <span aria-hidden="true">←</span> {children}
+    </Link>
+  );
+}
+
 export function StatCard({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }) {
   return (
     <Card>

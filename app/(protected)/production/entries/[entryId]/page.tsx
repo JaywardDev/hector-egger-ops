@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { updateProductionEntryFormAction } from "@/app/(protected)/production/actions";
+import { BackLink } from "@/app/(protected)/production/components/production-ui";
 import { DeleteEntryButton } from "@/app/(protected)/production/components/delete-entry-button";
 import { ProductionEntryForm } from "@/app/(protected)/production/components/production-entry-form";
 import { PageContainer } from "@/src/components/layout/page-container";
@@ -62,7 +62,8 @@ export default async function ProductionEntryDetailPage({ params, searchParams }
 
   return (
     <PageContainer>
-      <PageHeader title={`Entry ${formatNzDate(entry.entry_date)}`} description={`${entry.operator_name} · ${entry.project_file} #${entry.project_sequence}`} />
+      <BackLink href="/production/entries">Back to entries</BackLink>
+      <PageHeader title={`Entry ${formatNzDate(entry.entry_date)}`} description={`${entry.operator_name} · ${entry.project_file} · PS ${entry.project_sequence}`} />
       {messages.success ? <Alert variant="success">{messages.success}</Alert> : null}
       {messages.error ? <Alert variant="error">{messages.error}</Alert> : null}
       <Card>
@@ -104,9 +105,6 @@ export default async function ProductionEntryDetailPage({ params, searchParams }
           <p className="text-sm text-zinc-600">Deleting an entry permanently removes it and updates the dashboard totals.</p>
         </div>
         <DeleteEntryButton entryId={entry.id} />
-        <p>
-          <Link className="text-zinc-900 underline" href="/production/entries">Back to entries</Link>
-        </p>
       </Card>
     </PageContainer>
   );
