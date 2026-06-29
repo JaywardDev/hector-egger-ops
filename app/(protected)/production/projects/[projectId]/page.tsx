@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createProductionProjectFileFormAction, updateProductionProjectFileFormAction, updateProductionProjectFormAction } from "@/app/(protected)/production/actions";
+import { StandaloneDurationInput } from "@/app/(protected)/production/components/entry-fields";
 import { BackLink } from "@/app/(protected)/production/components/production-ui";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
@@ -153,7 +154,7 @@ export default async function ProductionProjectDetailPage({ params, searchParams
               </div>
               <Input name="project_file" defaultValue={file.project_file} required aria-label="Project file" />
               <Input name="project_sequence" type="number" min={0} defaultValue={file.project_sequence ?? ""} aria-label="Project sequence" />
-              <Input name="total_time_minutes" type="number" min={0} defaultValue={file.total_time_minutes ?? ""} aria-label="Total planned time minutes" />
+              <StandaloneDurationInput name="total_time_minutes" defaultMinutes={file.total_time_minutes} ariaLabel="Total planned time (hours or HH:MM)" />
               <Input name="total_volume_m3" type="number" min={0} step="0.001" defaultValue={file.total_volume_m3 ?? ""} aria-label="Total planned volume m³" />
               <select name="is_archived" className="rounded-md border border-zinc-200 px-2 py-2" defaultValue={file.is_archived ? "true" : "false"} aria-label="Project file status"><option value="false">Active</option><option value="true">Archived</option></select>
               <div className="sm:col-span-5"><Button type="submit">Save file</Button></div>
@@ -165,7 +166,7 @@ export default async function ProductionProjectDetailPage({ params, searchParams
           <input type="hidden" name="project_id" value={project.id} />
           <Input name="project_file" placeholder="Project file" required />
           <Input name="project_sequence" type="number" min={0} placeholder="PS" />
-          <Input name="total_time_minutes" type="number" min={0} placeholder="Total time" />
+          <StandaloneDurationInput name="total_time_minutes" ariaLabel="Total planned time (hours or HH:MM)" />
           <Input name="total_volume_m3" type="number" min={0} step="0.001" placeholder="Total volume" />
           <Button type="submit">Add file</Button>
         </form>

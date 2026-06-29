@@ -1,4 +1,5 @@
 import { createProductionProjectFormAction } from "@/app/(protected)/production/actions";
+import { StandaloneDurationInput } from "@/app/(protected)/production/components/entry-fields";
 import { BackLink } from "@/app/(protected)/production/components/production-ui";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
@@ -31,8 +32,8 @@ export default async function NewProductionProjectPage({ searchParams }: NewProj
           <FormField label="Project sequence" htmlFor="project_sequence">
             <Input id="project_sequence" name="project_sequence" type="number" min={1} required />
           </FormField>
-          <FormField label="Total Time" htmlFor="total_time_minutes">
-            <Input id="total_time_minutes" name="total_time_minutes" type="number" min={0} />
+          <FormField label="Total time" htmlFor="total_time_minutes" helperText="Hours (e.g. 1.5) or HH:MM (e.g. 125:30)">
+            <StandaloneDurationInput id="total_time_minutes" name="total_time_minutes" />
           </FormField>
           <FormField label="Total Volume m³" htmlFor="total_volume_m3">
             <Input id="total_volume_m3" name="total_volume_m3" type="number" min={0} step="0.001" />

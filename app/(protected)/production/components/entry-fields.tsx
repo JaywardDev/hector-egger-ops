@@ -16,16 +16,23 @@ const minutesToText = (total: number | null): string => {
   return formatted === "—" ? "" : formatted;
 };
 
-export const parseHoursMinutesToMinutes = (text: string): number | null => {
+// Accepts either decimal hours ("1.5") or an HH:MM / HHH:MM duration ("01:30",
+// "125:30") and returns whole minutes. The display always reformats to HH:MM, so
+// whatever the user types they immediately see the normalised value.
+export const parseDurationToMinutes = (text: string): number | null => {
   const trimmed = text.trim();
   if (trimmed === "") {
     return null;
   }
-  const match = trimmed.match(/^(\d{1,3}):([0-5]?\d)$/);
-  if (!match) {
-    return null;
+  const colon = trimmed.match(/^(\d{1,3}):([0-5]?\d)$/);
+  if (colon) {
+    return Number(colon[1]) * 60 + Number(colon[2]);
   }
-  return Number(match[1]) * 60 + Number(match[2]);
+  const decimalHours = trimmed.match(/^\d+(?:\.\d+)?$/);
+  if (decimalHours) {
+    return Math.round(Number(trimmed) * 60);
+  }
+  return null;
 };
 
 export function DurationInput({
@@ -34,12 +41,14 @@ export function DurationInput({
   valueMinutes,
   onChangeMinutes,
   required,
+  ariaLabel,
 }: {
   id?: string;
   name: string;
   valueMinutes: number | null;
   onChangeMinutes: (minutes: number | null) => void;
   required?: boolean;
+  ariaLabel?: string;
 }) {
   // While the field is focused the local buffer drives the input; otherwise the
   // canonical minutes value is rendered (formatted). This keeps external updates
@@ -48,15 +57,16 @@ export function DurationInput({
   const [text, setText] = useState("");
 
   const displayValue = editing ? text : minutesToText(valueMinutes);
-  const invalid = editing && text.trim() !== "" && parseHoursMinutesToMinutes(text) === null;
+  const invalid = editing && text.trim() !== "" && parseDurationToMinutes(text) === null;
 
   return (
     <>
       <Input
         id={id}
         type="text"
-        inputMode="numeric"
-        placeholder="HHH:MM"
+        inputMode="decimal"
+        placeholder="1.5 or 01:30"
+        aria-label={ariaLabel}
         value={displayValue}
         aria-invalid={invalid || undefined}
         className={invalid ? "border-red-300 focus:border-red-400" : undefined}
@@ -68,13 +78,42 @@ export function DurationInput({
         onChange={(event) => {
           const next = event.currentTarget.value;
           setText(next);
-          onChangeMinutes(parseHoursMinutesToMinutes(next));
+          onChangeMinutes(parseDurationToMinutes(next));
         }}
         onBlur={() => setEditing(false)}
       />
       <input type="hidden" name={name} value={valueMinutes ?? ""} />
-      {invalid ? <p className="text-xs text-red-700">Use HHH:MM, e.g. 125:30.</p> : null}
+      {invalid ? <p className="text-xs text-red-700">Enter hours (e.g. 1.5) or HH:MM (e.g. 01:30).</p> : null}
     </>
+  );
+}
+
+// Self-contained duration field for server-rendered forms (e.g. project Total
+// time) that have no parent state — manages its own minutes value and submits it
+// via DurationInput's hidden input.
+export function StandaloneDurationInput({
+  id,
+  name,
+  defaultMinutes = null,
+  required,
+  ariaLabel,
+}: {
+  id?: string;
+  name: string;
+  defaultMinutes?: number | null;
+  required?: boolean;
+  ariaLabel?: string;
+}) {
+  const [minutes, setMinutes] = useState<number | null>(defaultMinutes);
+  return (
+    <DurationInput
+      id={id}
+      name={name}
+      valueMinutes={minutes}
+      onChangeMinutes={setMinutes}
+      required={required}
+      ariaLabel={ariaLabel}
+    />
   );
 }
 
