@@ -4,6 +4,7 @@ import {
   Clock3,
   Factory,
   LayoutDashboard,
+  List,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -62,6 +63,17 @@ export const APP_NAV_ITEMS: AppNavItem[] = [
     section: "internal",
     internal: true,
     icon: ChartColumn,
+  },
+  {
+    // Preview: gated as an internal tool (approved users) while the QA module is
+    // scaffolded. A dedicated "qa" permission arrives with the C-base-driven
+    // authorization model (see docs/qa-module-design.md §3).
+    label: "QA",
+    href: "/qa",
+    permission: "internalTools",
+    section: "internal",
+    internal: true,
+    icon: List,
   },
 ];
 
