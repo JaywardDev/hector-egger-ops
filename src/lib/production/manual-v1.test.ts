@@ -203,6 +203,19 @@ test("project-level planned totals are derived from project files", () => {
   assert.doesNotMatch(migration, /select p\.id as project_id[\s\S]{0,120}p\.total_time_minutes/);
 });
 
+test("production reporting views run with invoker security", () => {
+  const securityFixMigration = readFileSync(join(repoRoot, "supabase/migrations/20260701120000_fix_production_views_security_invoker.sql"), "utf8");
+  for (const viewName of [
+    "production_entries_with_metrics",
+    "production_project_file_summaries",
+    "production_project_summaries",
+    "production_operator_summaries",
+  ]) {
+    const pattern = new RegExp(String.raw`alter view public\.${viewName} set \(security_invoker = true\)`);
+    assert.match(securityFixMigration, pattern);
+  }
+});
+
 test("project-file priority 1 migration uses existing updated_at trigger helper", () => {
   const migration = readFileSync(join(repoRoot, projectFilesMigrationPath), "utf8");
   assert.match(migration, /execute function public\.set_current_timestamp_updated_at\(\)/);
