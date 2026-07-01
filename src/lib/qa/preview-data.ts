@@ -87,15 +87,19 @@ const PROJECTS: QaProjectDetail[] = [
 ];
 
 const CHECKLIST_DETAILS: Record<string, QaChecklistDetail> = {
+  // Faithful to the real factory template "EWi0e1 - 0 Internal Layer -
+  // 1 External Layer - Batts" (external-wall panel assembly QA), version 2.
+  // Items are enumerated single-select with the actual CONQA option lists; note
+  // rows are photo prompts; the final step is a checkpoint with a sign-off.
   "ew-0001": {
     id: "ew-0001",
     code: "EW_0001",
-    title: "Framing and Inside Layers",
+    title: "EWi0e1 - 0 Internal Layer - 1 External Layer - Batts",
     section_id: "sec-panel",
-    status: "awaiting_signoff",
-    pass_count: 1,
-    fail_count: 0,
-    template_version: "v3",
+    status: "in_progress",
+    pass_count: 5,
+    fail_count: 1,
+    template_version: "v2",
     updated_at: "Jun 23, 2026",
     project_id: "cardrona-type-a",
     project_ref: "260013",
@@ -105,12 +109,12 @@ const CHECKLIST_DETAILS: Record<string, QaChecklistDetail> = {
     steps: [
       {
         id: "step-1",
-        title: "Step 1 — Framing and Inside Layers",
-        instruction: "Take photos of frame, fixings and connections.",
+        title: "Step 1 - Framing and Inside Layers",
         items: [
-          { id: "s1-i1", label: "Framing check for square.", answer: "yes" },
-          { id: "s1-i2", label: "Structural fixings in frame are as per drawings.", answer: "yes" },
-          { id: "s1-i3", label: "Slings installed as per drawings.", answer: "yes" },
+          { id: "s1-i1", type: "select", label: "Framing check for square.", options: ["Yes", "No"], selected_value: "Yes" },
+          { id: "s1-i2", type: "select", label: "Structural fixings in frame are as per drawings.", options: ["Yes", "No"], selected_value: "Yes" },
+          { id: "s1-i3", type: "select", label: "Slings installed as per drawings.", options: ["Yes", "No", "Not Applicable"], selected_value: "Yes" },
+          { id: "s1-n1", type: "note", label: "Take Photos of frame, fixings and connections." },
         ],
         evidence: [
           { id: "ev-1", caption: "Frame overview", added_by: "Zeus Guillergan", added_at: "2:34PM, Jun 23" },
@@ -121,19 +125,57 @@ const CHECKLIST_DETAILS: Record<string, QaChecklistDetail> = {
       },
       {
         id: "step-2",
-        title: "Step 2 — Inside Lining",
-        instruction: "Confirm lining material and fixings before close-up.",
+        title: "Step 2 - External Layer",
         items: [
-          { id: "s2-i1", label: "Lining material matches specification.", answer: null },
-          { id: "s2-i2", label: "Fixing centres as per drawings.", answer: null },
+          { id: "s2-i1", type: "select", label: "External layer 1 - product.", options: ["Membrane", "Ply H3 15", "Ply H3 17", "Ply H3 19", "WEATHERLINE10", "WEATHRLINE13", "GIB13", "GIB16", "Other", "N/A"], selected_value: "Ply H3 17" },
+          { id: "s2-i2", type: "select", label: "External layer 1 - fixing treatment as per drawing.", options: ["Blank", "Galvanised", "Stainless", "Ceramic Coated", "Other", "None"], selected_value: "Galvanised" },
+          { id: "s2-i3", type: "select", label: "External layer 1 - fixing type / size as per drawing.", options: ["Staples45", "Staples65", "Nails", "Screws", "Glue", "Screw and Glue", "None"], selected_value: "Staples65" },
+          { id: "s2-n1", type: "note", label: "External layer 1 - take photos of fixings." },
+        ],
+        evidence: [],
+      },
+      {
+        id: "step-3",
+        title: "Step 3 - Services",
+        items: [
+          { id: "s3-i1", type: "select", label: "Services - Fire rated wall, use fire rated flush box. Do not alter flush boxes.", options: ["Yes", "No", "Not Applicable"], selected_value: "Yes" },
+          { id: "s3-i2", type: "select", label: "Services - Conduits terminated and run to best practice and as per drawings.", options: ["Yes", "No", "Not Applicable"], selected_value: "Yes" },
+          { id: "s3-i3", type: "select", label: "Services - Airtightness - penetrations are sealed.", options: ["Yes", "No", "Not Applicable"], selected_value: "No" },
+          { id: "s3-i4", type: "select", label: "Services - Fire rated wall, all penetrations treated as per drawings (i.e. gib lined or so)", options: ["Yes", "No", "Not Applicable"], selected_value: "Not Applicable" },
+          { id: "s3-n1", type: "note", label: "Take photos of flush boxes, fire treated penetrations, conduit terminations." },
+        ],
+        evidence: [],
+      },
+      {
+        id: "step-4",
+        title: "Step 4 - Insulation",
+        items: [
+          { id: "s4-i1", type: "select", label: "Insulation as per drawing. Tight fit, no gaps, no squeeze.", options: ["R2.6", "R2.8", "R4.1", "None"], selected_value: null },
+          { id: "s4-n1", type: "note", label: "Take photos of finished insulation." },
+        ],
+        evidence: [],
+      },
+      {
+        id: "step-5",
+        title: "Step 5 - Layer 2",
+        items: [
+          { id: "s5-i1", type: "select", label: "External layer 1 - taping of joints, openings as per manufacturer specification.", options: ["GIB Weatherline Tape", "Proclima tape", "Sika tape", "Rothoblaas tape", "Marshall tape", "Other"], selected_value: null },
+          { id: "s5-i2", type: "select", label: "Panel completed, no defects, no damage.", options: ["Yes", "No"], selected_value: null },
+          { id: "s5-n1", type: "note", label: "External layer 1 - take photos of tapes and final panel." },
+        ],
+        evidence: [],
+      },
+      {
+        id: "step-6",
+        title: "Step 6 - Final Sign Off",
+        checkpoint: true,
+        items: [
+          { id: "s6-s1", type: "signoff", label: "Sign off from Shift Leader." },
         ],
         evidence: [],
       },
     ],
-    hold_points: [
-      { id: "hp-1", label: "Pre-close-up hold point", kind: "hold", status: "awaiting_signoff" },
-      { id: "wp-1", label: "Structural fixings witness", kind: "witness", status: "signed_off", signed_by: "D M McDonald", signed_at: "Jun 23, 2026" },
-    ],
+    hold_points: [],
   },
 };
 

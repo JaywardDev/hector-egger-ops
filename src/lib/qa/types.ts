@@ -12,7 +12,11 @@ export type QaSignoffStatus =
   | "awaiting_signoff"
   | "signed_off";
 
-export type QaCheckAnswer = "yes" | "no" | "na" | null;
+// Check items are enumerated single-select (not fixed pass/fail) plus two
+// non-answerable row types, matching the real CONQA template grammar
+// (docs/qa-module-design.md §4.2): `select` = pick one of `options`, `note` =
+// instruction / photo prompt, `signoff` = a sign-off / hold-point slot.
+export type QaItemType = "select" | "note" | "signoff";
 
 export type QaHoldPointKind = "hold" | "witness";
 
@@ -66,14 +70,19 @@ export type QaEvidence = {
 
 export type QaCheckItem = {
   id: string;
+  type: QaItemType;
   label: string;
-  answer: QaCheckAnswer;
+  /** Allowed answers for `select` items (the CONQA `Values` list). */
+  options?: string[];
+  /** The chosen value on this checklist instance; null = not yet answered. */
+  selected_value?: string | null;
 };
 
 export type QaCheckStep = {
   id: string;
   title: string;
-  instruction?: string;
+  /** True when the step is a formal checkpoint/gate (CONQA `checkpoint` row). */
+  checkpoint?: boolean;
   items: QaCheckItem[];
   evidence: QaEvidence[];
 };

@@ -150,6 +150,7 @@ rebuilds (`production_manual_v1_rebuild`, `production_project_files_priority1`):
 | `qa_template` / `qa_template_version` | Phase A import (needed early — see §4) |
 | `qa_project`, `qa_section`, `qa_checklist`, `qa_check_item`, `qa_evidence`, `qa_signoff`, `qa_signoff_event` | Phase 0 / Phase 1 spine |
 | Variation | later phase, when the variation workflow is scoped |
+| Project & folder templates (CONQA authoring blueprints) | Phase 3+, only if project *creation* moves in-house (see §4.3) |
 | QA Report as a stored entity | Phase 2 (generation), possibly just derived-on-demand |
 
 ---
@@ -259,6 +260,63 @@ codebase:
 That satisfies reproducibility and immutability using two patterns already
 proven in production here. Templates link to **`qa_project` directly** — no
 assumption of a Lot layer beneath.
+
+### 4.2 Checklist template grammar (from the real CONQA export)
+
+Confirmed against an actual factory panel-assembly sheet
+(`EWi0e1 - 0 Internal Layer - 1 External Layer - Batts`). CONQA exports a
+checklist template as a flat row list on a `Master List Templates` sheet, with
+columns `Id | Type | Name | Values | Prompting Name`. **`Type` is the grammar:**
+
+| `Type` | Meaning | Maps to |
+|---|---|---|
+| `checklist` | Template header; `Id` = `<uuid>/<version>` (version is explicit) | `qa_template` (source_id = uuid) + `qa_template_version` (version) |
+| `section` | A step ("Step 1 — Framing…"), stable UUID | a checklist step |
+| `checkpoint` / `checkpoint-no-value` | Follows each section; plain `checkpoint` marks a formal gate | step flag `checkpoint: boolean` |
+| `button` | An **answerable item**; `Values` = the allowed answers | `qa_check_item`, `input_type='select'`, `options: string[]` |
+| `note` | Instruction / photo prompt ("Take Photos of…") | `qa_check_item`, `input_type='note'` (no answer) |
+| `signoff` | Sign-off / hold point ("Sign off from Shift Leader.") | `qa_signoff` slot |
+
+**Key correction to the earlier model:** check items are **enumerated
+single-select**, not fixed pass/fail/NA. `Values` carries a per-item option list
+— sometimes `Yes,No` or `Yes,No,Not Applicable`, but often a domain enum
+(`Membrane,Ply H3 17,GIB13,…`; `R2.6,R2.8,R4.1,None`; fixing types; tapes).
+"Pass/Fail" counts are a **derived rollup** (Yes→pass, No→fail, else neutral),
+not the storage model. Every section and item carries a **stable UUID** — the
+natural key for the diff-upsert and for attaching evidence.
+
+The parser's target — one `qa_template_version.fields_json` per version, and the
+value snapshotted into each checklist on instantiation:
+
+```jsonc
+{
+  "source_id": "a79de97e-814b-4c88-8d4f-5b52a0bf4588",
+  "version": 2,
+  "name": "EWi0e1 - 0 Internal Layer - 1 External Layer - Batts",
+  "steps": [
+    { "id": "3774480b-…", "title": "Step 1 - Framing and Inside Layers", "checkpoint": false,
+      "items": [
+        { "id": "ffb006d6-…", "type": "select", "label": "Framing check for square.", "options": ["Yes","No"] },
+        { "id": "d0cce61f-…", "type": "select", "label": "Slings installed as per drawings.", "options": ["Yes","No","Not Applicable"] },
+        { "id": "9e9a6f9f-…", "type": "note", "label": "Take Photos of frame, fixings and connections." }
+      ] },
+    { "id": "846e7710-…", "title": "Step 6 - Final Sign Off", "checkpoint": true,
+      "items": [ { "id": "73db703f-…", "type": "signoff", "label": "Sign off from Shift Leader." } ] }
+  ]
+}
+```
+
+Keep the **raw imported rows verbatim** alongside the parsed structure (same
+§2.3 hedge) so nothing CONQA encodes is lost if the grammar grows.
+
+### 4.3 Project & folder templates — deferred
+
+CONQA also exports **project templates** and **folder templates** (a
+`Project Structure` sheet describing tiers/folders for spinning up a *new*
+project). These are **authoring blueprints**, not QA data. In v1 we mirror real
+projects and their structure read-only from C-base and do not author projects
+in-app, so these are **deferred** — they only matter when project *creation*
+moves in-house (Phase 3+). They are not needed for factory QA capture.
 
 ---
 
@@ -427,9 +485,11 @@ from Phase 1.
 - **Identity mapping source key:** is email a reliable join between C-base QA
   people and `profiles`? Is there a stable CONQA user id in the export?
 - **Unknown-login QA people:** provision vs. read-only-until-matched.
-- **Export format & cadence for QA sheet definitions and authority** (CSV/JSON
-  vs. XLSX; manual trigger first, cron once predictable — same as the timesheet
-  lookup import).
+- **Export cadence** for QA sheet definitions and authority (manual trigger
+  first, cron once predictable — same as the timesheet lookup import). Format is
+  now known: **XLSX**, one `Master List Templates` sheet per checklist (§4.2).
 - **PDF approach** (dependency vs. HTML→print) — decide before Phase 2.
-- **Measurement fields:** confirm the range of check-item value types
-  (pass/fail/NA vs. numeric measurement vs. free text) from more CONQA sheets.
+- ~~Check-item value types~~ **Resolved (§4.2):** enumerated single-select with
+  a per-item `options` list, plus `note` and `signoff` row types. Still worth
+  confirming the grammar holds across more factory sheets before freezing the
+  importer, and whether any item needs free-text or numeric input.

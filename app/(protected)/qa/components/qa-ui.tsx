@@ -1,9 +1,9 @@
-import { Eye, Lock } from "lucide-react";
+import { Eye, Lock, StickyNote } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Card } from "@/src/components/ui/card";
 import { StatusBadge, type StatusBadgeTone } from "@/src/components/ui/status-badge";
-import type { QaCheckAnswer, QaEvidence, QaSignoffStatus } from "@/src/lib/qa/types";
+import type { QaCheckItem, QaEvidence, QaSignoffStatus } from "@/src/lib/qa/types";
 import { cn } from "@/src/lib/utils";
 
 // Small QA-local presentational helpers. Kept inside the QA route (rather than
@@ -23,11 +23,56 @@ export function SignoffBadge({ status }: { status: QaSignoffStatus }) {
   return <StatusBadge tone={tone} label={label} />;
 }
 
-export function AnswerBadge({ answer }: { answer: QaCheckAnswer }) {
-  if (answer === "yes") return <StatusBadge tone="success" label="Yes" />;
-  if (answer === "no") return <StatusBadge tone="danger" label="No" />;
-  if (answer === "na") return <StatusBadge tone="neutral" label="N/A" />;
-  return <StatusBadge tone="outline" label="Not answered" />;
+// The chosen answer of a `select` item. Yes/No drive the pass/fail rollup;
+// everything else (domain enums, N/A) is shown neutral/info.
+export function ItemValue({ value }: { value: string | null | undefined }) {
+  if (!value) return <StatusBadge tone="outline" label="Not answered" />;
+  if (value === "Yes") return <StatusBadge tone="success" label="Yes" />;
+  if (value === "No") return <StatusBadge tone="danger" label="No" />;
+  if (value === "Not Applicable" || value === "N/A") {
+    return <StatusBadge tone="neutral" label={value} />;
+  }
+  return <StatusBadge tone="info" label={value} />;
+}
+
+// Renders one template row by its type (select / note / signoff), matching the
+// CONQA grammar (docs/qa-module-design.md §4.2).
+export function StepItemRow({ item }: { item: QaCheckItem }) {
+  if (item.type === "note") {
+    return (
+      <div className="flex items-start gap-2 p-3 text-sm text-zinc-600">
+        <StickyNote aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+        <span>{item.label}</span>
+      </div>
+    );
+  }
+
+  if (item.type === "signoff") {
+    return (
+      <div className="grid gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <span className="text-sm font-medium text-zinc-800">{item.label}</span>
+        <div className="sm:justify-self-end">
+          <PreviewAction>Sign off</PreviewAction>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+      <div className="min-w-0">
+        <span className="text-sm text-zinc-800">{item.label}</span>
+        {item.options && item.options.length > 0 ? (
+          <span className="mt-0.5 block truncate text-xs text-zinc-400">
+            {item.options.join(" · ")}
+          </span>
+        ) : null}
+      </div>
+      <div className="sm:justify-self-end">
+        <ItemValue value={item.selected_value} />
+      </div>
+    </div>
+  );
 }
 
 export function BackLink({ href, children = "Back" }: { href: string; children?: ReactNode }) {

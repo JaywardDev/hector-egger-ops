@@ -8,11 +8,11 @@ import { getQaChecklist } from "@/src/lib/qa/preview-data";
 import type { QaHoldPoint } from "@/src/lib/qa/types";
 import { QA_EYEBROW } from "@/src/lib/qa/ui-contract";
 import {
-  AnswerBadge,
   BackLink,
   EvidenceThumb,
   PreviewAction,
   SignoffBadge,
+  StepItemRow,
 } from "../../components/qa-ui";
 
 type QaChecklistPageProps = {
@@ -94,22 +94,14 @@ export default async function QaChecklistPage({ params }: QaChecklistPageProps) 
 
       {checklist.steps.map((step) => (
         <Card key={step.id} className="space-y-3">
-          <div className="space-y-0.5">
+          <div className="flex items-center gap-2">
             <h3 className="font-medium text-zinc-900">{step.title}</h3>
-            {step.instruction ? <p className="text-sm text-zinc-600">{step.instruction}</p> : null}
+            {step.checkpoint ? <Badge variant="attention">Checkpoint</Badge> : null}
           </div>
 
           <div className="divide-y divide-zinc-100 rounded-md border border-zinc-100">
             {step.items.map((item) => (
-              <div
-                key={item.id}
-                className="grid gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-              >
-                <span className="text-sm text-zinc-800">{item.label}</span>
-                <div className="sm:justify-self-end">
-                  <AnswerBadge answer={item.answer} />
-                </div>
-              </div>
+              <StepItemRow key={item.id} item={item} />
             ))}
           </div>
 
