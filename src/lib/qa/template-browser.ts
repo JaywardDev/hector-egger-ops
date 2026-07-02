@@ -18,6 +18,7 @@ export type QaTemplateBrowserRow = {
   id: string;
   source_id: string;
   name: string;
+  is_archived: boolean;
   created_at: string;
   updated_at: string;
   version_count: number;
@@ -42,7 +43,7 @@ export type QaTemplateBrowserResult = {
   history: QaTemplateImportHistoryRow[];
 };
 
-type RawTemplate = { id: string; source_id: string; name: string; created_at: string; updated_at: string };
+type RawTemplate = { id: string; source_id: string; name: string; is_archived: boolean; created_at: string; updated_at: string };
 type RawVersion = { id: string; template_id: string; version: number; imported_at: string | null; source_row_hash: string };
 
 export const sanitizeTemplateFilters = (
@@ -63,8 +64,8 @@ export const listQaTemplatesForAdmin = async (
   const headers = authHeaders(session);
 
   const templateParams = new URLSearchParams();
-  templateParams.set("select", "id,source_id,name,created_at,updated_at");
-  templateParams.set("order", "name.asc");
+  templateParams.set("select", "id,source_id,name,is_archived,created_at,updated_at");
+  templateParams.set("order", "is_archived.asc,name.asc");
   if (filters.search) {
     const like = `*${filters.search}*`;
     templateParams.set("or", `(name.ilike.${like},source_id.ilike.${like})`);

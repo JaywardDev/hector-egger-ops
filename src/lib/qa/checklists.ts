@@ -51,7 +51,10 @@ export const listQaTemplateChoices = async (session: AuthSession): Promise<QaTem
   const headers = authHeaders(session);
   const [templates, versions] = await Promise.all([
     readJson<{ id: string; name: string }>(
-      await supabase.request("/rest/v1/qa_template?select=id,name&order=name.asc", { cache: "no-store", headers }),
+      await supabase.request("/rest/v1/qa_template?select=id,name&is_archived=eq.false&order=name.asc", {
+        cache: "no-store",
+        headers,
+      }),
     ),
     readJson<{ template_id: string; id: string; version: number }>(
       await supabase.request("/rest/v1/qa_template_version?select=template_id,id,version&order=version.desc", {

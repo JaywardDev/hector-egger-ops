@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   getQaTemplateVersionFieldsAction,
+  setQaTemplateArchivedAction,
   type QaTemplateFieldsResult,
 } from "@/app/(protected)/admin/qa-templates/actions";
 import { Alert } from "@/src/components/ui/alert";
@@ -11,6 +13,84 @@ import { FullScreenDialog } from "@/src/components/ui/full-screen-dialog";
 import type { QaTemplateFields } from "@/src/lib/qa/c-base-import";
 import type { QaTemplateBrowserRow } from "@/src/lib/qa/template-browser";
 import { cn } from "@/src/lib/utils";
+
+// Three-dot menu per template row: view definition + archive/unarchive. Mirrors
+// the production reason-row kebab (click-outside + Escape to close).
+function TemplateRowMenu({
+  template,
+  onView,
+}: {
+  template: QaTemplateBrowserRow;
+  onView: () => void;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const toggleArchive = () => {
+    setOpen(false);
+    startTransition(async () => {
+      await setQaTemplateArchivedAction(template.id, !template.is_archived);
+      router.refresh();
+    });
+  };
+
+  return (
+    <div className="relative" ref={ref} onClick={(event) => event.stopPropagation()}>
+      <button
+        type="button"
+        aria-label={`Actions for ${template.name}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={pending}
+        onClick={() => setOpen((current) => !current)}
+        className="flex min-h-9 min-w-9 items-center justify-center rounded-md text-lg leading-none text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)] disabled:opacity-50"
+      >
+        <span aria-hidden="true">⋯</span>
+      </button>
+      {open ? (
+        <div role="menu" className="absolute right-0 top-10 z-20 min-w-44 rounded-md border border-zinc-200 bg-white py-1 text-left shadow-lg">
+          <button
+            type="button"
+            role="menuitem"
+            className="block w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50"
+            onClick={() => {
+              setOpen(false);
+              onView();
+            }}
+          >
+            View definition
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="block w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50"
+            onClick={toggleArchive}
+          >
+            {template.is_archived ? "Unarchive template" : "Archive template"}
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 // Templates table + read-only definition viewer. Clicking a row opens the
 // latest version in an overlay; clicking a version badge opens that specific
@@ -96,6 +176,7 @@ export function QaTemplatesTableClient({ templates }: { templates: QaTemplateBro
             <th className="px-2 py-1">Versions</th>
             <th className="px-2 py-1">Last imported</th>
             <th className="px-2 py-1">Updated</th>
+            <th className="px-2 py-1 sr-only">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -106,13 +187,19 @@ export function QaTemplatesTableClient({ templates }: { templates: QaTemplateBro
                 className={cn(
                   "border-b border-zinc-100 align-top transition-colors",
                   template.versions.length > 0 ? "cursor-pointer hover:bg-zinc-50" : null,
+                  template.is_archived ? "text-zinc-400" : null,
                 )}
                 onClick={() => {
                   const latest = template.versions[0];
                   if (latest) openVersion(template.name, latest.id);
                 }}
               >
-                <td className="px-2 py-2 font-medium text-zinc-900">{template.name}</td>
+                <td className="px-2 py-2 font-medium">
+                  <span className={cn(template.is_archived ? "text-zinc-500" : "text-zinc-900")}>{template.name}</span>
+                  {template.is_archived ? (
+                    <Badge variant="neutral" className="ml-2 align-middle">Archived</Badge>
+                  ) : null}
+                </td>
                 <td className="px-2 py-2 font-mono text-xs text-zinc-500">{template.source_id}</td>
                 <td className="px-2 py-2">
                   {template.latest_version !== null ? <Badge variant="success">v{template.latest_version}</Badge> : "—"}
@@ -141,6 +228,15 @@ export function QaTemplatesTableClient({ templates }: { templates: QaTemplateBro
                 </td>
                 <td className="px-2 py-2 text-zinc-600">{formatDateTime(template.last_imported_at)}</td>
                 <td className="px-2 py-2 text-zinc-600">{formatDateTime(template.updated_at)}</td>
+                <td className="px-2 py-2 text-right">
+                  <TemplateRowMenu
+                    template={template}
+                    onView={() => {
+                      const latest = template.versions[0];
+                      if (latest) openVersion(template.name, latest.id);
+                    }}
+                  />
+                </td>
               </tr>
             );
           })}
