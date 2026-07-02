@@ -13,7 +13,16 @@ import { parseQaChecklistTemplate, type QaTemplateParseResult } from "@/src/lib/
 // run — the RPC is service_role-only and trusts p_actor_profile_id, exactly as
 // apply_c_base_timesheet_lookup_import does.
 
-export type QaTemplateImportAction = "inserted" | "unchanged" | "version_conflict";
+export type QaTemplateImportAction = "inserted" | "unchanged" | "version_conflict" | "replaced";
+
+/**
+ * Apply mode. "skip" is append-only: a changed template at an existing version
+ * is refused (version_conflict). "replace" overwrites that version's definition
+ * in place — used to heal a version whose parse output legitimately changed
+ * (e.g. after a parser upgrade). Started checklists are unaffected: they run off
+ * their own frozen fields_snapshot.
+ */
+export type QaTemplateImportMode = "skip" | "replace";
 
 export type QaTemplateApplyResult = {
   action: QaTemplateImportAction;
@@ -59,17 +68,19 @@ export const prepareQaTemplateImport = async (
       : "version_conflict";
 
   return { filename, parse, action };
-};
+};;
 
 /** Apply one parsed template. Throws on validation errors (fail loudly). */
 export const applyQaTemplateImport = async ({
   actorProfileId,
   filename,
   buffer,
+  mode = "skip",
 }: {
   actorProfileId: string;
   filename: string;
   buffer: Buffer;
+  mode?: QaTemplateImportMode;
 }): Promise<QaTemplateApplyResult> => {
   const parse = parseQaChecklistTemplate(buffer);
   if (parse.errors.length > 0 || !parse.fields || !parse.sourceRowHash) {
@@ -90,6 +101,7 @@ export const applyQaTemplateImport = async ({
       p_fields_json: fields,
       p_raw_rows: parse.raw,
       p_source_row_hash: parse.sourceRowHash,
+      p_mode: mode,
     }),
   });
   if (!response.ok) throw new Error("Failed to apply QA template import.");

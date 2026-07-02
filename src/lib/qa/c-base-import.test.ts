@@ -8,16 +8,26 @@ import {
   type QaTemplateItemType,
 } from "@/src/lib/qa/c-base-import";
 
-// Runs the parser against every committed factory-assembly checklist template
-// (docs/qa/conqa-templates/checklist/). These are the ground truth for the
+// Runs the parser against every committed C-base checklist template
+// (docs/qa/C-Base-templates/checklist/). These are the ground truth for the
 // row-type grammar (docs/qa-module-design.md §4.2); the suite fails if a new
-// export breaks an assumption the importer relies on.
+// export breaks an assumption the importer relies on. The set spans the
+// factory-assembly panels *and* the site-assembly / work-package / precut
+// templates, which exercise the fuller grammar (headings, text/date fields,
+// required + gated sign-offs).
 
-const FIXTURE_DIR = path.join(__dirname, "../../../docs/qa/conqa-templates/checklist");
+const FIXTURE_DIR = path.join(__dirname, "../../../docs/qa/C-Base-templates/checklist");
 const fixtureFiles = readdirSync(FIXTURE_DIR).filter((file) => file.endsWith(".xlsx"));
 const readFixture = (file: string) => readFileSync(path.join(FIXTURE_DIR, file));
+const parseByName = (needle: string) => {
+  const file = fixtureFiles.find((f) => f.includes(needle));
+  assert.ok(file, `fixture matching "${needle}" should exist`);
+  return parseQaChecklistTemplate(readFixture(file!));
+};
 
-const KNOWN_ITEM_TYPES: QaTemplateItemType[] = ["select", "note", "signoff"];
+const KNOWN_ITEM_TYPES: QaTemplateItemType[] = ["select", "text", "date", "note", "heading", "signoff"];
+// Every C-base `Type` string the parser understands (raw rows carry these
+// verbatim; anything outside this set would raise an "Unknown row type" warning).
 const KNOWN_ROW_TYPES = new Set([
   "checklist",
   "section",
@@ -26,7 +36,9 @@ const KNOWN_ROW_TYPES = new Set([
   "button",
   "note",
   "textbox",
+  "date",
   "signoff",
+  "signoff:required",
 ]);
 
 test("fixtures are present", () => {
@@ -47,7 +59,7 @@ for (const file of fixtureFiles) {
     assert.ok(fields.name.length > 0, "name should be non-empty");
     assert.ok(fields.steps.length > 0, "should have at least one step");
 
-    // No unrecognised row types slipped through.
+    // No unrecognised row types slipped through (no silent drops).
     for (const row of result.raw) {
       assert.ok(KNOWN_ROW_TYPES.has(row.type), `unknown row type "${row.type}" in ${file}`);
     }
@@ -56,23 +68,18 @@ for (const file of fixtureFiles) {
       `unexpected unknown-type warning in ${file}`,
     );
 
-    let signoffCount = 0;
-    let checkpointSteps = 0;
     for (const step of fields.steps) {
       assert.ok(step.title.length > 0, "step title should be non-empty");
-      if (step.checkpoint) checkpointSteps += 1;
       for (const item of step.items) {
         assert.ok(KNOWN_ITEM_TYPES.includes(item.type), `bad item type ${item.type}`);
         if (item.type === "select") {
           assert.ok(Array.isArray(item.options) && item.options.length > 0, `select "${item.label}" needs options`);
         }
-        if (item.type === "signoff") signoffCount += 1;
+        if (item.type === "signoff" && item.required !== undefined) {
+          assert.equal(item.required, true, "required is only ever set to true");
+        }
       }
     }
-
-    // Every factory-assembly sheet ends in a checkpoint gate + a sign-off.
-    assert.ok(checkpointSteps >= 1, "should have at least one checkpoint step");
-    assert.ok(signoffCount >= 1, "should have at least one sign-off item");
   });
 }
 
@@ -84,9 +91,7 @@ test("parsing is deterministic (stable hash)", () => {
 });
 
 test("EWi0e1 parses to the expected shape", () => {
-  const file = fixtureFiles.find((f) => f.includes("EWi0e1"));
-  assert.ok(file, "EWi0e1 fixture should exist");
-  const { fields } = parseQaChecklistTemplate(readFixture(file!));
+  const { fields } = parseByName("EWi0e1");
   assert.ok(fields);
 
   assert.equal(fields!.name, "EWi0e1 - 0 Internal Layer - 1 External Layer - Batts");
@@ -102,20 +107,59 @@ test("EWi0e1 parses to the expected shape", () => {
   // The photo prompt is a note (non-answerable), not a select.
   assert.ok(step1.items.some((i) => i.type === "note" && i.label.startsWith("Take Photos")));
 
-  // Final step is a checkpoint carrying the sign-off.
+  // The lone checkpoint repeats the section title, so no heading item is emitted
+  // and the sign-off carries no gate (this is what keeps the factory templates
+  // byte-identical after the grammar upgrade).
+  assert.ok(!step1.items.some((i) => i.type === "heading"));
   const last = fields!.steps.at(-1)!;
   assert.equal(last.checkpoint, true);
-  assert.ok(last.items.some((i) => i.type === "signoff"));
+  const signoff = last.items.find((i) => i.type === "signoff");
+  assert.ok(signoff);
+  assert.equal(signoff!.required, undefined);
+  assert.equal(signoff!.gate, undefined);
 });
 
-test("textbox rows are treated as notes (Ri1e1BI)", () => {
-  const file = fixtureFiles.find((f) => f.includes("Ri1e1BI"));
-  assert.ok(file, "Ri1e1BI fixture should exist");
-  const result = parseQaChecklistTemplate(readFixture(file!));
+test("textbox rows become answerable text fields (Ri1e1BI)", () => {
+  const result = parseByName("Ri1e1BI");
 
   // The raw rows preserve the original `textbox` type (the §2.3 hedge)...
   assert.ok(result.raw.some((r) => r.type === "textbox"), "expected a textbox row in raw");
-  // ...but no item carries a `textbox` type — it is mapped to a note.
-  const itemTypes = new Set(result.fields!.steps.flatMap((s) => s.items.map((i) => i.type)));
-  assert.ok(!itemTypes.has("textbox" as QaTemplateItemType));
+  // ...and it now maps to a `text` item (a field the operator fills in), not a note.
+  const items = result.fields!.steps.flatMap((s) => s.items);
+  assert.ok(items.some((i) => i.type === "text"), "expected a text item");
+});
+
+test("site-assembly template has subsection headings and required, gated hold points (A_MF)", () => {
+  const { fields } = parseByName("A_MF");
+  assert.ok(fields);
+
+  // A section whose title lists two groups splits into two headings.
+  const fireAcoustic = fields!.steps.find((s) => s.title === "Passive Fire, Acoustic");
+  assert.ok(fireAcoustic, "expected the 'Passive Fire, Acoustic' section");
+  const headings = fireAcoustic!.items.filter((i) => i.type === "heading").map((i) => i.label);
+  assert.deepEqual(headings, ["Passive Fire", "Acoustic"]);
+
+  // The "Final check" section holds two distinct required hold points, each
+  // labelled by the checkpoint that gates it.
+  const finalCheck = fields!.steps.find((s) => s.title === "Final check");
+  assert.ok(finalCheck, "expected the 'Final check' section");
+  const signoffs = finalCheck!.items.filter((i) => i.type === "signoff");
+  assert.equal(signoffs.length, 2);
+  assert.ok(signoffs.every((s) => s.required === true), "site sign-offs are required");
+  assert.deepEqual(
+    signoffs.map((s) => s.gate),
+    ["Final Installer Signoff", "Structural Engineer Inspection"],
+  );
+});
+
+test("precut template captures date and text inputs (PCUT)", () => {
+  const { fields } = parseByName("PCUT");
+  assert.ok(fields);
+
+  const items = fields!.steps.flatMap((s) => s.items);
+  const date = items.find((i) => i.type === "date");
+  assert.ok(date && date.label === "Date and time machined", "expected the machined-date field");
+
+  const text = items.find((i) => i.type === "text");
+  assert.ok(text && text.label === "Timber pack ID", "expected the pack-ID text field");
 });

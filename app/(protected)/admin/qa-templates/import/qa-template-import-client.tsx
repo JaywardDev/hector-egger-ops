@@ -17,6 +17,7 @@ const ACTION_BADGE: Record<QaTemplateFileResult["action"], { variant: BadgeVaria
   inserted: { variant: "success", label: "New version" },
   unchanged: { variant: "muted", label: "Unchanged" },
   version_conflict: { variant: "danger", label: "Version conflict" },
+  replaced: { variant: "attention", label: "Replaced" },
   invalid: { variant: "danger", label: "Invalid" },
 };
 
@@ -56,6 +57,22 @@ export function QaTemplateImportClient() {
             <p className="text-xs text-zinc-500">Worksheet: Master List Templates</p>
           </div>
 
+          <label className="flex items-start gap-2 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-700">
+            <input
+              type="checkbox"
+              name="replace"
+              className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-[var(--he-charcoal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)]"
+            />
+            <span>
+              <span className="font-medium text-zinc-900">Replace on version conflict</span>
+              <span className="mt-0.5 block text-xs text-zinc-500">
+                Overwrites a stored version in place when the file differs but keeps the same version number. Use this to
+                heal templates after a parser update. In-progress and signed-off checklists are not affected — they keep
+                the definition they were started with.
+              </span>
+            </span>
+          </label>
+
           <div className="flex flex-wrap gap-2">
             <Button type="submit" name="mode" value="dry-run" variant="secondary" disabled={!canSubmit}>
               {isPending ? "Checking…" : "Validate / dry run"}
@@ -90,8 +107,17 @@ export function QaTemplateImportClient() {
 
                 {result.action === "version_conflict" ? (
                   <p className="mt-2 text-xs text-red-700">
-                    A different template already exists at this version. The template was likely edited in C-base
-                    without bumping the version — the stored version was kept. Bump the version in C-base and re-export.
+                    A different definition already exists at this version. The stored version was kept. Either bump the
+                    version in C-base and re-export, or tick &ldquo;Replace on version conflict&rdquo; above to overwrite
+                    it in place.
+                  </p>
+                ) : null}
+
+                {result.action === "replaced" ? (
+                  <p className="mt-2 text-xs text-amber-700">
+                    {state.mode === "apply"
+                      ? "This version's definition was overwritten in place. Existing checklists keep their own snapshot."
+                      : "This version will be overwritten in place on import (existing checklists keep their snapshot)."}
                   </p>
                 ) : null}
 

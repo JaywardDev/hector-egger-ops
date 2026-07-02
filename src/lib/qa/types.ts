@@ -11,11 +11,12 @@ export type QaSignoffStatus =
   | "awaiting_signoff"
   | "signed_off";
 
-// Check items are enumerated single-select (not fixed pass/fail) plus two
-// non-answerable row types, matching the real C-base template grammar
-// (docs/qa-module-design.md §4.2): `select` = pick one of `options`, `note` =
-// instruction / photo prompt, `signoff` = a sign-off / hold-point slot.
-export type QaItemType = "select" | "note" | "signoff";
+// Check items match the real C-base template grammar (docs/qa-module-design.md
+// §4.2): `select` = pick one of `options`, `text` = free-text field, `date` = a
+// date field, `note` = display-only instruction / photo prompt, `heading` = a
+// subsection heading inside a step, `signoff` = a sign-off / hold-point slot.
+// `select`, `text` and `date` are answerable; the rest render for context.
+export type QaItemType = "select" | "text" | "date" | "note" | "heading" | "signoff";
 
 export type QaHoldPointKind = "hold" | "witness";
 

@@ -5,22 +5,27 @@ truth for building and testing the QA import pipeline (see
 `docs/qa-module-design.md` §4 and `docs/qa-module-roadmap.md` Phase 1a). These
 are *templates* (the shape of QA sheets), **not** submitted inspection data.
 
-Source of truth is **C-base**. (These particular samples were pulled via the
-legacy CONQA app, which renders the same sheets in the same export format —
-CONQA is being replaced and is not part of the running workflow. The folder name
-is historical; the content is the C-base QA sheet definitions.)
+Source of truth is **C-base**. (CONQA is being replaced and is not part of the
+running workflow — these are the C-base QA sheet definitions.)
 
 ## Layout
 
 ```
-docs/qa/conqa-templates/
-  checklist/   ← the QA sheets themselves (the important ones). Priority: factory panel assembly.
-  project/     ← project templates (authoring blueprints — deferred, see design §4.3)
-  folder/      ← folder templates (authoring blueprints — deferred)
+docs/qa/C-Base-templates/
+  checklist/   ← every QA sheet (one "Master List Templates" sheet each)
 ```
 
-Drop the `.xlsx` files straight into the matching subfolder. No naming rules
-beyond keeping the original export filename so it's traceable.
+Drop the `.xlsx` files straight into `checklist/`. No naming rules beyond keeping
+the original export filename so it's traceable.
+
+Every template exports the same way — a single **Master List Templates** sheet
+with the `Id · Type · Name · Values · Prompting Name` grammar — whether it is a
+factory panel-assembly sheet, a site-assembly sheet, a work-package / precut /
+screw-box sheet, or a site-variation sheet. There is **no** separate "project"
+or "folder" template format to import; those are C-base authoring conveniences
+and never leave C-base. The parser handles the full grammar (sections,
+subsection headings, select/text/date/note items, and plain, required and gated
+sign-offs) — see design §4.2.
 
 ## Rules
 

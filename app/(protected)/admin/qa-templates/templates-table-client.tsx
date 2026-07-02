@@ -118,6 +118,13 @@ function FlatDefinition({ fields }: { fields: QaTemplateFields }) {
           </div>
           <div className="mt-2 space-y-2">
             {step.items.map((item) => {
+              if (item.type === "heading") {
+                return (
+                  <p key={item.id} className="pt-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    {item.label}
+                  </p>
+                );
+              }
               if (item.type === "note") {
                 return (
                   <p key={item.id} className="text-sm italic text-zinc-500">
@@ -125,10 +132,25 @@ function FlatDefinition({ fields }: { fields: QaTemplateFields }) {
                   </p>
                 );
               }
+              if (item.type === "text") {
+                return (
+                  <p key={item.id} className="text-sm text-zinc-800">
+                    ✎ {item.label} <span className="text-xs text-zinc-400">(text)</span>
+                  </p>
+                );
+              }
+              if (item.type === "date") {
+                return (
+                  <p key={item.id} className="text-sm text-zinc-800">
+                    📅 {item.label} <span className="text-xs text-zinc-400">(date)</span>
+                  </p>
+                );
+              }
               if (item.type === "signoff") {
                 return (
                   <p key={item.id} className="text-sm font-medium text-zinc-800">
-                    ✍ {item.label}
+                    ✍ {item.gate ?? item.label}
+                    {item.required ? <span className="ml-2 text-xs font-normal text-amber-600">required</span> : null}
                   </p>
                 );
               }

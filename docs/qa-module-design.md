@@ -263,27 +263,40 @@ assumption of a Lot layer beneath.
 
 ### 4.2 Checklist template grammar (from the real C-base export)
 
-Confirmed against an actual factory panel-assembly sheet
-(`EWi0e1 - 0 Internal Layer - 1 External Layer - Batts`). C-base exports a
-checklist template as a flat row list on a `Master List Templates` sheet, with
+Confirmed against **all 25 committed C-base sheets** — factory panel assembly,
+site assembly, work-package / precut / screw-box, and site variation. Every one
+exports the same way: a flat row list on a `Master List Templates` sheet, with
 columns `Id | Type | Name | Values | Prompting Name`. **`Type` is the grammar:**
 
 | `Type` | Meaning | Maps to |
 |---|---|---|
 | `checklist` | Template header; `Id` = `<uuid>/<version>` (version is explicit) | `qa_template` (source_id = uuid) + `qa_template_version` (version) |
 | `section` | A step ("Step 1 — Framing…"), stable UUID | a checklist step |
-| `checkpoint` / `checkpoint-no-value` | Follows each section; plain `checkpoint` marks a formal gate | step flag `checkpoint: boolean` |
-| `button` | An **answerable item**; `Values` = the allowed answers | `qa_check_item`, `input_type='select'`, `options: string[]` |
-| `note` | Instruction / photo prompt ("Take Photos of…") | `qa_check_item`, `input_type='note'` (no answer) |
-| `signoff` | Sign-off / hold point ("Sign off from Shift Leader.") | `qa_signoff` slot |
+| `checkpoint` | A named gate. Flags the step; when its label differs from the section title it is carried onto the sign-off it precedes as `gate` | step flag `checkpoint: boolean` (+ sign-off `gate`) |
+| `checkpoint-no-value` | A subsection heading inside a section. Dropped when it merely repeats the section title (the factory idiom); kept when it names a distinct sub-group ("Passive Fire", "Acoustic") | `heading` item (display only) |
+| `button` | An **answerable item**; `Values` = the allowed answers | `qa_check_item`, `item_type='select'`, `options: string[]` |
+| `textbox` | A free-text field the operator fills in | `qa_check_item`, `item_type='text'` |
+| `date` | A date the operator records | `qa_check_item`, `item_type='date'` |
+| `note` | Display-only instruction / photo prompt ("Take Photos of…") | `note` item (no answer) |
+| `signoff` | Sign-off / hold point ("Sign off from Shift Leader.") | `qa_signoff` slot (`kind='signoff'`) |
+| `signoff:required` | A **mandatory** hold point (site-assembly "SIGN HERE OR REQUEST SIGNOFF") | `qa_signoff` slot (`kind='hold'`), item `required: true` |
 
 **Key correction to the earlier model:** check items are **enumerated
-single-select**, not fixed pass/fail/NA. `Values` carries a per-item option list
-— sometimes `Yes,No` or `Yes,No,Not Applicable`, but often a domain enum
-(`Membrane,Ply H3 17,GIB13,…`; `R2.6,R2.8,R4.1,None`; fixing types; tapes).
-"Pass/Fail" counts are a **derived rollup** (Yes→pass, No→fail, else neutral),
-not the storage model. Every section and item carries a **stable UUID** — the
-natural key for the diff-upsert and for attaching evidence.
+single-select** (`button`) plus free `text`/`date` fields — not fixed
+pass/fail/NA. `Values` carries a per-item option list — sometimes `Yes,No` or
+`Yes,No,Not Applicable`, but often a domain enum (`Membrane,Ply H3 17,GIB13,…`;
+`R2.6,R2.8,R4.1,None`; fixing types; tapes). "Pass/Fail" counts are a **derived
+rollup** (Yes→pass, No→fail, else neutral), not the storage model. Every section
+and item carries a **stable UUID** — the natural key for the diff-upsert and for
+attaching evidence.
+
+**Sign-off labelling.** A section can hold several distinct hold points
+(A_MF's "Final check" has an *Installer* and a *Structural Engineer* gate
+back-to-back). The preceding `checkpoint` names each one, so its label is used as
+the sign-off's display label — clearer than the raw action text ("SIGN HERE OR
+REQUEST SIGNOFF") repeated per row. `heading` items are display-only and are
+**not** materialized as rows; they render from `fields_snapshot`. Only
+`select` / `text` / `date` become answerable `qa_check_item` rows.
 
 The parser's target — one `qa_template_version.fields_json` per version, and the
 value snapshotted into each checklist on instantiation:
@@ -309,14 +322,16 @@ value snapshotted into each checklist on instantiation:
 Keep the **raw imported rows verbatim** alongside the parsed structure (same
 §2.3 hedge) so nothing C-base encodes is lost if the grammar grows.
 
-### 4.3 Project & folder templates — deferred
+### 4.3 Project & folder templates — not a separate import
 
-C-base also exports **project templates** and **folder templates** (a
-`Project Structure` sheet describing tiers/folders for spinning up a *new*
-project). These are **authoring blueprints**, not QA data. In v1 we mirror real
-projects and their structure read-only from C-base and do not author projects
-in-app, so these are **deferred** — they only matter when project *creation*
-moves in-house (Phase 3+). They are not needed for factory QA capture.
+An earlier draft assumed C-base also exports **project** and **folder**
+templates as a distinct `Project Structure` sheet needing its own parser. Having
+now read every uploaded template, that is **not** the case: every QA sheet —
+factory, site, work-package, precut, variation — is the same `Master List
+Templates` grammar above. Project/folder structure is a C-base **authoring**
+convenience that never leaves C-base; in v1 we mirror real projects read-only and
+do not author projects in-app. There is nothing extra to import here, so this is
+closed rather than deferred.
 
 ---
 
@@ -489,7 +504,10 @@ from Phase 1.
   first, cron once predictable — same as the timesheet lookup import). Format is
   now known: **XLSX**, one `Master List Templates` sheet per checklist (§4.2).
 - **PDF approach** (dependency vs. HTML→print) — decide before Phase 2.
-- ~~Check-item value types~~ **Resolved (§4.2):** enumerated single-select with
-  a per-item `options` list, plus `note` and `signoff` row types. Still worth
-  confirming the grammar holds across more factory sheets before freezing the
-  importer, and whether any item needs free-text or numeric input.
+- ~~Check-item value types~~ **Resolved (§4.2), now confirmed across all 25
+  sheets:** enumerated single-select (`button`) plus free `text` and `date`
+  fields, `note` and `heading` display rows, and plain / required / gated
+  sign-offs. The site-assembly, work-package, precut and variation sheets all use
+  this one grammar — there is no second template format. Numeric inputs are
+  modelled as `select` enums in C-base (e.g. timber moisture), so no dedicated
+  number type is needed yet.

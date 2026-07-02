@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   answerQaCheckItemAction,
@@ -149,7 +149,7 @@ export function CaptureClient({ checklist, canCapture, canSign }: CaptureClientP
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [status, setStatus] = useState<QaSignoffStatus>(checklist.status);
-  const [answers, setAnswers] = useState<Record<string, string | null>>(() => {
+  const initialAnswers = () => {
     const initial: Record<string, string | null> = {};
     for (const step of checklist.steps) {
       for (const item of step.items) {
@@ -157,7 +157,12 @@ export function CaptureClient({ checklist, canCapture, canSign }: CaptureClientP
       }
     }
     return initial;
-  });
+  };
+  const [answers, setAnswers] = useState<Record<string, string | null>>(initialAnswers);
+  // Last value known to be persisted server-side, per record. Buttons commit on
+  // click; text/date fields edit locally and commit on blur, so we compare
+  // against this (not the live typing state) to decide what to save/revert to.
+  const persistedRef = useRef<Record<string, string | null>>(initialAnswers());
   const [evidenceByStep, setEvidenceByStep] = useState<Record<string, QaEvidence[]>>(() => {
     const initial: Record<string, QaEvidence[]> = {};
     for (const step of checklist.steps) initial[step.id] = step.evidence;
@@ -180,19 +185,34 @@ export function CaptureClient({ checklist, canCapture, canSign }: CaptureClientP
     else if (value === "No") failCount += 1;
   }
 
-  const selectAnswer = (recordId: string, value: string | null) => {
-    const previous = answers[recordId] ?? null;
-    if (previous === value) return;
-    setError(null);
-    setAnswers((current) => ({ ...current, [recordId]: value }));
-    if (status === "not_started") setStatus("in_progress");
-    startTransition(async () => {
-      const result = await answerQaCheckItemAction(recordId, value);
-      if (!result.ok) {
-        setAnswers((current) => ({ ...current, [recordId]: previous }));
-        setError(result.message ?? "Could not save the answer.");
+  // Optimistic save against the last persisted value. Paints immediately, then
+  // reverts (state + persisted marker) if the write fails.
+  const commitAnswer = useCallback(
+    (recordId: string, value: string | null) => {
+      const previous = persistedRef.current[recordId] ?? null;
+      if (previous === value) {
+        setAnswers((current) => (current[recordId] === value ? current : { ...current, [recordId]: value }));
+        return;
       }
-    });
+      setError(null);
+      setAnswers((current) => ({ ...current, [recordId]: value }));
+      persistedRef.current[recordId] = value;
+      if (status === "not_started") setStatus("in_progress");
+      startTransition(async () => {
+        const result = await answerQaCheckItemAction(recordId, value);
+        if (!result.ok) {
+          persistedRef.current[recordId] = previous;
+          setAnswers((current) => ({ ...current, [recordId]: previous }));
+          setError(result.message ?? "Could not save the answer.");
+        }
+      });
+    },
+    [status, startTransition],
+  );
+
+  // Local-only edit for text/date fields while typing (no save until blur).
+  const editAnswer = (recordId: string, value: string) => {
+    setAnswers((current) => ({ ...current, [recordId]: value }));
   };
 
   const uploadEvidence = async (stepId: string, file: File) => {
@@ -280,6 +300,13 @@ export function CaptureClient({ checklist, canCapture, canSign }: CaptureClientP
 
           <div className="divide-y divide-zinc-100 rounded-md border border-zinc-100">
             {step.items.map((item) => {
+              if (item.type === "heading") {
+                return (
+                  <div key={item.id} className="bg-zinc-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    {item.label}
+                  </div>
+                );
+              }
               if (item.type === "note") {
                 return (
                   <div key={item.id} className="p-3 text-sm text-zinc-600">
@@ -300,15 +327,25 @@ export function CaptureClient({ checklist, canCapture, canSign }: CaptureClientP
                 <div key={item.id} className="grid gap-2 p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                   <span className="text-sm text-zinc-800">{item.label}</span>
                   <div className="sm:justify-self-end">
-                    {recordId ? (
+                    {!recordId ? (
+                      <StatusBadge tone="outline" label="Unavailable" />
+                    ) : item.type === "text" || item.type === "date" ? (
+                      <input
+                        type={item.type === "date" ? "date" : "text"}
+                        aria-label={item.label}
+                        className="w-full rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900 outline-none focus:border-zinc-400 disabled:cursor-not-allowed disabled:opacity-60 sm:w-64"
+                        disabled={!editable}
+                        value={answers[recordId] ?? ""}
+                        onChange={(event) => editAnswer(recordId, event.currentTarget.value)}
+                        onBlur={(event) => commitAnswer(recordId, event.currentTarget.value.trim() || null)}
+                      />
+                    ) : (
                       <AnswerControl
                         item={item}
                         value={answers[recordId] ?? null}
                         disabled={!editable}
-                        onSelect={(value) => selectAnswer(recordId, value)}
+                        onSelect={(value) => commitAnswer(recordId, value)}
                       />
-                    ) : (
-                      <StatusBadge tone="outline" label="Unavailable" />
                     )}
                   </div>
                 </div>

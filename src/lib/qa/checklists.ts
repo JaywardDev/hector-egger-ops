@@ -114,7 +114,12 @@ export const startQaChecklist = async ({
 
 // ---- Checklist detail (read) ----------------------------------------------
 
-type SnapshotItem = { id: string; type: "select" | "note" | "signoff"; label: string; options?: string[] };
+type SnapshotItem = {
+  id: string;
+  type: "select" | "text" | "date" | "note" | "heading" | "signoff";
+  label: string;
+  options?: string[];
+};
 type SnapshotStep = { id: string; title: string; checkpoint?: boolean; items: SnapshotItem[] };
 type Snapshot = { steps?: SnapshotStep[] };
 

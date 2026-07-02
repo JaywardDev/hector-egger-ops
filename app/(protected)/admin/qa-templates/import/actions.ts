@@ -42,6 +42,10 @@ export async function importQaTemplatesAction(
 ): Promise<QaTemplateImportState> {
   const authContext = await requireAdminAccess();
   const mode = formData.get("mode") === "apply" ? "apply" : "dry-run";
+  // When set, a same-version-different-hash file overwrites the stored version
+  // in place instead of being refused as a conflict (used to heal versions after
+  // a parser upgrade; started checklists keep their own snapshot).
+  const replaceConflicts = formData.get("replace") === "on";
 
   try {
     if (!authContext.profile) {
@@ -83,9 +87,17 @@ export async function importQaTemplatesAction(
 
       if (mode === "dry-run") {
         const outcome = await prepareQaTemplateImport(file.name, buffer);
-        results.push({ filename: file.name, action: outcome.action, templateName: parse.fields.name, version: parse.fields.version, errors, warnings });
+        // Surface what an apply *would* do given the replace choice, so the
+        // dry-run badge matches the button the admin is about to press.
+        const action = outcome.action === "version_conflict" && replaceConflicts ? "replaced" : outcome.action;
+        results.push({ filename: file.name, action, templateName: parse.fields.name, version: parse.fields.version, errors, warnings });
       } else {
-        const applied = await applyQaTemplateImport({ actorProfileId: authContext.profile.id, filename: file.name, buffer });
+        const applied = await applyQaTemplateImport({
+          actorProfileId: authContext.profile.id,
+          filename: file.name,
+          buffer,
+          mode: replaceConflicts ? "replace" : "skip",
+        });
         results.push({ filename: file.name, action: applied.action, templateName: parse.fields.name, version: parse.fields.version, errors, warnings });
       }
     }

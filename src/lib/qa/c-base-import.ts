@@ -16,8 +16,20 @@ import { inflateRawSync } from "node:zlib";
 
 // ---- Public types ----------------------------------------------------------
 
-/** C-base row `Type`s that become answerable/renderable template items. */
-export type QaTemplateItemType = "select" | "note" | "signoff";
+/**
+ * C-base row `Type`s that become answerable/renderable template items.
+ *
+ * - `select`   — C-base `button`, pick one of `options`.
+ * - `note`     — C-base `note`, a display-only instruction / photo prompt.
+ * - `text`     — C-base `textbox`, a free-text field the operator fills in.
+ * - `date`     — C-base `date`, a date the operator records.
+ * - `heading`  — C-base `checkpoint-no-value`, a subsection heading *inside* a
+ *                section (only emitted when its label differs from the section
+ *                title — the common "heading repeats the section" case is a
+ *                no-op, which keeps the factory templates byte-identical).
+ * - `signoff`  — C-base `signoff` / `signoff:required`, a sign-off slot.
+ */
+export type QaTemplateItemType = "select" | "note" | "text" | "date" | "heading" | "signoff";
 
 export type QaTemplateItem = {
   /** Stable C-base UUID for the row — the key evidence/answers attach to. */
@@ -26,6 +38,15 @@ export type QaTemplateItem = {
   label: string;
   /** Allowed answers for `select` items (the C-base `Values` list), verbatim. */
   options?: string[];
+  /** `signoff` only: true for `signoff:required` (a mandatory hold point). */
+  required?: boolean;
+  /**
+   * `signoff` only: the label of the `checkpoint` row that immediately gates
+   * this sign-off, when it differs from the section title (e.g. "Structural
+   * Engineer Inspection"). Absent on the factory templates, whose lone
+   * checkpoint repeats the section title.
+   */
+  gate?: string;
 };
 
 export type QaTemplateStep = {
@@ -264,6 +285,11 @@ export const parseQaChecklistTemplate = (buffer: Buffer): QaTemplateParseResult 
   let sawChecklist = false;
   const steps: QaTemplateStep[] = [];
   let currentStep: QaTemplateStep | null = null;
+  // The most recent `checkpoint` label, waiting to gate the next sign-off. Kept
+  // only when it differs from the section title (the factory templates repeat
+  // the title, so nothing is carried and their output is unchanged). Cleared on
+  // a new section and once a sign-off consumes it.
+  let pendingGate: string | null = null;
 
   for (const row of dataRows) {
     const id = (row.cells[0] ?? "").trim();
@@ -291,15 +317,31 @@ export const parseQaChecklistTemplate = (buffer: Buffer): QaTemplateParseResult 
       case "section": {
         currentStep = { id, title: cellName, checkpoint: false, items: [] };
         steps.push(currentStep);
+        pendingGate = null;
         break;
       }
       case "checkpoint": {
-        if (currentStep) currentStep.checkpoint = true;
-        else warnings.push({ rowNumber: row.rowNumber, field: "Type", message: "checkpoint row before any section." });
+        // A named gate. On the factory templates the lone checkpoint repeats the
+        // section title and just flags the step; on the site templates a section
+        // can hold several distinct checkpoints, each labelling the sign-off that
+        // follows it (so the label is carried forward, but only when it adds
+        // information beyond the section title).
+        if (currentStep) {
+          currentStep.checkpoint = true;
+          pendingGate = cellName && cellName !== currentStep.title ? cellName : null;
+        } else {
+          warnings.push({ rowNumber: row.rowNumber, field: "Type", message: "checkpoint row before any section." });
+        }
         break;
       }
       case "checkpoint-no-value": {
-        // Section-level marker with no input; the section row already models it.
+        // A subsection heading inside a section. When it merely repeats the
+        // section title (the factory pattern) it carries no information, so it is
+        // dropped — that keeps those templates byte-identical. When it names a
+        // distinct sub-group ("Passive Fire", "Acoustic") it becomes a heading.
+        if (currentStep && cellName && cellName !== currentStep.title) {
+          currentStep.items.push({ id, type: "heading", label: cellName });
+        }
         break;
       }
       case "button": {
@@ -312,10 +354,7 @@ export const parseQaChecklistTemplate = (buffer: Buffer): QaTemplateParseResult 
         currentStep.items.push({ id, type: "select", label: cellName, options });
         break;
       }
-      case "note":
-      case "textbox": {
-        // `textbox` carries an instruction (no Values in the observed exports),
-        // so it is treated like a note. The original type is kept in `raw`.
+      case "note": {
         if (!currentStep) {
           warnings.push({ rowNumber: row.rowNumber, field: "Type", message: "Note before any section; skipped." });
           break;
@@ -323,12 +362,35 @@ export const parseQaChecklistTemplate = (buffer: Buffer): QaTemplateParseResult 
         currentStep.items.push({ id, type: "note", label: cellName });
         break;
       }
-      case "signoff": {
+      case "textbox": {
+        // A free-text field the operator fills in (distinct from `note`, which is
+        // display-only). The original type is preserved verbatim in `raw`.
+        if (!currentStep) {
+          warnings.push({ rowNumber: row.rowNumber, field: "Type", message: "Text field before any section; skipped." });
+          break;
+        }
+        currentStep.items.push({ id, type: "text", label: cellName });
+        break;
+      }
+      case "date": {
+        if (!currentStep) {
+          warnings.push({ rowNumber: row.rowNumber, field: "Type", message: "Date field before any section; skipped." });
+          break;
+        }
+        currentStep.items.push({ id, type: "date", label: cellName });
+        break;
+      }
+      case "signoff":
+      case "signoff:required": {
         if (!currentStep) {
           warnings.push({ rowNumber: row.rowNumber, field: "Type", message: "Sign-off before any section; skipped." });
           break;
         }
-        currentStep.items.push({ id, type: "signoff", label: cellName });
+        const item: QaTemplateItem = { id, type: "signoff", label: cellName };
+        if (type === "signoff:required") item.required = true;
+        if (pendingGate) item.gate = pendingGate;
+        currentStep.items.push(item);
+        pendingGate = null;
         break;
       }
       default: {
