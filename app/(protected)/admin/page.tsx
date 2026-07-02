@@ -40,6 +40,22 @@ export default async function AdminPage() {
       </Card>
     
       <Card>
+        <h2 className="text-lg font-semibold text-zinc-950">QA checklist templates</h2>
+        <p className="mt-1 text-sm text-zinc-600">Browse imported CONQA checklist templates and their versions, with recent import history.</p>
+        <Link className="mt-3 inline-flex rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" href="/admin/qa-templates">
+          Open QA templates
+        </Link>
+      </Card>
+
+      <Card>
+        <h2 className="text-lg font-semibold text-zinc-950">QA checklist template import</h2>
+        <p className="mt-1 text-sm text-zinc-600">Validate and version CONQA checklist templates. Append-only: a changed template creates a new version and never rewrites an existing one.</p>
+        <Link className="mt-3 inline-flex rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" href="/admin/qa-templates/import">
+          Open QA template import
+        </Link>
+      </Card>
+
+      <Card>
         <h2 className="text-lg font-semibold text-zinc-950">Stock take export history</h2>
         <p className="mt-1 text-sm text-zinc-600">Review a log of every stock take export that has been generated, including who exported it and when.</p>
         <Link className="mt-3 inline-flex rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" href="/admin/stock-take-exports">
