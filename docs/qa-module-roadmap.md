@@ -162,6 +162,11 @@ off online; signed records are immutable; every action is audited.
 
 ## Phase 2 — QA report generation (PDF)
 
+> **Design note:** `docs/qa-report-design.md` — settles the render-library
+> decision (recommends `@react-pdf/renderer`, HTML→print as fallback), data
+> sourcing from the frozen snapshot, reproducibility, and route reuse. Layout is
+> pending the real CONQA report as reference.
+
 **Goal:** reproducible per-lot/per-project QA report export.
 - [ ] **Decide the PDF approach up front** (design §5.2 flag): a dependency
       (`pdf-lib` / React-PDF) vs. HTML→print. No PDF lib exists and hand-rolling
