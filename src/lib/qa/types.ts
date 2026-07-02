@@ -75,6 +75,8 @@ export type QaCheckItem = {
   options?: string[];
   /** The chosen value on this checklist instance; null = not yet answered. */
   selected_value?: string | null;
+  /** The qa_check_item row id on this instance (answer target). */
+  record_id?: string;
 };
 
 export type QaCheckStep = {

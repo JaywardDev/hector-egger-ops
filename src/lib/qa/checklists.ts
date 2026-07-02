@@ -144,7 +144,7 @@ export const getQaChecklistDetail = async (
   )[0];
   if (!checklist) return null;
 
-  const [projectRows, sectionRows, versionRows, itemRows] = await Promise.all([
+  const [projectRows, sectionRows, versionRows, itemRows, evidenceRows, signoffRows] = await Promise.all([
     readJson<{ source_project_ref: string | null; name: string; lot_code: string | null }>(
       await supabase.request(
         `/rest/v1/qa_project?id=eq.${checklist.project_id}&select=source_project_ref,name,lot_code&limit=1`,
@@ -165,16 +165,47 @@ export const getQaChecklistDetail = async (
         { cache: "no-store", headers },
       ),
     ),
-    readJson<{ source_item_id: string; selected_value: string | null }>(
+    readJson<{ id: string; source_item_id: string; selected_value: string | null }>(
       await supabase.request(
-        `/rest/v1/qa_check_item?checklist_id=eq.${checklist.id}&select=source_item_id,selected_value`,
+        `/rest/v1/qa_check_item?checklist_id=eq.${checklist.id}&select=id,source_item_id,selected_value`,
+        { cache: "no-store", headers },
+      ),
+    ),
+    readJson<{ id: string; source_step_id: string | null; caption: string | null; added_by_profile_id: string | null; created_at: string }>(
+      await supabase.request(
+        `/rest/v1/qa_evidence?checklist_id=eq.${checklist.id}&select=id,source_step_id,caption,added_by_profile_id,created_at&order=created_at.asc`,
+        { cache: "no-store", headers },
+      ),
+    ),
+    readJson<{ id: string; label: string; kind: "signoff" | "hold" | "witness"; status: "pending" | "signed" | "returned"; signed_by_profile_id: string | null; signed_at: string | null }>(
+      await supabase.request(
+        `/rest/v1/qa_signoff?checklist_id=eq.${checklist.id}&select=id,label,kind,status,signed_by_profile_id,signed_at&order=created_at.asc`,
         { cache: "no-store", headers },
       ),
     ),
   ]);
 
   const project = projectRows[0];
-  const answerBySourceId = new Map(itemRows.map((row) => [row.source_item_id, row.selected_value]));
+  const rowBySourceId = new Map(itemRows.map((row) => [row.source_item_id, row]));
+
+  // Resolve actor names for evidence attribution + sign-offs in one query.
+  const profileIds = [
+    ...new Set(
+      [
+        ...evidenceRows.map((row) => row.added_by_profile_id),
+        ...signoffRows.map((row) => row.signed_by_profile_id),
+      ].filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const profileRows = profileIds.length
+    ? await readJson<{ id: string; full_name: string | null; email: string }>(
+        await supabase.request(
+          `/rest/v1/profiles?id=in.(${profileIds.join(",")})&select=id,full_name,email`,
+          { cache: "no-store", headers },
+        ),
+      )
+    : [];
+  const profileName = new Map(profileRows.map((row) => [row.id, row.full_name ?? row.email]));
 
   let passCount = 0;
   let failCount = 0;
@@ -183,19 +214,35 @@ export const getQaChecklistDetail = async (
     else if (row.selected_value === "No") failCount += 1;
   }
 
+  const evidenceByStep = new Map<string, typeof evidenceRows>();
+  for (const row of evidenceRows) {
+    const key = row.source_step_id ?? "";
+    const list = evidenceByStep.get(key) ?? [];
+    list.push(row);
+    evidenceByStep.set(key, list);
+  }
+
   const steps: QaCheckStep[] = (checklist.fields_snapshot.steps ?? []).map((step) => ({
     id: step.id,
     title: step.title,
     checkpoint: step.checkpoint ?? false,
-    items: step.items.map((item) => ({
-      id: item.id,
-      type: item.type,
-      label: item.label,
-      options: item.options,
-      selected_value: answerBySourceId.get(item.id) ?? null,
+    items: step.items.map((item) => {
+      const row = rowBySourceId.get(item.id);
+      return {
+        id: item.id,
+        type: item.type,
+        label: item.label,
+        options: item.options,
+        selected_value: row?.selected_value ?? null,
+        record_id: row?.id,
+      };
+    }),
+    evidence: (evidenceByStep.get(step.id) ?? []).map((row) => ({
+      id: row.id,
+      caption: row.caption ?? "Photo",
+      added_by: row.added_by_profile_id ? profileName.get(row.added_by_profile_id) ?? "—" : "—",
+      added_at: formatDate(row.created_at),
     })),
-    // Evidence rendering arrives with the capture phase (#1c); none exists yet.
-    evidence: [],
   }));
 
   return {
@@ -214,8 +261,18 @@ export const getQaChecklistDetail = async (
     lot_code: project?.lot_code ?? null,
     section_name: sectionRows[0]?.name ?? null,
     steps,
-    // Sign-off records exist in qa_signoff; rendering/acting on them arrives with
-    // the sign-off phase (#1d). Signoff rows still render in-step for now.
-    hold_points: [],
+    hold_points: signoffRows.map((row) => ({
+      id: row.id,
+      label: row.label,
+      kind: row.kind === "witness" ? ("witness" as const) : ("hold" as const),
+      status:
+        row.status === "signed"
+          ? ("signed_off" as const)
+          : row.status === "returned"
+            ? ("in_progress" as const)
+            : ("awaiting_signoff" as const),
+      signed_by: row.signed_by_profile_id ? profileName.get(row.signed_by_profile_id) : undefined,
+      signed_at: row.signed_at ? formatDate(row.signed_at) : undefined,
+    })),
   };
 };
