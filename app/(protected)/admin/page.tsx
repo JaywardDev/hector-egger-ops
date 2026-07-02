@@ -1,8 +1,8 @@
-import Link from "next/link";
+import { ChartColumn, CircleCheck, Clock3, History, List, StickyNote, User } from "@/components/icons/lucide-react";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
-import { Card } from "@/src/components/ui/card";
 import { requireAdminAccess } from "@/src/lib/auth/guards";
+import { AdminToolCard, AdminToolSection } from "./_components/admin-tool-card";
 
 export default async function AdminPage() {
   await requireAdminAccess();
@@ -10,66 +10,67 @@ export default async function AdminPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Admin"
-        description="Admin tools for user access management and C Base timesheet lookup imports."
+        accent
+        eyebrow="Administration"
+        title="Admin workspace"
+        description="Manage user access, keep C Base timesheet and QA data in sync, and generate operational exports."
       />
 
-      <Card>
-        <h2 className="text-lg font-semibold text-zinc-950">User management</h2>
-        <p className="mt-1 text-sm text-zinc-600">Review pending access requests, assign roles and staff groups, and manage approved or disabled accounts.</p>
-        <Link className="mt-3 inline-flex rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" href="/admin/users">
-          Open user management
-        </Link>
-      </Card>
+      <AdminToolSection title="Access">
+        <AdminToolCard
+          href="/admin/users"
+          icon={User}
+          title="User management"
+          description="Review pending access requests, assign roles and staff groups, and manage approved or disabled accounts."
+        />
+      </AdminToolSection>
 
+      <AdminToolSection title="Timesheets">
+        <AdminToolCard
+          href="/admin/timesheet-lookups"
+          icon={List}
+          title="Timesheet lookups"
+          description="Browse synced projects and tasks with read-only filters, sorting, and pagination."
+        />
+        <AdminToolCard
+          href="/admin/timesheet-lookups/import"
+          icon={Clock3}
+          tag="Import"
+          title="C Base import"
+          description="Validate and sync C Base BuildingsExport and CostcodesExport snapshots for timesheet projects and tasks."
+        />
+      </AdminToolSection>
 
-      <Card>
-        <h2 className="text-lg font-semibold text-zinc-950">Timesheet lookups</h2>
-        <p className="mt-1 text-sm text-zinc-600">Browse synced projects and tasks with read-only filters, sorting, and pagination.</p>
-        <Link className="mt-3 inline-flex rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" href="/admin/timesheet-lookups">
-          Open timesheet lookups
-        </Link>
-      </Card>
+      <AdminToolSection title="Quality assurance">
+        <AdminToolCard
+          href="/admin/qa-templates"
+          icon={CircleCheck}
+          title="QA checklist templates"
+          description="Browse imported checklist templates and their versions, with recent import history."
+        />
+        <AdminToolCard
+          href="/admin/qa-templates/import"
+          icon={StickyNote}
+          tag="Import"
+          title="QA template import"
+          description="Validate and version checklist templates from C-base. Append-only: a changed template creates a new version and never rewrites an existing one."
+        />
+      </AdminToolSection>
 
-      <Card>
-        <h2 className="text-lg font-semibold text-zinc-950">Timesheet lookup imports</h2>
-        <p className="mt-1 text-sm text-zinc-600">Validate and sync C Base BuildingsExport and CostcodesExport snapshots for timesheet projects and tasks.</p>
-        <Link className="mt-3 inline-flex rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" href="/admin/timesheet-lookups/import">
-          Open C Base import
-        </Link>
-      </Card>
-    
-      <Card>
-        <h2 className="text-lg font-semibold text-zinc-950">QA checklist templates</h2>
-        <p className="mt-1 text-sm text-zinc-600">Browse imported checklist templates and their versions, with recent import history.</p>
-        <Link className="mt-3 inline-flex rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" href="/admin/qa-templates">
-          Open QA templates
-        </Link>
-      </Card>
-
-      <Card>
-        <h2 className="text-lg font-semibold text-zinc-950">QA checklist template import</h2>
-        <p className="mt-1 text-sm text-zinc-600">Validate and version checklist templates imported from C-base. Append-only: a changed template creates a new version and never rewrites an existing one.</p>
-        <Link className="mt-3 inline-flex rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" href="/admin/qa-templates/import">
-          Open QA template import
-        </Link>
-      </Card>
-
-      <Card>
-        <h2 className="text-lg font-semibold text-zinc-950">Stock take export history</h2>
-        <p className="mt-1 text-sm text-zinc-600">Review a log of every stock take export that has been generated, including who exported it and when.</p>
-        <Link className="mt-3 inline-flex rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" href="/admin/stock-take-exports">
-          Open export history
-        </Link>
-      </Card>
-
-      <Card>
-        <h2 className="text-lg font-semibold text-zinc-950">Payroll cutoff export</h2>
-        <p className="mt-1 text-sm text-zinc-600">Generate weekly payroll cutoff XLSX exports for approved staff and approved timesheet statuses.</p>
-        <Link className="mt-3 inline-flex rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" href="/admin/payroll-export">
-          Open payroll export
-        </Link>
-      </Card>
-</PageContainer>
+      <AdminToolSection title="Exports & payroll">
+        <AdminToolCard
+          href="/admin/stock-take-exports"
+          icon={History}
+          title="Stock take export history"
+          description="Review a log of every stock take export that has been generated, including who exported it and when."
+        />
+        <AdminToolCard
+          href="/admin/payroll-export"
+          icon={ChartColumn}
+          title="Payroll cutoff export"
+          description="Generate weekly payroll cutoff XLSX exports for approved staff and approved timesheet statuses."
+        />
+      </AdminToolSection>
+    </PageContainer>
   );
 }
