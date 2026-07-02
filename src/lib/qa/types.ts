@@ -2,9 +2,8 @@
 // Project is the universal top container; Lot is metadata (not a level);
 // Work Package is an optional in-project Section (one level deep, no recursion).
 //
-// NOTE: these types describe the *view* shape the pages consume. Once the
-// C-base import + Supabase migration land, a real data layer will return these
-// same shapes from Postgres. Until then they are served from preview-data.ts.
+// NOTE: these types describe the *view* shape the pages consume. They are served
+// live from Postgres by src/lib/qa/{projects,checklists}.ts.
 
 export type QaSignoffStatus =
   | "not_started"

@@ -4,7 +4,7 @@ import { Card } from "@/src/components/ui/card";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { requireQaReadAccess } from "@/src/lib/qa/access";
-import { getQaChecklist } from "@/src/lib/qa/preview-data";
+import { getQaChecklistDetail } from "@/src/lib/qa/checklists";
 import type { QaHoldPoint } from "@/src/lib/qa/types";
 import { QA_EYEBROW } from "@/src/lib/qa/ui-contract";
 import {
@@ -48,9 +48,9 @@ function HoldPointRow({ holdPoint }: { holdPoint: QaHoldPoint }) {
 export default async function QaChecklistPage({ params }: QaChecklistPageProps) {
   const { checklistId } = await params;
   const route = "/qa/checklists";
-  await requireQaReadAccess(route);
+  const { session } = await requireQaReadAccess(route);
 
-  const checklist = getQaChecklist(checklistId);
+  const checklist = await getQaChecklistDetail(session, checklistId);
   if (!checklist) {
     notFound();
   }
