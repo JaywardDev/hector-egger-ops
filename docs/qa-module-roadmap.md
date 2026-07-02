@@ -53,6 +53,15 @@ CONQA or any external tooling.
       `set_current_timestamp_updated_at` trigger. **Reuse:** existing trigger fn.
 
 ### 0.3 QA authorization model (isolated, per design §3)
+> **Decision (parked hold point):** the rich per-hold-point authority is **not**
+> being built for now while user handling is still being sorted. Accepted interim
+> model: **shared identity (the same `profiles` / `user_roles` the timesheet
+> feature uses), and any admin/supervisor may sign.** The signer's identity and
+> timestamp are captured immutably (`qa_signoff.signed_by_profile_id` /
+> `signed_at` + the append-only `qa_signoff_event` ledger) and surface in the
+> Phase 2 report — which is the only hard requirement. The tables/helpers below
+> become an **additive** layer on the same identity if management later wants
+> stricter, per-signer authority; nothing here needs re-plumbing to get there.
 - [ ] Tables `qa_assignment(profile_id, project_id, qa_role)`,
       `qa_signoff_authority(...)`, `qa_person_link(source_person_ref, profile_id)`.
 - [ ] QA RLS helper functions, security-definer, reading **only** QA tables:
@@ -203,7 +212,12 @@ off online; signed records are immutable; every action is audited.
 
 ## Open questions to close before/at Phase 1 (from design §11)
 - [ ] C-base export **format + cadence** for sheet definitions and authority.
-- [ ] Identity-mapping **key** (email vs. a stable C-base user id).
-- [ ] Unknown-login QA people: provision vs. read-only-until-matched.
+- [x] ~~Authority model~~ **Parked (see §0.3):** any admin/supervisor signs,
+      shared timesheet identity, signer captured immutably for the report.
+      Revisit only if management wants stricter per-signer authority.
+- [ ] Identity-mapping **key** (email vs. a stable C-base user id). *(Moot while
+      authority is parked — shared `profiles` is the identity source.)*
+- [ ] Unknown-login QA people: provision vs. read-only-until-matched. *(Moot
+      while parked.)*
 - [ ] Check-item **value types** (pass/fail/NA vs. numeric measurement vs. text).
 - [ ] **PDF** approach (dependency vs. HTML→print) — before Phase 2.
