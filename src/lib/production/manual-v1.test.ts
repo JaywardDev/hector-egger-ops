@@ -94,7 +94,7 @@ test("reason management links are hidden unless the user has a reason admin role
   const productionPage = readFileSync(join(repoRoot, "app/(protected)/production/page.tsx"), "utf8");
   const dashboardPage = readFileSync(join(repoRoot, "app/(protected)/dashboard/page.tsx"), "utf8");
   assert.match(productionPage, /const canManageReasons = hasProductionReasonAdminRole\(roles\)/);
-  assert.match(productionPage, /canManageReasons \? \([\s\S]*Manage reasons/);
+  assert.match(productionPage, /canManageReasons \? [\s\S]*Manage reasons/);
   assert.match(dashboardPage, /const canManageReasons = hasProductionReasonAdminRole\(roles\)/);
   assert.match(dashboardPage, /canManageReasons \? <Link[\s\S]*Reason Management/);
 });
@@ -250,12 +250,12 @@ test("project-file uniqueness treats null project_sequence as not distinct per p
 });
 
 test("project-file dropdown labels include project name", () => {
-  const form = readFileSync(join(repoRoot, "app/(protected)/production/components/production-entry-form.tsx"), "utf8");
+  const picker = readFileSync(join(repoRoot, "app/(protected)/production/components/entry-fields.tsx"), "utf8");
   const types = readFileSync(join(repoRoot, "src/lib/production/types.ts"), "utf8");
   const projects = readFileSync(join(repoRoot, "src/lib/production/projects.ts"), "utf8");
   assert.match(types, /project_name: string/);
   assert.match(projects, /production_projects\(project_name\)/);
-  assert.match(form, /project\.project_name} — \{project\.project_file/);
+  assert.match(picker, /projectFileSummary\(selected\)[\s\S]*— \{selected\.project_name/);
 });
 
 test("formatMinutesAsDuration renders HH:MM durations without wrapping at 24 hours", async () => {
@@ -373,7 +373,7 @@ test("production performance dashboard helpers calculate safe KPIs, grouped char
 
 test("production dashboard page exposes required sections and does not reintroduce import links", () => {
   const page = readFileSync(join(repoRoot, "app/(protected)/production/page.tsx"), "utf8");
-  assert.match(page, /Production Performance Dashboard/);
+  assert.match(page, /Performance Dashboard/);
   assert.match(page, /Total Volume Cut/);
   assert.match(page, /Monthly Volume/);
   assert.match(page, /Daily Output/);
