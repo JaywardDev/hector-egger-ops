@@ -6,7 +6,7 @@ import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
 import { SectionHeader } from "@/src/components/layout/section-header";
 import { requireQaReadAccess } from "@/src/lib/qa/access";
-import { getQaProject } from "@/src/lib/qa/preview-data";
+import { getQaProjectDetail } from "@/src/lib/qa/projects";
 import type { QaChecklistSummary, QaSection } from "@/src/lib/qa/types";
 import { QA_EYEBROW } from "@/src/lib/qa/ui-contract";
 import { BackLink, PreviewAction, RowLink, SignoffBadge } from "../../components/qa-ui";
@@ -37,9 +37,9 @@ function groupChecklists(
 export default async function QaProjectPage({ params }: QaProjectPageProps) {
   const { projectId } = await params;
   const route = "/qa/projects";
-  await requireQaReadAccess(route);
+  const { session } = await requireQaReadAccess(route);
 
-  const project = getQaProject(projectId);
+  const project = await getQaProjectDetail(session, projectId);
   if (!project) {
     notFound();
   }

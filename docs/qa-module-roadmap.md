@@ -203,7 +203,7 @@ off online; signed records are immutable; every action is audited.
 
 ## Open questions to close before/at Phase 1 (from design §11)
 - [ ] C-base export **format + cadence** for sheet definitions and authority.
-- [ ] Identity-mapping **key** (email vs. a stable CONQA user id).
+- [ ] Identity-mapping **key** (email vs. a stable C-base user id).
 - [ ] Unknown-login QA people: provision vs. read-only-until-matched.
 - [ ] Check-item **value types** (pass/fail/NA vs. numeric measurement vs. text).
 - [ ] **PDF** approach (dependency vs. HTML→print) — before Phase 2.

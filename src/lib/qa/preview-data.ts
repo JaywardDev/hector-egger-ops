@@ -7,8 +7,8 @@
 // queries later is a drop-in change and the pages don't move.
 //
 // Shape follows Option C (docs/qa-module-design.md §2). Numbers/names are
-// modelled on the CONQA "260013 - Cardrona - Type A - Lot 306" reference so the
-// screen feels familiar to people who have used CONQA.
+// modelled on the "260013 - Cardrona - Type A - Lot 306" sample so the screen
+// feels familiar to the team.
 
 import type {
   QaChecklistDetail,
@@ -89,7 +89,7 @@ const PROJECTS: QaProjectDetail[] = [
 const CHECKLIST_DETAILS: Record<string, QaChecklistDetail> = {
   // Faithful to the real factory template "EWi0e1 - 0 Internal Layer -
   // 1 External Layer - Batts" (external-wall panel assembly QA), version 2.
-  // Items are enumerated single-select with the actual CONQA option lists; note
+  // Items are enumerated single-select with the actual C-base option lists; note
   // rows are photo prompts; the final step is a checkpoint with a sign-off.
   "ew-0001": {
     id: "ew-0001",

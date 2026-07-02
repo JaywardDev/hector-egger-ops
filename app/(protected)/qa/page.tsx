@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Alert } from "@/src/components/ui/alert";
 import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
 import { FormField } from "@/src/components/ui/form-field";
@@ -8,15 +7,10 @@ import { OperationalListRow } from "@/src/components/ui/operational-list-row";
 import { Select } from "@/src/components/ui/select";
 import { PageContainer } from "@/src/components/layout/page-container";
 import { PageHeader } from "@/src/components/layout/page-header";
+import { isAdmin } from "@/src/lib/permissions/roles";
 import { requireQaReadAccess } from "@/src/lib/qa/access";
-import { listQaProjects } from "@/src/lib/qa/preview-data";
-import type { QaSignoffStatus } from "@/src/lib/qa/types";
-import {
-  QA_EYEBROW,
-  QA_LIST_DESCRIPTION,
-  QA_LIST_TITLE,
-  QA_PREVIEW_NOTICE,
-} from "@/src/lib/qa/ui-contract";
+import { listQaProjects } from "@/src/lib/qa/projects";
+import { QA_EYEBROW, QA_LIST_DESCRIPTION, QA_LIST_TITLE } from "@/src/lib/qa/ui-contract";
 import { SignoffBadge, StatCard } from "./components/qa-ui";
 
 type QaProjectsPageProps = {
@@ -31,10 +25,11 @@ const STATUS_FILTERS: { value: string; label: string }[] = [
 
 export default async function QaProjectsPage({ searchParams }: QaProjectsPageProps) {
   const route = "/qa";
-  await requireQaReadAccess(route);
+  const { session, roles } = await requireQaReadAccess(route);
   const params = (await searchParams) ?? {};
+  const canManage = isAdmin({ roles });
 
-  const projects = listQaProjects();
+  const projects = await listQaProjects(session);
   const q = (params.q ?? "").trim().toLowerCase();
   const status = (params.status ?? "all").trim();
 
@@ -44,9 +39,7 @@ export default async function QaProjectsPage({ searchParams }: QaProjectsPagePro
       `${project.project_ref} ${project.name} ${project.lot_code ?? ""}`.toLowerCase().includes(q);
     const matchesStatus =
       status === "all" ||
-      (status === "signed_off"
-        ? project.status === "signed_off"
-        : project.status !== "signed_off");
+      (status === "signed_off" ? project.status === "signed_off" : project.status !== "signed_off");
     return matchesSearch && matchesStatus;
   });
 
@@ -66,18 +59,22 @@ export default async function QaProjectsPage({ searchParams }: QaProjectsPagePro
         eyebrow={QA_EYEBROW}
         title={QA_LIST_TITLE}
         description={QA_LIST_DESCRIPTION}
+        actions={
+          canManage ? (
+            <Link
+              href="/qa/projects/new"
+              className="inline-flex items-center justify-center rounded-md border border-[var(--he-black)] bg-[var(--he-black)] px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:border-[var(--he-charcoal)] hover:bg-[var(--he-charcoal)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--he-yellow)]"
+            >
+              New project
+            </Link>
+          ) : null
+        }
       />
-
-      <Alert variant="info">{QA_PREVIEW_NOTICE}</Alert>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard label="Projects" value={projects.length} hint="Top-level QA containers" />
         <StatCard label="Checklists" value={totals.checklists} hint="Across all projects" />
-        <StatCard
-          label="Open hold points"
-          value={totals.holdPoints}
-          hint="Awaiting sign-off"
-        />
+        <StatCard label="Open hold points" value={totals.holdPoints} hint="Awaiting sign-off" />
       </div>
 
       <Card>
@@ -103,7 +100,20 @@ export default async function QaProjectsPage({ searchParams }: QaProjectsPagePro
         </form>
       </Card>
 
-      {filtered.length === 0 ? (
+      {projects.length === 0 ? (
+        <Card>
+          <p className="text-sm text-zinc-600">
+            No QA projects yet.{" "}
+            {canManage ? (
+              <>
+                Create the first one with <span className="font-medium text-zinc-900">New project</span>.
+              </>
+            ) : (
+              "A manager needs to create a project before checklists can be added."
+            )}
+          </p>
+        </Card>
+      ) : filtered.length === 0 ? (
         <Card>
           <p className="text-sm text-zinc-500">No projects match your filters.</p>
         </Card>
@@ -125,7 +135,7 @@ export default async function QaProjectsPage({ searchParams }: QaProjectsPagePro
                     {project.hold_points_open > 0 ? (
                       <Badge variant="warning">{project.hold_points_open} hold points</Badge>
                     ) : null}
-                    <SignoffBadge status={project.status as QaSignoffStatus} />
+                    <SignoffBadge status={project.status} />
                     <span className="text-xs text-zinc-500">Updated {project.updated_at}</span>
                   </>
                 }

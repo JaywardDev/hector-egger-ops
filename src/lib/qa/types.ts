@@ -13,7 +13,7 @@ export type QaSignoffStatus =
   | "signed_off";
 
 // Check items are enumerated single-select (not fixed pass/fail) plus two
-// non-answerable row types, matching the real CONQA template grammar
+// non-answerable row types, matching the real C-base template grammar
 // (docs/qa-module-design.md §4.2): `select` = pick one of `options`, `note` =
 // instruction / photo prompt, `signoff` = a sign-off / hold-point slot.
 export type QaItemType = "select" | "note" | "signoff";
@@ -23,7 +23,7 @@ export type QaHoldPointKind = "hold" | "witness";
 /** Row in the QA project list. */
 export type QaProjectSummary = {
   id: string;
-  /** External CONQA/C-base project reference, e.g. "260013". */
+  /** External C-base project reference, e.g. "260013". */
   project_ref: string;
   /** Human name, e.g. "Cardrona - Type A". */
   name: string;
@@ -72,7 +72,7 @@ export type QaCheckItem = {
   id: string;
   type: QaItemType;
   label: string;
-  /** Allowed answers for `select` items (the CONQA `Values` list). */
+  /** Allowed answers for `select` items (the C-base `Values` list). */
   options?: string[];
   /** The chosen value on this checklist instance; null = not yet answered. */
   selected_value?: string | null;
@@ -81,7 +81,7 @@ export type QaCheckItem = {
 export type QaCheckStep = {
   id: string;
   title: string;
-  /** True when the step is a formal checkpoint/gate (CONQA `checkpoint` row). */
+  /** True when the step is a formal checkpoint/gate (C-base `checkpoint` row). */
   checkpoint?: boolean;
   items: QaCheckItem[];
   evidence: QaEvidence[];

@@ -36,7 +36,7 @@ export function ItemValue({ value }: { value: string | null | undefined }) {
 }
 
 // Renders one template row by its type (select / note / signoff), matching the
-// CONQA grammar (docs/qa-module-design.md §4.2).
+// C-base grammar (docs/qa-module-design.md §4.2).
 export function StepItemRow({ item }: { item: QaCheckItem }) {
   if (item.type === "note") {
     return (

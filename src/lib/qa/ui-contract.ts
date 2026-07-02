@@ -5,7 +5,7 @@ export const QA_EYEBROW = "Quality Assurance";
 
 export const QA_LIST_TITLE = "QA Projects";
 export const QA_LIST_DESCRIPTION =
-  "Inspection checklists, hold-point sign-off, and evidence — replacing CONQA, in the platform's own workflow.";
+  "Inspection checklists, hold-point sign-off, and evidence — the platform's own QA workflow.";
 
 // Shown while the module runs on placeholder data, before the C-base import and
 // Supabase migration land. Remove once real data is wired in.

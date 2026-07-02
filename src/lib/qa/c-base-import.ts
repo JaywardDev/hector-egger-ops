@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { inflateRawSync } from "node:zlib";
 
-// Phase 1a — QA checklist template parser (C-base / CONQA export → fields_json).
+// Phase 1a — QA checklist template parser (C-base export → fields_json).
 //
-// Turns a CONQA checklist-template .xlsx (one "Master List Templates" sheet)
+// Turns a C-base checklist-template .xlsx (one "Master List Templates" sheet)
 // into the versioned `fields_json` shape defined in docs/qa-module-design.md
 // §4.2, plus a stable content hash for the versioned upsert and the raw rows
 // kept verbatim (the §2.3 hedge). Pure and dependency-light so it is trivially
@@ -16,22 +16,22 @@ import { inflateRawSync } from "node:zlib";
 
 // ---- Public types ----------------------------------------------------------
 
-/** CONQA row `Type`s that become answerable/renderable template items. */
+/** C-base row `Type`s that become answerable/renderable template items. */
 export type QaTemplateItemType = "select" | "note" | "signoff";
 
 export type QaTemplateItem = {
-  /** Stable CONQA UUID for the row — the key evidence/answers attach to. */
+  /** Stable C-base UUID for the row — the key evidence/answers attach to. */
   id: string;
   type: QaTemplateItemType;
   label: string;
-  /** Allowed answers for `select` items (the CONQA `Values` list), verbatim. */
+  /** Allowed answers for `select` items (the C-base `Values` list), verbatim. */
   options?: string[];
 };
 
 export type QaTemplateStep = {
   id: string;
   title: string;
-  /** True when the section is a formal checkpoint/gate (CONQA `checkpoint`). */
+  /** True when the section is a formal checkpoint/gate (C-base `checkpoint`). */
   checkpoint: boolean;
   items: QaTemplateItem[];
 };
@@ -44,7 +44,7 @@ export type QaTemplateFields = {
   steps: QaTemplateStep[];
 };
 
-/** A verbatim copy of one sheet row (the hedge — nothing CONQA sends is lost). */
+/** A verbatim copy of one sheet row (the hedge — nothing C-base sends is lost). */
 export type QaTemplateRawRow = {
   rowNumber: number;
   id: string;
@@ -221,7 +221,7 @@ const parseChecklistId = (id: string): { sourceId: string; version: number | nul
 };
 
 /**
- * Parse a CONQA checklist-template workbook into `fields_json` + a content hash.
+ * Parse a C-base checklist-template workbook into `fields_json` + a content hash.
  * Never throws — problems surface as `errors` (fatal) / `warnings` (non-fatal).
  */
 export const parseQaChecklistTemplate = (buffer: Buffer): QaTemplateParseResult => {

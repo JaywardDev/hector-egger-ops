@@ -37,7 +37,7 @@ export function QaTemplateImportClient() {
       <Card>
         <h2 className="text-lg font-semibold text-zinc-900">Upload checklist templates</h2>
         <p className="mt-1 text-sm text-zinc-600">
-          Each .xlsx is one CONQA checklist template (a &ldquo;Master List Templates&rdquo; sheet). Select one or more.
+          Each .xlsx is one C-base checklist template (a &ldquo;Master List Templates&rdquo; sheet). Select one or more.
           Validation runs before anything is written, and an unchanged template is a no-op.
         </p>
 
@@ -90,8 +90,8 @@ export function QaTemplateImportClient() {
 
                 {result.action === "version_conflict" ? (
                   <p className="mt-2 text-xs text-red-700">
-                    A different template already exists at this version. CONQA likely edited it without bumping the
-                    version — the stored version was kept. Bump the version in CONQA and re-export.
+                    A different template already exists at this version. The template was likely edited in C-base
+                    without bumping the version — the stored version was kept. Bump the version in C-base and re-export.
                   </p>
                 ) : null}
 

@@ -60,7 +60,7 @@ export async function importQaTemplatesAction(
         continue;
       }
       if (file.size <= 0) {
-        results.push(invalidResult(file.name, "File is empty. Please export it again from CONQA."));
+        results.push(invalidResult(file.name, "File is empty. Please export it again from C-base."));
         continue;
       }
 
@@ -115,7 +115,7 @@ export async function importQaTemplatesAction(
       status: "error",
       mode,
       message: isParserReadError
-        ? "A file could not be parsed. Please re-export the .xlsx checklist template from CONQA and try again."
+        ? "A file could not be parsed. Please re-export the .xlsx checklist template from C-base and try again."
         : rawMessage ?? "QA template import failed before any rows were written.",
       results: [],
     };

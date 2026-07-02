@@ -150,7 +150,7 @@ rebuilds (`production_manual_v1_rebuild`, `production_project_files_priority1`):
 | `qa_template` / `qa_template_version` | Phase A import (needed early — see §4) |
 | `qa_project`, `qa_section`, `qa_checklist`, `qa_check_item`, `qa_evidence`, `qa_signoff`, `qa_signoff_event` | Phase 0 / Phase 1 spine |
 | Variation | later phase, when the variation workflow is scoped |
-| Project & folder templates (CONQA authoring blueprints) | Phase 3+, only if project *creation* moves in-house (see §4.3) |
+| Project & folder templates (authoring blueprints) | Phase 3+, only if project *creation* moves in-house (see §4.3) |
 | QA Report as a stored entity | Phase 2 (generation), possibly just derived-on-demand |
 
 ---
@@ -200,7 +200,7 @@ truth for QA authority — same read-only rule as everything else from C-base.
 
 ### 3.1 The one piece of glue: identity mapping
 
-The export describes people in CONQA's terms (names, possibly a CONQA user id).
+The export describes people in C-base's terms (names, possibly a C-base user id).
 The app knows people as `profiles` rows tied to a login. A **matching step**
 must link each C-base QA person to a `profiles.id` — almost certainly by
 **email**. Without it, a logged-in user can't be recognised as "the inspector
@@ -261,10 +261,10 @@ That satisfies reproducibility and immutability using two patterns already
 proven in production here. Templates link to **`qa_project` directly** — no
 assumption of a Lot layer beneath.
 
-### 4.2 Checklist template grammar (from the real CONQA export)
+### 4.2 Checklist template grammar (from the real C-base export)
 
 Confirmed against an actual factory panel-assembly sheet
-(`EWi0e1 - 0 Internal Layer - 1 External Layer - Batts`). CONQA exports a
+(`EWi0e1 - 0 Internal Layer - 1 External Layer - Batts`). C-base exports a
 checklist template as a flat row list on a `Master List Templates` sheet, with
 columns `Id | Type | Name | Values | Prompting Name`. **`Type` is the grammar:**
 
@@ -307,11 +307,11 @@ value snapshotted into each checklist on instantiation:
 ```
 
 Keep the **raw imported rows verbatim** alongside the parsed structure (same
-§2.3 hedge) so nothing CONQA encodes is lost if the grammar grows.
+§2.3 hedge) so nothing C-base encodes is lost if the grammar grows.
 
 ### 4.3 Project & folder templates — deferred
 
-CONQA also exports **project templates** and **folder templates** (a
+C-base also exports **project templates** and **folder templates** (a
 `Project Structure` sheet describing tiers/folders for spinning up a *new*
 project). These are **authoring blueprints**, not QA data. In v1 we mirror real
 projects and their structure read-only from C-base and do not author projects
@@ -483,7 +483,7 @@ from Phase 1.
 ## 11. Still to confirm / open questions
 
 - **Identity mapping source key:** is email a reliable join between C-base QA
-  people and `profiles`? Is there a stable CONQA user id in the export?
+  people and `profiles`? Is there a stable C-base user id in the export?
 - **Unknown-login QA people:** provision vs. read-only-until-matched.
 - **Export cadence** for QA sheet definitions and authority (manual trigger
   first, cron once predictable — same as the timesheet lookup import). Format is

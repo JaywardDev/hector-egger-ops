@@ -1,9 +1,14 @@
-# CONQA export templates — reference fixtures
+# QA checklist template samples — reference fixtures
 
-Read-only samples of CONQA's **export shape**, kept as the ground truth for
-building and testing the QA import pipeline (see `docs/qa-module-design.md` §4
-and `docs/qa-module-roadmap.md` Phase 1a). These are *templates* (the shape of
-QA sheets), **not** submitted inspection data.
+Read-only samples of the **C-base QA sheet export shape**, kept as the ground
+truth for building and testing the QA import pipeline (see
+`docs/qa-module-design.md` §4 and `docs/qa-module-roadmap.md` Phase 1a). These
+are *templates* (the shape of QA sheets), **not** submitted inspection data.
+
+Source of truth is **C-base**. (These particular samples were pulled via the
+legacy CONQA app, which renders the same sheets in the same export format —
+CONQA is being replaced and is not part of the running workflow. The folder name
+is historical; the content is the C-base QA sheet definitions.)
 
 ## Layout
 
@@ -15,11 +20,11 @@ docs/qa/conqa-templates/
 ```
 
 Drop the `.xlsx` files straight into the matching subfolder. No naming rules
-beyond keeping CONQA's original filename so it's traceable.
+beyond keeping the original export filename so it's traceable.
 
 ## Rules
 
-- **No PII.** Do **not** commit the CONQA **Users / authority export** here (it
+- **No PII.** Do **not** commit the **Users / authority export** here (it
   carries names, emails, phone numbers). The authorization model is described in
   the design doc; if a sample is needed, redact it first.
 - **Templates only** — never submitted/live QA records.

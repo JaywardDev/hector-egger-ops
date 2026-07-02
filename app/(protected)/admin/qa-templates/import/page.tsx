@@ -11,10 +11,10 @@ export default async function QaTemplateImportPage() {
     <PageContainer>
       <PageHeader
         title="QA checklist template import"
-        description="Admin-only validation and versioned import of CONQA checklist templates."
+        description="Admin-only validation and versioned import of checklist templates from C-base."
       />
       <Alert variant="warning">
-        CONQA remains the source of truth. Import is append-only: a changed template creates a new version and never
+        C-base remains the source of truth. Import is append-only: a changed template creates a new version and never
         rewrites an existing one, so in-progress and signed-off checklists keep the version they were built against.
       </Alert>
       <QaTemplateImportClient />

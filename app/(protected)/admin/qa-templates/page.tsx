@@ -31,7 +31,7 @@ export default async function QaTemplatesPage({ searchParams }: Props) {
     <PageContainer>
       <PageHeader
         title="QA checklist templates"
-        description="Admin-only read-only view of imported CONQA checklist templates and their versions."
+        description="Admin-only read-only view of imported checklist templates and their versions."
         actions={
           <Link className="rounded-md border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50" href="/admin/qa-templates/import">
             Import templates
@@ -40,7 +40,7 @@ export default async function QaTemplatesPage({ searchParams }: Props) {
       />
 
       <Alert variant="warning">
-        Read-only browser. Templates are mirrored from CONQA and are append-only — each import that changes a template
+        Read-only browser. Templates are mirrored from C-base and are append-only — each import that changes a template
         adds a new version rather than editing an existing one.
       </Alert>
 
@@ -101,7 +101,7 @@ export default async function QaTemplatesPage({ searchParams }: Props) {
             <Link className="font-medium text-zinc-900 underline" href="/admin/qa-templates/import">
               QA template import
             </Link>{" "}
-            to load CONQA checklist templates.
+            to load checklist templates from C-base.
           </p>
         ) : null}
       </Card>
