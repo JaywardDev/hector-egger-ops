@@ -24,11 +24,9 @@ const formatDate = (iso: string | null): string => {
 // ---- Sections --------------------------------------------------------------
 
 export const createQaSection = async ({
-  actorProfileId,
   projectId,
   name,
 }: {
-  actorProfileId: string;
   projectId: string;
   name: string;
 }): Promise<void> => {
@@ -36,7 +34,7 @@ export const createQaSection = async ({
   const response = await supabase.request("/rest/v1/qa_section", {
     method: "POST",
     headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
-    body: JSON.stringify({ project_id: projectId, name: name.trim(), created_by_profile_id: actorProfileId }),
+    body: JSON.stringify({ project_id: projectId, name: name.trim() }),
   });
   if (!response.ok) throw new Error("Could not add the section.");
 };

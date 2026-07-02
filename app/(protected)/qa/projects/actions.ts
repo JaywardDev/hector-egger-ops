@@ -47,7 +47,7 @@ export async function createQaSectionAction(formData: FormData) {
   }
 
   try {
-    await createQaSection({ actorProfileId: profile.id, projectId, name });
+    await createQaSection({ projectId, name });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not add the section.";
     redirect(`/qa/projects/${projectId}?error=${encodeURIComponent(message)}`);
