@@ -8,6 +8,7 @@ import { createServerSupabaseClient } from "@/src/lib/supabase/server";
 // browser data layer.
 
 export type QaTemplateVersionRow = {
+  id: string;
   version: number;
   imported_at: string | null;
   source_row_hash: string;
@@ -42,7 +43,7 @@ export type QaTemplateBrowserResult = {
 };
 
 type RawTemplate = { id: string; source_id: string; name: string; created_at: string; updated_at: string };
-type RawVersion = { template_id: string; version: number; imported_at: string | null; source_row_hash: string };
+type RawVersion = { id: string; template_id: string; version: number; imported_at: string | null; source_row_hash: string };
 
 export const sanitizeTemplateFilters = (
   params: Record<string, string | string[] | undefined>,
@@ -72,7 +73,7 @@ export const listQaTemplatesForAdmin = async (
   const [templateResponse, versionResponse, historyResponse] = await Promise.all([
     supabase.request(`/rest/v1/qa_template?${templateParams.toString()}`, { cache: "no-store", headers }),
     supabase.request(
-      "/rest/v1/qa_template_version?select=template_id,version,imported_at,source_row_hash&order=version.desc",
+      "/rest/v1/qa_template_version?select=id,template_id,version,imported_at,source_row_hash&order=version.desc",
       { cache: "no-store", headers },
     ),
     supabase.request(
@@ -88,7 +89,7 @@ export const listQaTemplatesForAdmin = async (
   const versionsByTemplate = new Map<string, QaTemplateVersionRow[]>();
   for (const version of rawVersions) {
     const list = versionsByTemplate.get(version.template_id) ?? [];
-    list.push({ version: version.version, imported_at: version.imported_at, source_row_hash: version.source_row_hash });
+    list.push({ id: version.id, version: version.version, imported_at: version.imported_at, source_row_hash: version.source_row_hash });
     versionsByTemplate.set(version.template_id, list);
   }
 

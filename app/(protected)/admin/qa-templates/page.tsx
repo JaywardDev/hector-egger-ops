@@ -7,6 +7,7 @@ import { Badge } from "@/src/components/ui/badge";
 import { Card } from "@/src/components/ui/card";
 import { requireAdminAccess } from "@/src/lib/auth/guards";
 import { listQaTemplatesForAdmin, sanitizeTemplateFilters } from "@/src/lib/qa/template-browser";
+import { QaTemplatesTableClient } from "./templates-table-client";
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -59,42 +60,7 @@ export default async function QaTemplatesPage({ searchParams }: Props) {
       </Card>
 
       <Card className="overflow-x-auto">
-        <table className="min-w-[900px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500">
-              <th className="px-2 py-1">Template</th>
-              <th className="px-2 py-1">Source id</th>
-              <th className="px-2 py-1">Latest</th>
-              <th className="px-2 py-1">Versions</th>
-              <th className="px-2 py-1">Last imported</th>
-              <th className="px-2 py-1">Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {templates.map((template) => (
-              <tr key={template.id} className="border-b border-zinc-100 align-top">
-                <td className="px-2 py-2 font-medium text-zinc-900">{template.name}</td>
-                <td className="px-2 py-2 font-mono text-xs text-zinc-500">{template.source_id}</td>
-                <td className="px-2 py-2">
-                  {template.latest_version !== null ? <Badge variant="success">v{template.latest_version}</Badge> : "—"}
-                </td>
-                <td className="px-2 py-2">
-                  <div className="flex flex-wrap gap-1">
-                    {template.versions.length === 0
-                      ? "—"
-                      : template.versions.map((version) => (
-                          <Badge key={version.version} variant="muted" title={`hash ${version.source_row_hash.slice(0, 12)}…`}>
-                            v{version.version}
-                          </Badge>
-                        ))}
-                  </div>
-                </td>
-                <td className="px-2 py-2 text-zinc-600">{formatDateTime(template.last_imported_at)}</td>
-                <td className="px-2 py-2 text-zinc-600">{formatDateTime(template.updated_at)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <QaTemplatesTableClient templates={templates} />
         {templates.length === 0 ? (
           <p className="px-2 py-3 text-sm text-zinc-600">
             No templates imported yet. Use{" "}
