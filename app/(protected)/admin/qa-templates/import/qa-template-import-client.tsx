@@ -3,8 +3,8 @@
 import { useActionState, useState } from "react";
 import {
   importQaTemplatesAction,
-  initialQaTemplateImportState,
   type QaTemplateFileResult,
+  type QaTemplateImportState,
 } from "@/app/(protected)/admin/qa-templates/import/actions";
 import { Alert } from "@/src/components/ui/alert";
 import { Badge, type BadgeVariant } from "@/src/components/ui/badge";
@@ -18,6 +18,13 @@ const ACTION_BADGE: Record<QaTemplateFileResult["action"], { variant: BadgeVaria
   unchanged: { variant: "muted", label: "Unchanged" },
   version_conflict: { variant: "danger", label: "Version conflict" },
   invalid: { variant: "danger", label: "Invalid" },
+};
+
+const initialQaTemplateImportState: QaTemplateImportState = {
+  status: "idle",
+  mode: null,
+  message: null,
+  results: [],
 };
 
 export function QaTemplateImportClient() {

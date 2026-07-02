@@ -25,13 +25,6 @@ export type QaTemplateImportState = {
   results: QaTemplateFileResult[];
 };
 
-export const initialQaTemplateImportState: QaTemplateImportState = {
-  status: "idle",
-  mode: null,
-  message: null,
-  results: [],
-};
-
 const normalizeFileExtension = (filename: string) => filename.toLowerCase().split(".").pop() ?? "";
 
 const invalidResult = (filename: string, message: string): QaTemplateFileResult => ({
