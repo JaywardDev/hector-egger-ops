@@ -182,7 +182,10 @@ export const createQaProject = async ({
       created_by_profile_id: actorProfileId,
     }),
   });
-  if (!response.ok) throw new Error("Could not create the QA project.");
+  if (!response.ok) {
+    const detail = (await response.text().catch(() => "")).slice(0, 300);
+    throw new Error(`Could not create the QA project${detail ? ` — ${detail}` : ` (status ${response.status})`}`);
+  }
   const [row] = (await response.json()) as { id: string }[];
   if (!row?.id) throw new Error("QA project was created but no id was returned.");
   return row;

@@ -36,7 +36,10 @@ export const createQaSection = async ({
     headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
     body: JSON.stringify({ project_id: projectId, name: name.trim() }),
   });
-  if (!response.ok) throw new Error("Could not add the section.");
+  if (!response.ok) {
+    const detail = (await response.text().catch(() => "")).slice(0, 300);
+    throw new Error(`Could not add the section${detail ? ` — ${detail}` : ` (status ${response.status})`}`);
+  }
 };
 
 // ---- Template choices (for the start-checklist picker) ----------------------
@@ -99,7 +102,10 @@ export const startQaChecklist = async ({
       p_created_by_profile_id: actorProfileId,
     }),
   });
-  if (!response.ok) throw new Error("Could not start the checklist.");
+  if (!response.ok) {
+    const detail = (await response.text().catch(() => "")).slice(0, 300);
+    throw new Error(`Could not start the checklist${detail ? ` — ${detail}` : ` (status ${response.status})`}`);
+  }
   return (await response.json()) as string;
 };
 
