@@ -91,11 +91,11 @@ export function FullScreenDialog({
       >
         <header className="relative shrink-0 border-b border-zinc-200/80 bg-white/95 shadow-[0_1px_0_rgba(24,24,27,0.03)] backdrop-blur">
           <span aria-hidden="true" className="absolute inset-x-0 top-0 h-0.5 bg-[var(--he-yellow)]" />
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-            <div className="min-w-0 space-y-2">
-              {eyebrow ? <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--he-muted)]">{eyebrow}</p> : null}
+          <div className="mx-auto flex w-full max-w-6xl items-start justify-between gap-3 px-4 py-3 sm:px-6 sm:py-4 lg:items-center">
+            <div className="min-w-0 space-y-1 sm:space-y-2">
+              {eyebrow ? <p className="hidden text-xs font-semibold uppercase tracking-[0.2em] text-[var(--he-muted)] sm:block">{eyebrow}</p> : null}
               <div className="flex flex-wrap items-center gap-2">
-                <h2 id={titleId} className="text-xl font-semibold tracking-tight text-zinc-950 sm:text-2xl">
+                <h2 id={titleId} className="text-lg font-semibold tracking-tight text-zinc-950 sm:text-2xl">
                   {title}
                 </h2>
                 {statusSlot ? <div className="shrink-0">{statusSlot}</div> : null}

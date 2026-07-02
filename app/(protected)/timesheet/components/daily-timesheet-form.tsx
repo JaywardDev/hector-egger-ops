@@ -107,6 +107,7 @@ export function DailyTimesheetForm({
   submitLabel = "Save",
   pendingLabel = "Saving…",
   headingText,
+  showHeading = true,
   showReturnedNotice = true,
   correctionComment,
   onCorrectionCommentChange,
@@ -127,6 +128,9 @@ export function DailyTimesheetForm({
   submitLabel?: string;
   pendingLabel?: string;
   headingText?: string;
+  // The sheet chrome already shows the user's name and date, so the embedded
+  // greeting block is redundant there; hosts inside a titled sheet pass false.
+  showHeading?: boolean;
   showReturnedNotice?: boolean;
   correctionComment?: string;
   onCorrectionCommentChange?: (comment: string) => void;
@@ -166,8 +170,6 @@ export function DailyTimesheetForm({
       timeOut: "16:00",
     });
   });
-  const [showShiftHelperPopover, setShowShiftHelperPopover] = useState(false);
-  const shiftHelperPopoverRef = useRef<HTMLDivElement | null>(null);
   const [activities, setActivities] = useState(() =>
     entryToActivities(entry, lookups, entry?.work_mode ?? preferredWorkMode),
   );
@@ -277,7 +279,9 @@ export function DailyTimesheetForm({
   const disableActivityFields = !canEdit || isPublicHolidayMode || isFullDayLeaveMode;
   const disableBreakFields = shouldDisableBreakFields({ canEdit, isPublicHolidayMode, isFullDayLeaveMode });
   const disableLeaveFields = !canEdit || isPublicHolidayMode;
-  const leaveHours = Number(leaveHoursText) || 0;
+  // Leave hours only count once a leave type is chosen; this also neutralises
+  // older drafts that could hold stray hours with no type selected.
+  const leaveHours = leaveType === "" ? 0 : Number(leaveHoursText) || 0;
   const parsedActivities = useMemo(
     () =>
       activities.map((activity) => ({
@@ -368,24 +372,6 @@ export function DailyTimesheetForm({
   }), [lookups]);
 
 
-  useEffect(() => {
-    if (!showShiftHelperPopover) return;
-    const onPointerDown = (event: MouseEvent) => {
-      if (!shiftHelperPopoverRef.current?.contains(event.target as Node)) {
-        setShowShiftHelperPopover(false);
-      }
-    };
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setShowShiftHelperPopover(false);
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onEscape);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onEscape);
-    };
-  }, [showShiftHelperPopover]);
-
   const formattedWorkDate = displayDate || formatNzDate(workDate, {
     weekday: "long",
     day: "2-digit",
@@ -441,6 +427,13 @@ export function DailyTimesheetForm({
     setFeedback(null);
   }, [lookups]);
 
+  const saveDisabled =
+    !canEdit ||
+    !allocationMatches ||
+    incompleteActivityRows.length > 0 ||
+    lookups.projects.length === 0 ||
+    lookups.tasks.length === 0;
+
   const submit = () => {
     setFeedback(null);
     const payload: SaveTimesheetEntryInput = {
@@ -481,15 +474,17 @@ export function DailyTimesheetForm({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 bg-white px-4 py-5 sm:px-6">
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-2xl font-semibold tracking-tight text-zinc-950">
-            {headingText ?? formatGreetingName(userName)}
-          </h2>
-          <p className="mt-1 text-sm font-normal text-zinc-500">
-            {formattedWorkDate}
-          </p>
-        </div>
+      <section className="space-y-3 empty:hidden">
+        {showHeading ? (
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-zinc-950">
+              {headingText ?? formatGreetingName(userName)}
+            </h2>
+            <p className="mt-1 text-sm font-normal text-zinc-500">
+              {formattedWorkDate}
+            </p>
+          </div>
+        ) : null}
         {showReturnedNotice && entry?.status === "returned" ? (
           <Alert variant="warning">
             This entry was returned for correction. {entry.return_comment ? `Comment: ${entry.return_comment}` : "Please update and save."}
@@ -551,9 +546,10 @@ export function DailyTimesheetForm({
       </section>
 
       <section className="space-y-3">
-        <label className="flex items-center gap-2 text-sm font-medium text-zinc-900">
+        <label className="flex min-h-11 items-center gap-3 text-base font-medium text-zinc-900 sm:min-h-0 sm:text-sm">
           <input
             type="checkbox"
+            className="size-5 accent-zinc-900"
             checked={isPublicHoliday}
             disabled={!canEdit || !publicHolidayAvailable}
             onChange={(event) => {
@@ -573,54 +569,65 @@ export function DailyTimesheetForm({
           isPublicHolidayMode && publicHolidayMutedClasses,
         )}
       >
-        <section className={cn("grid gap-4 sm:grid-cols-3", isFullDayLeaveMode && publicHolidayMutedClasses)}>
-          <label className="space-y-1 text-sm font-medium text-zinc-700">
-            Time in
-            <Input
-              type="time"
-              value={timeIn}
-              disabled={disableAttendanceFields}
-              onChange={(event) => {
-                const nextTimeIn = event.target.value;
-                setTimeIn(nextTimeIn);
-                applyPaidBreakRules({ timeIn: nextTimeIn });
-              }}
-              step={1800}
-            />
-          </label>
-          <label className="space-y-1 text-sm font-medium text-zinc-700">
-            Time out
-            <Input
-              type="time"
-              value={timeOut}
-              disabled={disableAttendanceFields}
-              onChange={(event) => {
-                const nextTimeOut = event.target.value;
-                setTimeOut(nextTimeOut);
-                applyPaidBreakRules({ timeOut: nextTimeOut });
-              }}
-              step={1800}
-            />
-          </label>
-          <label className="space-y-1 text-sm font-medium text-zinc-700">
-            Work Location
-            <Select
-              value={workMode}
-              disabled={disableAttendanceFields}
-              onChange={(event) =>
-                updateWorkMode(event.target.value as TimesheetWorkMode)
-              }
-            >
-              <option value="factory">Factory</option>
-              <option value="site">Site</option>
-              <option value="office">Office</option>
-              <option value="mixed">Mixed</option>
-            </Select>
-          </label>
+        <section className={cn("space-y-3", isFullDayLeaveMode && publicHolidayMutedClasses)}>
+          <h3 className="text-base font-semibold text-zinc-900">Time &amp; location</h3>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <label className="space-y-1 text-sm font-medium text-zinc-700">
+              Time in
+              <Input
+                type="time"
+                value={timeIn}
+                disabled={disableAttendanceFields}
+                onChange={(event) => {
+                  const nextTimeIn = event.target.value;
+                  setTimeIn(nextTimeIn);
+                  applyPaidBreakRules({ timeIn: nextTimeIn });
+                }}
+                step={1800}
+              />
+            </label>
+            <label className="space-y-1 text-sm font-medium text-zinc-700">
+              Time out
+              <Input
+                type="time"
+                value={timeOut}
+                disabled={disableAttendanceFields}
+                onChange={(event) => {
+                  const nextTimeOut = event.target.value;
+                  setTimeOut(nextTimeOut);
+                  applyPaidBreakRules({ timeOut: nextTimeOut });
+                }}
+                step={1800}
+              />
+            </label>
+            <label className="col-span-2 space-y-1 text-sm font-medium text-zinc-700 sm:col-span-1">
+              Work Location
+              <Select
+                value={workMode}
+                disabled={disableAttendanceFields}
+                onChange={(event) =>
+                  updateWorkMode(event.target.value as TimesheetWorkMode)
+                }
+              >
+                <option value="factory">Factory</option>
+                <option value="site">Site</option>
+                <option value="office">Office</option>
+                <option value="mixed">Mixed</option>
+              </Select>
+            </label>
+          </div>
         </section>
 
-        <section className={cn("space-y-3", isFullDayLeaveMode && publicHolidayMutedClasses)}>
-          <h3 className="text-base font-semibold text-zinc-900">Activity</h3>
+        <section
+          className={cn(
+            "space-y-3 rounded-xl border border-zinc-300 bg-white p-3 shadow-sm sm:p-4",
+            isFullDayLeaveMode && publicHolidayMutedClasses,
+          )}
+        >
+          <div>
+            <h3 className="text-lg font-semibold text-zinc-900">Activity</h3>
+            <p className="text-sm text-zinc-500">What did you work on today?</p>
+          </div>
           <div className="space-y-3">
             {activities.map((activity, index) => {
               const rowLocation = workMode === "mixed" ? activity.workMode : workMode;
@@ -760,97 +767,92 @@ export function DailyTimesheetForm({
           </div>
         </section>
 
-        <section className="grid gap-4 sm:grid-cols-2">
-          <label className="space-y-1 text-sm font-medium text-zinc-700">
-            Leave type
-            <Select
-              value={leaveType}
-              disabled={disableLeaveFields}
-              onChange={(event) => {
-                const nextLeaveType = event.target.value as TimesheetLeaveType | "";
-                setLeaveType(nextLeaveType);
-                if (nextLeaveType !== "") {
-                  setUnpaidBreak(false);
-                  setIsFullDayLeave(true);
-                  setLeaveHoursText("8");
-                  applyPaidBreakRules({ isFullDayLeave: true });
-                  return;
-                }
-                setIsFullDayLeave(false);
-                setLeaveHoursText("0");
-                applyPaidBreakRules({ isFullDayLeave: false });
-              }}
-            >
-              <option value="">No leave</option>
-              {leaveOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <label className="space-y-1 text-sm font-medium text-zinc-700">
-            Leave hours
-            <Input
-              inputMode="decimal"
-              value={leaveHoursText}
-              disabled={disableLeaveFields}
-              onChange={(event) => setLeaveHoursText(event.target.value)}
-            />
-            <label className="flex items-center gap-2 pt-2 text-xs font-medium text-zinc-600">
-              <input
-                type="checkbox"
-                checked={isFullDayLeave}
-                disabled={disableLeaveFields || leaveType === ""}
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-base font-semibold text-zinc-900">Leave</h3>
+            <p className="text-sm text-zinc-500">Only needed if you took leave on this day.</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="space-y-1 text-sm font-medium text-zinc-700">
+              Leave type
+              <Select
+                value={leaveType}
+                disabled={disableLeaveFields}
                 onChange={(event) => {
-                  const checked = event.target.checked;
-                  setIsFullDayLeave(checked);
-                  if (checked) {
-                    setLeaveHoursText("8");
+                  const nextLeaveType = event.target.value as TimesheetLeaveType | "";
+                  setLeaveType(nextLeaveType);
+                  if (nextLeaveType !== "") {
                     setUnpaidBreak(false);
+                    setIsFullDayLeave(true);
+                    setLeaveHoursText("8");
+                    applyPaidBreakRules({ isFullDayLeave: true });
+                    return;
                   }
-                  applyPaidBreakRules({ isFullDayLeave: checked });
+                  setIsFullDayLeave(false);
+                  setLeaveHoursText("0");
+                  applyPaidBreakRules({ isFullDayLeave: false });
                 }}
-              />
-              Full day leave
-              {showShiftCompletionHelper ? (
-                <span className="relative inline-flex" ref={shiftHelperPopoverRef}>
-                  <button
-                    type="button"
-                    aria-label="Show shift completion helper"
-                    aria-expanded={showShiftHelperPopover}
-                    className="rounded-full p-0.5 text-zinc-500 transition hover:bg-zinc-200 hover:text-zinc-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-300"
-                    onClick={() => setShowShiftHelperPopover((current) => !current)}
-                  >
-                    <span aria-hidden="true" className="text-[11px] font-semibold leading-none">?</span>
-                  </button>
-                  {showShiftHelperPopover ? (
-                    <span
-                      role="tooltip"
-                      className="absolute left-0 top-6 z-20 w-64 rounded-md border border-zinc-200 bg-white p-2 text-[11px] font-normal text-zinc-600 shadow-sm"
-                    >
-                      Based on the standard {SHIFT_COMPLETION_CONFIG.shiftStart}–{SHIFT_COMPLETION_CONFIG.shiftFinish} shift, suggested leave: {shiftCompletion.suggestedLeaveHours.toFixed(1)} h
-                    </span>
-                  ) : null}
-                </span>
-              ) : null}
+              >
+                <option value="">No leave</option>
+                {leaveOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
             </label>
-          </label>
+            {leaveType !== "" ? (
+              <label className="space-y-1 text-sm font-medium text-zinc-700">
+                Leave hours
+                <Input
+                  inputMode="decimal"
+                  className={cn(
+                    !allocationMatches && leaveHours > 0 &&
+                      "border-red-300 bg-red-50/40 focus:border-red-400",
+                  )}
+                  value={leaveHoursText}
+                  disabled={disableLeaveFields || isFullDayLeave}
+                  onChange={(event) => setLeaveHoursText(event.target.value)}
+                />
+                <label className="flex min-h-11 items-center gap-3 pt-1 text-base font-medium text-zinc-600 sm:min-h-0 sm:text-sm">
+                  <input
+                    type="checkbox"
+                    className="size-5 accent-zinc-900"
+                    checked={isFullDayLeave}
+                    disabled={disableLeaveFields}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setIsFullDayLeave(checked);
+                      if (checked) {
+                        setLeaveHoursText("8");
+                        setUnpaidBreak(false);
+                      }
+                      applyPaidBreakRules({ isFullDayLeave: checked });
+                    }}
+                  />
+                  Full day leave
+                </label>
+              </label>
+            ) : null}
+          </div>
         </section>
 
         <section className={cn("space-y-2", isFullDayLeaveMode && publicHolidayMutedClasses)}>
-          <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <h3 className="text-base font-semibold text-zinc-900">Breaks</h3>
+          <label className="flex min-h-11 items-center gap-3 text-base text-zinc-700 sm:min-h-0 sm:text-sm">
             <input
               type="checkbox"
+              className="size-5 accent-zinc-900"
               checked={unpaidBreak}
               disabled={disableBreakFields}
               onChange={(event) => setUnpaidBreak(event.target.checked)}
             />
             Unpaid break
           </label>
-          <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <label className="flex min-h-11 items-center gap-3 text-base text-zinc-700 sm:min-h-0 sm:text-sm">
             <input
               type="checkbox"
+              className="size-5 accent-zinc-900"
               checked={effectivePaidBreak}
               disabled={shouldDisablePaidBreakControl({ disableBreakFields, paidBreakEligible })}
               onChange={(event) => setPaidBreak(event.target.checked)}
@@ -863,18 +865,35 @@ export function DailyTimesheetForm({
       </div>
 
       <section className="space-y-3 rounded-lg bg-zinc-50 p-3">
+        <h3 className="text-base font-semibold text-zinc-900">Day summary</h3>
         <div className="flex justify-between text-sm">
           <span>Total payable hours</span>
           <strong>{payableHours ?? "Invalid"} h</strong>
         </div>
-        <div className="flex justify-between text-sm">
-          <span>Allocation</span>
-          <strong>{allocationHours} h</strong>
+        <div className="flex items-center justify-between text-sm">
+          <span>Hours allocated</span>
+          <strong className={allocationMatches ? "text-emerald-700" : "text-red-700"}>
+            <span aria-hidden="true">{allocationMatches ? "✓ " : ""}</span>
+            {allocationHours} of {requiredAllocationHours ?? "—"} h
+          </strong>
         </div>
-        <p className="text-xs text-zinc-500">Required allocation: {requiredAllocationHours ?? "Invalid"} h</p>
         {!allocationMatches ? (
           <Alert variant="error">
-            Allocation must equal attendance span minus claimed paid break and unpaid break before saving.
+            <span className="block">
+              Allocation must equal attendance span minus claimed paid break and unpaid break before saving.
+            </span>
+            {leaveHours > 0 ? (
+              <span className="mt-1 block">
+                Note: {leaveHours} h of leave is included in your allocation — check the Leave
+                section if this wasn&rsquo;t intended.
+              </span>
+            ) : null}
+            {showShiftCompletionHelper && shiftCompletion.suggestedLeaveHours > 0 ? (
+              <span className="mt-1 block">
+                Based on the standard {SHIFT_COMPLETION_CONFIG.shiftStart}–{SHIFT_COMPLETION_CONFIG.shiftFinish} shift,
+                suggested leave: {shiftCompletion.suggestedLeaveHours.toFixed(1)} h.
+              </span>
+            ) : null}
           </Alert>
         ) : null}
         {incompleteActivityError ? (
@@ -883,19 +902,18 @@ export function DailyTimesheetForm({
         <PendingActionButton
           variant="brand"
           className="w-full"
-          disabled={
-            !canEdit ||
-            !allocationMatches ||
-            incompleteActivityRows.length > 0 ||
-            lookups.projects.length === 0 ||
-            lookups.tasks.length === 0
-          }
+          disabled={saveDisabled}
           isPending={isPending}
           pendingLabel={pendingLabel}
           onClick={submit}
         >
           {submitLabel}
         </PendingActionButton>
+        {saveDisabled && canEdit ? (
+          <p className="text-center text-sm text-zinc-500">
+            Fix the highlighted items above to save.
+          </p>
+        ) : null}
       </section>
       {activeNotesRowId !== null ? (
         <div className="fixed inset-0 z-40 hidden sm:block">

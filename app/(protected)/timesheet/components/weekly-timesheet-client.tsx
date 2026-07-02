@@ -116,6 +116,7 @@ export function WeeklyTimesheetClient({
             entry={selectedDay.entry}
             preferredWorkMode={preferredWorkMode}
             lookups={lookups}
+            showHeading={false}
             canEdit={selectedDay.canEdit}
             onSaved={saved}
             saveHandler={saveHandler}
